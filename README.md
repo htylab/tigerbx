@@ -43,7 +43,7 @@ For additional options type:
 import tigerseg.segment
 
 input_dir = /your/input/directory
-output_dir = your/output/directory
+output_dir = /your/output/directory
 
 tigerseg.segment.apply(input=input_dir,output=output_dir)
 ```
