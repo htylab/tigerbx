@@ -1,4 +1,5 @@
 # Automated subcortical brain segmentation pipeline
+![subcortical Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 
 ## Background
 This package provides trained 3D U-Net model for subcortical brain segmentation
@@ -10,7 +11,7 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 1. Download from github
 
 2. Install Python 3 and dependencies:
-* numpy>=1.17.4
+* numpy>=1.16.0
 * nibabel>=2.5.1
 * tables>=3.6.1
 * tensorflow-gpu==1.14.0
@@ -19,8 +20,8 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 * [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
 * [keras-contrib](https://github.com/keras-team/keras-contrib)
 
-3.
+3. 
 
 
 
-###As a python module:
+### As a python module:
