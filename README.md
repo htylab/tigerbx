@@ -1,4 +1,4 @@
-Automated subcortical brain segmentation pipeline
+#Automated subcortical brain segmentation pipeline
 
 ##Background
 This package provides trained 3D U-Net model for subcortical brain segmentation
