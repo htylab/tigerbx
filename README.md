@@ -38,3 +38,10 @@ For additional options type:
 
 
 ### As a python module:
+
+```
+import tigerseg.segment as seg
+input_dir = /your/input/directory
+output_dir = your/output/directory
+seg.apply(input=input_dir,output=output_dir)
+```
