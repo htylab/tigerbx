@@ -1,12 +1,12 @@
-#Automated subcortical brain segmentation pipeline
+# Automated subcortical brain segmentation pipeline
 
-##Background
+## Background
 This package provides trained 3D U-Net model for subcortical brain segmentation
 
 
-##Tutorial using SubBrainSegment
+## Tutorial using SubBrainSegment
 
-###Github:
+### Github:
 1. Download from github
 
 2. Install Python 3 and dependencies:
