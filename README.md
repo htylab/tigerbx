@@ -7,8 +7,9 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 
 ## Tutorial using SubBrainSegment
 
-1. 
-  pip install tigerseg
+1. Installation
+  
+       pip install tigerseg
 
 2. Install Python 3 and dependencies:
 * numpy>=1.16.0
@@ -25,13 +26,14 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 
 ### As a command line tool:
 
-  tigerseg INPUT OUTPUT
+    tigerseg INPUT OUTPUT
 
 If INPUT points to a file, the file will be processed. If INPUT points to a directory, the directory will be searched for the specific format(nii.gz).
 OUTPUT is the output directory.
 
 For additional options type:
-  tigerseg -h
+
+    tigerseg -h
 
 
 
