@@ -19,7 +19,6 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 * Keras == 2.0.8
 * h5py==2.9.0
 * [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
-* [keras-contrib](https://github.com/keras-team/keras-contrib)
 
 
 ## Usage
