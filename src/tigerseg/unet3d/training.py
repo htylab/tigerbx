@@ -7,7 +7,7 @@ from subprocess import run,Popen,PIPE
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler, ReduceLROnPlateau, EarlyStopping
 from keras.models import load_model
-
+from .contrib import InstanceNormalization
 from .metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
                             weighted_dice_coefficient_loss, weighted_dice_coefficient)
 
@@ -53,7 +53,6 @@ def load_old_model(model_file):
                       'weighted_dice_coefficient': weighted_dice_coefficient,
                       'weighted_dice_coefficient_loss': weighted_dice_coefficient_loss}
     try:
-        from keras_contrib.layers import InstanceNormalization
         custom_objects["InstanceNormalization"] = InstanceNormalization
     except ImportError:
         pass
