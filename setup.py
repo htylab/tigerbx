@@ -6,13 +6,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 classifiers = [
     'Intended Audience :: Developers',
     'Programming Language :: Python :: 3.6',
-    'Environment :: GPU :: NVIDIA CUDA :: 10.0',
     'License :: OSI Approved :: MIT License'
 ]
 
 setup(
      name='tigerseg',
-     version='0.0.8',
+     version='0.0.9',
      description='Package for subcortical brain segmentation',
      long_description_content_type='text/x-rst',
      url='https://github.com/JENNSHIUAN',
