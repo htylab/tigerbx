@@ -38,7 +38,7 @@ def apply(input=None,output=prediction_dir,modelpath=os.getcwd(),only_CPU=False,
     if tf.test.gpu_device_name():
         logging.info('GPU Device: {}'.format(tf.test.gpu_device_name()))
     else:
-        logging.info("Now you are uainde CPU version of TF")
+        logging.info("Now you are using CPU version of TF")
 
 
     config = dict()
