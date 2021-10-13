@@ -1,6 +1,6 @@
 from functools import partial
 
-from keras import backend as K
+from tensorflow.keras import backend as K
 
 
 def dice_coefficient(y_true, y_pred, smooth=1.):

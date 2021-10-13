@@ -78,3 +78,4 @@ def apply(input=None,output=prediction_dir,modelpath=os.getcwd(),only_CPU=False,
     end = time.time()
     logging.info(f'Save result to: {output}')
     logging.info('Total cost was:%.2f secs' % (end - start))
+
