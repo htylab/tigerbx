@@ -11,7 +11,7 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.0.9',
+     version='0.1.0',
      description='Package for subcortical brain segmentation',
      long_description_content_type='text/x-rst',
      url='https://github.com/JENNSHIUAN',
@@ -34,8 +34,6 @@ setup(
              'nilearn>=0.6.2',
              'SimpleITK>=2.0.0',
              'tables>=3.6.1',
-             'Keras==2.3.1',
-             'tensorflow-gpu==1.14.0',
-             'h5py==2.9.0'
+             'h5py==2.10.0'
          ]
 )
