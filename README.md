@@ -15,9 +15,8 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 * numpy>=1.16.0
 * nibabel>=2.5.1
 * tables>=3.6.1
-* tensorflow-gpu==1.14.0
-* Keras == 2.0.8
-* h5py==2.9.0
+* tensorflow-gpu==2.1.0
+* h5py==2.10.0
 * [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
 
 

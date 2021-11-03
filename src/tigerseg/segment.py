@@ -20,12 +20,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 model_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/unet_model.h5'
 example_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/example.nii.gz'
 
-WORKING_PATH = '/NFS/weng/3Dsegmentation/tigerseg'
-prediction_dir = os.path.join(WORKING_PATH,'src','tigerseg','result')
 
 
-
-def apply(input=None,output=prediction_dir,modelpath=os.getcwd(),only_CPU=False,permute=False):
+def apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,permute=False):
 
     start = time.time()
     model_file = os.path.join(modelpath,model_url.split('/')[-1])
@@ -51,11 +48,17 @@ def apply(input=None,output=prediction_dir,modelpath=os.getcwd(),only_CPU=False,
         logging.info('Downloading example files....')
         input , header= urllib.request.urlretrieve(example_url, os.path.join(os.getcwd(),'example.nii.gz'))
 
+    if not output :
+        logging.info('Didn\'t set the output path. The result will be saved to the input path.')
+        output = os.path.join(input, 'output')
+        if not os.path.isdir(output):
+            os.mkdir(output)
+
     input_dir = get_input_image(input)
     model = load_old_model(config["model_file"])
 
     for data_file in input_dir:
-        output_name = "result_{subject}".format(subject=data_file.split('/')[-1])
+        output_name = "result_{subject}".format(subject=os.path.split(data_file)[1])
         single_file = read_image(data_file, image_shape=(128,128,128), crop=False, interpolation='linear')
 
         run_validation_case(output_dir=output,
@@ -73,7 +76,7 @@ def apply(input=None,output=prediction_dir,modelpath=os.getcwd(),only_CPU=False,
         ref = nib.load(data_file)
         pred = nib.load(prediction_filename)
         pred_resampled = resample_to_img(pred, ref, interpolation="nearest")
-        nib.save(pred_resampled,prediction_filename)
+        nib.save(pred_resampled, prediction_filename)
 
     end = time.time()
     logging.info(f'Save result to: {output}')
