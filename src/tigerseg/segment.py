@@ -50,7 +50,7 @@ def apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,permute=Fa
 
     if not output :
         logging.info('Didn\'t set the output path. The result will be saved to the input path.')
-        output = os.path.join(input, 'output')
+        output = os.path.join(os.getcwd(), 'output')
         if not os.path.isdir(output):
             os.mkdir(output)
 
