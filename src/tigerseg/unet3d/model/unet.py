@@ -1,17 +1,17 @@
 import numpy as np
-from keras import backend as K
-from keras.engine import Input, Model
-from keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D
-from keras.optimizers import Adam
+from tensorflow.keras import backend as K
+from tensorflow.keras.engine import Input, Model
+from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, Activation, BatchNormalization, PReLU, Deconvolution3D
+from tensorflow.keras.optimizers import Adam
 # from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 from unet3d.metrics import get_label_dice_coefficient_function, dice_coefficient, weighted_dice_coefficient_loss
 
 K.set_image_data_format("channels_first")
 
 try:
-    from keras.engine import merge
+    from tensorflow.keras.engine import merge
 except ImportError:
-    from keras.layers.merge import concatenate
+    from tensorflow.keras.layers.merge import concatenate
 
 
 def unet_model_3d(input_shape, pool_size=(2, 2, 2), n_labels=1, initial_learning_rate=0.00001, deconvolution=False,
