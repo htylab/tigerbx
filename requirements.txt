@@ -3,7 +3,7 @@ numpy==1.19.5
 nibabel==3.2.1
 nilearn==0.8.1
 tables==3.6.1
-tensorflow-gpu=2.1.0
+tensorflow==2.1.0
 SimpleITK==2.1.1
 h5py==2.10.0
 

@@ -34,7 +34,6 @@ setup(
              'nilearn>=0.6.2',
              'SimpleITK>=2.0.0',
              'tables>=3.6.1',
-             'tensorflow-gpu>=2.1.0',
-             'h5py>=2.10.0'
+             'h5py==2.10.0'
          ]
 )
