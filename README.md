@@ -1,5 +1,4 @@
 # Automated subcortical brain segmentation pipeline
-![subcortical Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 
 ## Background
 This package provides trained 3D U-Net model for subcortical brain segmentation
@@ -10,15 +9,6 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 ### Install package
 
     pip install tigerseg 
-
-### Install Python 3 and dependencies:
-* numpy>=1.16.0
-* nibabel>=2.5.1
-* tables>=3.6.1
-* tensorflow==2.1.0
-* h5py==2.10.0
-* [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
-
 
 ## Usage
 
