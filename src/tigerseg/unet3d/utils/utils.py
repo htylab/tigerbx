@@ -1,14 +1,13 @@
 import pickle
 import os
 import collections
-import time
 import logging
 import sys
 import nibabel as nib
 import numpy as np
 import glob as glob
 from nilearn.image import reorder_img, new_img_like
-from .nilearn_custom_utils.nilearn_utils import crop_img_to
+from nilearn.image.image import _crop_img_to as crop_img_to
 from .sitk_utils import resample_to_spacing, calculate_origin_offset
 
 

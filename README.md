@@ -10,6 +10,15 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 
     pip install tigerseg 
 
+### Install Python 3 and dependencies:
+* numpy>=1.16.0
+* nibabel>=2.5.1
+* tables>=3.6.1
+* h5py==2.10.0
+* onnxruntime>=1.4.0
+* [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
+
+
 ## Usage
 
 ### As a command line tool:
@@ -33,5 +42,6 @@ import tigerseg.segment
 input_dir = /your/input/directory
 output_dir = /your/output/directory
 
-tigerseg.segment.apply(input=input_dir,output=output_dir)
+tigerseg.segment.apply(input=input_dir,output=output_dir)   # For tensorflow
+tigerseg.segment.onnx_apply(input=input_dir,output=output_dir) # For onnxruntime
 ```

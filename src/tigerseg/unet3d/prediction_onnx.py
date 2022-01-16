@@ -3,10 +3,7 @@ import os
 import nibabel as nib
 import numpy as np
 import logging
-from tensorflow.keras.models import load_model
-from .contrib import InstanceNormalization
-from .metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
-                            weighted_dice_coefficient_loss, weighted_dice_coefficient)
+import onnxruntime as ort
 
 
 def get_prediction_labels(prediction, threshold=0.5, labels=None):
@@ -75,22 +72,15 @@ def run_validation_case(output_dir, model, data_file,
 
 
 def predict(model, data, permute=False):
-    return model.predict(data)
-
+    return np.squeeze(model.run(None, {model.get_inputs()[0].name: data}, ), axis=0)
 
 
 def load_old_model(model_file):
     logging.info("Loading pre-trained model")
-    custom_objects = {'dice_coefficient_loss': dice_coefficient_loss, 'dice_coefficient': dice_coefficient,
-                      'dice_coef': dice_coef, 'dice_coef_loss': dice_coef_loss,
-                      'weighted_dice_coefficient': weighted_dice_coefficient,
-                      'weighted_dice_coefficient_loss': weighted_dice_coefficient_loss}
+
     try:
-        custom_objects["InstanceNormalization"] = InstanceNormalization
-    except ImportError:
-        pass
-    try:
-        return load_model(model_file, custom_objects=custom_objects)
+        return ort.InferenceSession(model_file)
+
     except ValueError as error:
         if 'InstanceNormalization' in str(error):
             raise ValueError(str(error) + "\n\nPlease install keras-contrib to use InstanceNormalization:\n"
