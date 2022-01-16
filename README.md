@@ -1,5 +1,4 @@
 # Automated subcortical brain segmentation pipeline
-![subcortical Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 
 ## Background
 This package provides trained 3D U-Net model for subcortical brain segmentation
