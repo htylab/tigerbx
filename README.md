@@ -1,4 +1,5 @@
 # Automated subcortical brain segmentation pipeline
+![subcortical Segmentation Example](doc/tumor_segmentation_illusatration.gif)
 
 ## Background
 This package provides trained 3D U-Net model for subcortical brain segmentation
@@ -15,7 +16,7 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
 * nibabel>=2.5.1
 * tables>=3.6.1
 * h5py==2.10.0
-* onnxruntime>=1.4.0
+* onnxruntime>=1.8.0
 * [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
 
 

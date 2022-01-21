@@ -7,18 +7,32 @@ import onnxruntime as ort
 
 
 def get_prediction_labels(prediction, threshold=0.5, labels=None):
-    n_samples = prediction.shape[0]
-    label_arrays = []
-    for sample_number in range(n_samples):
-        label_data = np.argmax(prediction[sample_number], axis=0) + 1
-        label_data[np.max(prediction[sample_number], axis=0) < threshold] = 0
-        if labels:
-            argmax_value = np.unique(label_data).tolist()[1:]
-            argmax_value.reverse()
-            for value in argmax_value:
-                label_data[label_data == value] = labels[value - 1]
-        label_arrays.append(np.array(label_data, dtype=np.uint8))
-    return label_arrays
+
+    if threshold is None:
+        n_samples = prediction.shape[0]
+        label_arrays = []
+        for sample_number in range(n_samples):
+            label_data = np.argmax(prediction[sample_number], axis=0)
+            if labels:
+                argmax_value = np.unique(label_data).tolist()
+                argmax_value.reverse()
+                for value in argmax_value:
+                    label_data[label_data == value] = labels[value]
+            label_arrays.append(np.array(label_data, dtype=np.uint8))
+        return label_arrays
+    else:
+        n_samples = prediction.shape[0]
+        label_arrays = []
+        for sample_number in range(n_samples):
+            label_data = np.argmax(prediction[sample_number], axis=0) + 1
+            label_data[np.max(prediction[sample_number], axis=0) < threshold] = 0
+            if labels:
+                argmax_value = np.unique(label_data).tolist()[1:]
+                argmax_value.reverse()
+                for value in argmax_value:
+                    label_data[label_data == value] = labels[value - 1]
+            label_arrays.append(np.array(label_data, dtype=np.uint8))
+        return label_arrays
 
 
 
@@ -51,14 +65,20 @@ def multi_class_prediction(prediction, affine):
     return prediction_images
 
 
-def run_case(output_dir, model, data_file, output_label_map=False,
+def run_case(output_dir, model, data_files, output_label_map=False,
              threshold=0.5, labels=None, output_basename="prediction.nii.gz"):
 
-    os.makedirs(output_dir, exist_ok=True)
-
-    affine = data_file.affine
-    test_data = data_file.get_fdata()
-    test_data = np.expand_dims(np.stack([test_data]*model.get_inputs()[0].shape[1]), axis=0)
+    if type(data_files) is not list:
+        affine = data_files.affine
+        test_data = data_files.get_fdata()
+        test_data = np.expand_dims(np.stack([test_data]*model.get_inputs()[0].shape[1]), axis=0)
+    
+    else:
+        affine = data_files[0].affine
+        test_data = []
+        for image in data_files:
+            test_data += [image.get_fdata()]
+        test_data = np.expand_dims(test_data, axis=0)
 
     prediction = predict(model, test_data)
 
