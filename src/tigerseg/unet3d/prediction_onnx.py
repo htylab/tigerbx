@@ -51,18 +51,16 @@ def multi_class_prediction(prediction, affine):
     return prediction_images
 
 
-def run_validation_case(output_dir, model, data_file, 
-                        output_label_map=False, threshold=0.5, labels=None, overlap=16, permute=False,
-                        test=False, output_basename="prediction.nii.gz"):
+def run_case(output_dir, model, data_file, output_label_map=False,
+             threshold=0.5, labels=None, output_basename="prediction.nii.gz"):
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     affine = data_file.affine
     test_data = data_file.get_fdata()
-    test_data = test_data[np.newaxis,np.newaxis, :, : , : ]
+    test_data = np.expand_dims(np.stack([test_data]*model.get_inputs()[0].shape[1]), axis=0)
 
-    prediction = predict(model, test_data, permute=permute)
+    prediction = predict(model, test_data)
 
     prediction_image = prediction_to_image(prediction, affine, label_map=output_label_map, threshold=threshold,
                                            labels=labels)
@@ -72,18 +70,20 @@ def run_validation_case(output_dir, model, data_file,
 
 
 def predict(model, data, permute=False):
-    return np.squeeze(model.run(None, {model.get_inputs()[0].name: data}, ), axis=0)
+    if model.get_inputs()[0].type=='tensor(float)':
+        return np.squeeze(model.run(None, {model.get_inputs()[0].name: data.astype('float32')}, ), axis=0)
+    else:
+        return np.squeeze(model.run(None, {model.get_inputs()[0].name: data.astype('float64')}, ), axis=0)
 
 
-def load_old_model(model_file):
+def load_onnx_model(model_file, only_CPU=False):
     logging.info("Loading pre-trained model")
 
     try:
-        return ort.InferenceSession(model_file)
+        if only_CPU:
+            return ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
+        else:
+            return ort.InferenceSession(model_file, providers=['CUDAExecutionProvider'])
 
     except ValueError as error:
-        if 'InstanceNormalization' in str(error):
-            raise ValueError(str(error) + "\n\nPlease install keras-contrib to use InstanceNormalization:\n"
-                                          "'pip install git+https://www.github.com/keras-team/keras-contrib.git'")
-        else:
-            raise error
+        raise error

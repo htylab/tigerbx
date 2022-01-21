@@ -59,7 +59,6 @@ def read_image_files(image_files, image_shape=None, crop=None, label_indices=Non
 
 
 def read_image(in_file, image_shape=None, interpolation='linear', crop=None):
-    subject_id = in_file.split('/')[-1][:-7]
     image = nib.load(os.path.abspath(in_file))
     image_np = normalize_data(image.get_fdata())
     image = nib.Nifti1Image(image_np,image.affine)
@@ -106,3 +105,11 @@ def get_input_image(input):
         if len(input_image) < 1:
             sys.exit('No files found!')
     return input_image
+
+
+def walk_input_dir(input):
+    dirs=[]
+    for root, _, files in os.walk(input):
+        if np.char.array(files).count('.nii.gz').sum()>0:
+            dirs.append(root)
+    return dirs
