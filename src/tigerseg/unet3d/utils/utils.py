@@ -57,9 +57,7 @@ def read_image_files(image_files, image_shape=None, crop=None, label_indices=Non
 
 
 
-
 def read_image(in_file, image_shape=None, interpolation='linear', crop=None):
-    subject_id = in_file.split('/')[-1][:-7]
     image = nib.load(os.path.abspath(in_file))
     image_np = normalize_data(image.get_fdata())
     image = nib.Nifti1Image(image_np,image.affine)
@@ -74,6 +72,30 @@ def read_image(in_file, image_shape=None, interpolation='linear', crop=None):
 
     else:
         return image
+
+
+def read_image_by_mri_type(image_dir, image_shape=None, crop=None, mri_types='fc12', interpolation='linear'):
+
+    image_types = []
+    for mri_type in mri_types.lower():
+        if mri_type=='1':
+            image_types.append('t1')
+        elif  mri_type=='2':
+            image_types.append('t2')
+        elif  mri_type=='c':
+            image_types.append('t1ce')
+        elif  mri_type=='f':
+            image_types.append('flair')
+        else:
+            raise RuntimeError(f'Get wrong MRI image type: {mri_type}')
+    
+    image_list = list()
+    for image_type in image_types:
+        image_file = glob.glob(os.path.join(image_dir, f'*{image_type}*.nii.gz'))[0]
+        image_list.append(read_image(image_file, image_shape=image_shape, crop=crop, interpolation="linear"))
+
+    return image_list
+
 
 
 def fix_shape(image):
@@ -106,3 +128,11 @@ def get_input_image(input):
         if len(input_image) < 1:
             sys.exit('No files found!')
     return input_image
+
+
+def walk_input_dir(input):
+    dirs=[]
+    for root, _, files in os.walk(input):
+        if np.char.array(files).count('.nii.gz').sum()>0:
+            dirs.append(root)
+    return dirs

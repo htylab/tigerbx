@@ -11,7 +11,7 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.2',
+     version='0.1.3',
      description='Package for subcortical brain segmentation',
      long_description_content_type='text/x-rst',
      url='https://github.com/JENNSHIUAN',
