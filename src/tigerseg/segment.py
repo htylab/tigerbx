@@ -98,7 +98,7 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
         config["image_shape"] = (128, 128, 128)  # This determines what shape the images will be cropped/resampled to.
         config["labels"] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,44,46,47,49,50,51,52,53,54,58,60,62,63,77,85,251,252,253,254,255)
         config['threshold'] = 0.5
-        config["mri_types"] = '1'
+        config["mri_types"] = '1' #T1w
         model_file = os.path.join(modelpath, "unet_model.onnx")
         config['model_file'] = model_file
         model_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/unet_model.onnx'
@@ -106,23 +106,35 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
 
     elif seg_mode==1:
         logging.info("You are using Brain Tumor Segmentation mode.")
-        config["image_shape"] = None
+        config["image_shape"] = None # no resize
         config["labels"] = (0,1,2,4)
-        config['threshold'] = None
+        config['threshold'] = None # For Softmax
 
-        order = {'f':1,'c':2, '1':3, '2':4}
-        mri_types = mri_type * (4//len(mri_type))
-        mri_types = ''.join(sorted(mri_types, key=lambda x: order[x]))
-        config["mri_types"] = mri_types
+        mri_type_order = {'f':1,'c':2, '1':3, '2':4} # Multi image
+        mri_types = ''.join(set(mri_type)) * (4//len(mri_type))
+        if len(mri_types)!=4: raise ValueError('Get wrong MRI image type')
+        mri_types = ''.join(sorted(mri_types, key=lambda x: mri_type_order[x]))
+        config["mri_types"] = mri_types 
 
         model_file = os.path.join(modelpath, f"brats2021model_{mri_types}.onnx")
         config['model_file'] = model_file
         model_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/unet_model.onnx'
         example_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/example.nii.gz'
 
+    # elif seg_mode==2:
+    #     logging.info("You are using Nasopharyngeal Carcinoma Segmentation mode.")
+    #     config["image_shape"] = None
+    #     config["labels"] = (0,1,2,3,4)
+    #     config['threshold'] = None
+    #     config["mri_types"] = 'c'
+    #     model_file = os.path.join(modelpath, f"NPC_model.onnx")
+    #     config['model_file'] = model_file
+    #     model_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/unet_model.onnx'
+    #     example_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/example.nii.gz'
+
     else:
         logging.info("Mode selection error.")
-        return
+        raise ValueError('seg_mode value error')
 
 
     
@@ -159,7 +171,7 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
         ouput_dir = os.path.join(data_dir[:len(input)].replace(input, output), data_dir[len(input)+1:])
         os.makedirs(ouput_dir, exist_ok=True)
 
-        if len(config["mri_types"])==1:
+        if len(config["mri_types"])==1:  # Sigle image in a case
             data_files = get_input_image(data_dir)
             for data_file in data_files:
                 output_name = "result_{subject}".format(subject=os.path.split(data_file)[1])
@@ -179,10 +191,11 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
                 pred_resampled = resample_to_img(pred, ref, interpolation="nearest")
                 nib.save(pred_resampled, prediction_filename)
         
-        else:
+        else:  # Multi image in a case
             data_files = get_input_image(data_dir)
             output_name = "result_{subject}.nii.gz".format(subject=os.path.split(data_dir)[1])
-            multi_files = read_image_by_mri_type(data_dir, image_shape=config["image_shape"], crop=False, interpolation='linear')
+            multi_files = read_image_by_mri_type(data_dir, image_shape=config["image_shape"], mri_types=config["mri_types"], 
+                                                crop=False, interpolation='linear')
 
             run_case(output_dir=ouput_dir,
                             model=model,
