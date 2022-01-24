@@ -84,7 +84,7 @@ def apply(input=None, output=None, modelpath=os.getcwd(), only_CPU=False, permut
 
 
 
-def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_mode=0,mri_type='fc12',report_enabled=True):
+def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_mode=0,mri_type='fc12',report_enabled=False):
     
     import onnxruntime as ort
     from tigerseg.unet3d.prediction_onnx import run_case, load_onnx_model
@@ -100,7 +100,7 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
         config['threshold'] = 0.5
         config["mri_types"] = '1' #T1w
         config["preprocessing_mode"] = 0
-        config["postprocessing_mode"] = 0
+        config["postprocessing_mode"] = 0 if report_enabled else None
         model_file = os.path.join(modelpath, "unet_model.onnx")
         config['model_file'] = model_file
         model_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/unet_model.onnx'
@@ -132,7 +132,7 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
         config['threshold'] = None
         config["mri_types"] = 'c'
         config["preprocessing_mode"] = 0
-        config["postprocessing_mode"] = 1
+        config["postprocessing_mode"] = 1 if report_enabled else None
         model_file = os.path.join(modelpath, f"NPC_model.onnx")
         config['model_file'] = model_file
         model_url = 'https://github.com/JENNSHIUAN/myfirstpost/releases/download/0.0.1/unet_model.onnx'
@@ -202,21 +202,23 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
                     pred_resampled = resample_to_img(pred, ref, interpolation="nearest")
                     nib.save(pred_resampled, prediction_filename)
 
-                    report.loc[data_file, 'Segmentation Result'] = True
+                    if report_enabled:
+                        report.loc[data_file, 'Segmentation Result'] = True
                     if config["postprocessing_mode"] is not None:
                         postprocessing(pred_resampled, mode=config["postprocessing_mode"],report=report,index=data_file)
                         
                 except:
                     logging.info(f'{data_file} failed.')
-                    report.loc[data_file, 'Segmentation Result'] = False
+                    if report_enabled:
+                        report.loc[data_file, 'Segmentation Result'] = False
 
         
         else:  # Multi image in a case
             try:
                 data_files = get_input_image(data_dir)
                 output_name = "result_{subject}.nii.gz".format(subject=os.path.split(data_dir)[1])
-                multi_files = read_image_by_mri_type(data_dir, image_shape=config["image_shape"], mri_types=config["mri_types"], 
-                                                    crop=False, interpolation='linear')
+                multi_files = read_image_by_mri_type(data_dir, image_shape=config["image_shape"], preprocessing_mode=config["preprocessing_mode"], 
+                                                    mri_types=config["mri_types"], crop=False, interpolation='linear')
 
                 run_case(output_dir=ouput_dir,
                                 model=model,
@@ -231,14 +233,16 @@ def onnx_apply(input=None,output=None,modelpath=os.getcwd(),only_CPU=False,seg_m
                 pred = nib.load(prediction_filename)
                 pred_resampled = resample_to_img(pred, ref, interpolation="nearest")
                 nib.save(pred_resampled, prediction_filename)
-
-                report.loc[data_dir, 'Segmentation Result'] = True
+                
+                if report_enabled:
+                    report.loc[data_dir, 'Segmentation Result'] = True
                 if config["postprocessing_mode"] is not None:
                     postprocessing(pred_resampled, mode=config["postprocessing_mode"],report=report,index=data_dir)
 
             except:
                     logging.info(f'{data_dir} failed.')
-                    report.loc[data_dir, 'Segmentation Result'] = False
+                    if report_enabled:
+                        report.loc[data_dir, 'Segmentation Result'] = False
 
 
 

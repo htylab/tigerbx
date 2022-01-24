@@ -110,7 +110,7 @@ def read_image(in_file, image_shape=None, preprocessing_mode=None, interpolation
         return image
 
 
-def read_image_by_mri_type(image_dir, image_shape=None, crop=None, mri_types='fc12', interpolation='linear'):
+def read_image_by_mri_type(image_dir, image_shape=None, preprocessing_mode=None, crop=None, mri_types='fc12', interpolation='linear'):
 
     image_types = []
     for mri_type in mri_types.lower():
@@ -128,7 +128,7 @@ def read_image_by_mri_type(image_dir, image_shape=None, crop=None, mri_types='fc
     image_list = list()
     for image_type in image_types:
         image_file = glob.glob(os.path.join(image_dir, f'*{image_type}*.nii.gz'))[0]
-        image_list.append(read_image(image_file, image_shape=image_shape, crop=crop, interpolation="linear"))
+        image_list.append(read_image(image_file, image_shape=image_shape, preprocessing_mode=preprocessing_mode, crop=crop, interpolation="linear"))
 
     return image_list
 

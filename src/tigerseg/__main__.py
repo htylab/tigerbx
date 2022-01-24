@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--CPU',default='False',type = strtobool, help='Only use CPU(True) or GPU(False)')
     parser.add_argument('--onnx',default='True',type = strtobool, help='Use onnxruntime(True) or tensorflow(False)')
     parser.add_argument('--seg_mode',default='0',type = str, help='Segmentation mode')
-    parser.add_argument('--report',default=True,type = strtobool, help='output a csv report')
+    parser.add_argument('--report',default='False',type = strtobool, help='Output a additional csv reports')
     parser.add_argument('--version', help="Shows the current version", action='version', version=version)
     args = parser.parse_args()
 
