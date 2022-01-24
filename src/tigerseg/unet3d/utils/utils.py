@@ -11,18 +11,54 @@ from nilearn.image.image import _crop_img_to as crop_img_to
 from .sitk_utils import resample_to_spacing, calculate_origin_offset
 
 
-def pickle_dump(item, out_file):
-    with open(out_file, "wb") as opened_file:
-        pickle.dump(item, opened_file)
+def preprocessing(data, mode=None):
+
+    if mode is None:
+        return data
+
+    elif mode==0:
+        from ..normalization import max_normalize
+        return max_normalize(data)
+
+    else:
+        return data
 
 
-def pickle_load(in_file):
-    with open(in_file, "rb") as opened_file:
-        return pickle.load(opened_file)
+def postprocessing(data, mode=0, report=None, index=None):
 
-def normalize_data(data):
-    data= data/np.max(data)
-    return data
+    if mode is None:
+        return
+
+    elif mode==0:
+
+        mask_pred = data.get_fdata()
+        factor = data.header.get_zooms()[0]*data.header.get_zooms()[1]*data.header.get_zooms()[2]
+        for i in (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,44,46,47,49,50,51,52,53,54,58,60,62,63,77,85,251,252,253,254,255):
+            report.loc[index, i] = np.sum(mask_pred==i) * factor
+
+        return
+
+    elif mode==1:
+
+        mask_pred = np.array(data.get_fdata())
+            
+        if np.sum(mask_pred) == 0:
+            type_pred = 0
+        else:
+            try:
+                type_pred = np.bincount(mask_pred.astype('uint8').flatten())[1:].argmax() + 1
+            except:
+                type_pred = 0
+
+        if type_pred==0:
+            report.loc[index, 'High-Low Grade'] = 'No'
+        else:
+            report.loc[index, 'High-Low Grade'] = 'High' if type_pred>=3 else 'Low'
+
+        return
+
+    else:
+        return
 
 
 def get_affine(in_file):
@@ -57,9 +93,9 @@ def read_image_files(image_files, image_shape=None, crop=None, label_indices=Non
 
 
 
-def read_image(in_file, image_shape=None, interpolation='linear', crop=None):
+def read_image(in_file, image_shape=None, preprocessing_mode=None, interpolation='linear', crop=None):
     image = nib.load(os.path.abspath(in_file))
-    image_np = normalize_data(image.get_fdata())
+    image_np = preprocessing(image.get_fdata(), mode=preprocessing_mode)
     image = nib.Nifti1Image(image_np,image.affine)
     image = fix_shape(image)
 
@@ -74,7 +110,7 @@ def read_image(in_file, image_shape=None, interpolation='linear', crop=None):
         return image
 
 
-def read_image_by_mri_type(image_dir, image_shape=None, crop=None, mri_types='fc12', interpolation='linear'):
+def read_image_by_mri_type(image_dir, image_shape=None, preprocessing_mode=None, crop=None, mri_types='fc12', interpolation='linear'):
 
     image_types = []
     for mri_type in mri_types.lower():
@@ -92,7 +128,7 @@ def read_image_by_mri_type(image_dir, image_shape=None, crop=None, mri_types='fc
     image_list = list()
     for image_type in image_types:
         image_file = glob.glob(os.path.join(image_dir, f'*{image_type}*.nii.gz'))[0]
-        image_list.append(read_image(image_file, image_shape=image_shape, crop=crop, interpolation="linear"))
+        image_list.append(read_image(image_file, image_shape=image_shape, preprocessing_mode=preprocessing_mode, crop=crop, interpolation="linear"))
 
     return image_list
 
@@ -136,3 +172,13 @@ def walk_input_dir(input):
         if np.char.array(files).count('.nii.gz').sum()>0:
             dirs.append(root)
     return dirs
+
+
+def pickle_dump(item, out_file):
+    with open(out_file, "wb") as opened_file:
+        pickle.dump(item, opened_file)
+
+
+def pickle_load(in_file):
+    with open(in_file, "rb") as opened_file:
+        return pickle.load(opened_file)
