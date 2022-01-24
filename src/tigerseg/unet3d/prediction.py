@@ -2,41 +2,11 @@ import os
 
 import nibabel as nib
 import numpy as np
-import tables
-import time
-
-from .training import load_old_model
-from .utils import pickle_load,  read_image
-from .utils.patches import reconstruct_from_patches, get_patch_from_3d_data, compute_patch_indices
-from .augment import permute_data, generate_permutation_keys, reverse_permute_data
-
-
-
-def patch_wise_prediction(model, data, overlap=0, batch_size=1, permute=False):
-    """
-    :param batch_size:
-    :param model:
-    :param data:
-    :param overlap:
-    :return:
-    """
-    patch_shape = tuple([int(dim) for dim in model.input.shape[-3:]])
-    predictions = list()
-    indices = compute_patch_indices(data.shape[-3:], patch_size=patch_shape, overlap=overlap)
-    batch = list()
-    i = 0
-    while i < len(indices):
-        while len(batch) < batch_size:
-
-            patch = get_patch_from_3d_data(data[0], patch_shape=patch_shape, patch_index=indices[i])
-            batch.append(patch)
-            i += 1
-        prediction = predict(model, np.asarray(batch), permute=permute)
-        batch = list()
-        for predicted_patch in prediction:
-            predictions.append(predicted_patch)
-    output_shape = [int(model.output.shape[1])] + list(data.shape[-3:])
-    return reconstruct_from_patches(predictions, patch_indices=indices, data_shape=output_shape)
+import logging
+from tensorflow.keras.models import load_model
+from .contrib import InstanceNormalization
+from .metrics import (dice_coefficient, dice_coefficient_loss, dice_coef, dice_coef_loss,
+                            weighted_dice_coefficient_loss, weighted_dice_coefficient)
 
 
 def get_prediction_labels(prediction, threshold=0.5, labels=None):
@@ -54,26 +24,6 @@ def get_prediction_labels(prediction, threshold=0.5, labels=None):
     return label_arrays
 
 
-def get_test_indices(testing_file):
-    return pickle_load(testing_file)
-
-
-def predict_from_data_file(model, open_data_file, index):
-    return model.predict(open_data_file.root.data[index])
-
-
-def predict_and_get_image(model, data, affine):
-    return nib.Nifti1Image(model.predict(data)[0, 0], affine)
-
-
-def predict_from_data_file_and_get_image(model, open_data_file, index):
-    return predict_and_get_image(model, open_data_file.root.data[index], open_data_file.root.affine)
-
-
-def predict_from_data_file_and_write_image(model, open_data_file, index, out_file):
-    image = predict_from_data_file_and_get_image(model, open_data_file, index)
-    image.to_filename(out_file)
-
 
 def prediction_to_image(prediction, affine, label_map=False, threshold=0.5, labels=None):
     if prediction.shape[1] == 1:
@@ -88,12 +38,9 @@ def prediction_to_image(prediction, affine, label_map=False, threshold=0.5, labe
             data = label_map_data
     elif prediction.shape[1] > 1:
 
-
-        if label_map:
-            label_map_data = get_prediction_labels(prediction, threshold=threshold, labels=labels)
-            data = label_map_data[0]
-        else:
-            return multi_class_prediction(prediction, affine)
+        label_map_data = get_prediction_labels(prediction, threshold=threshold, labels=labels)
+        data = label_map_data[0]
+            
     else:
         raise RuntimeError("Invalid prediction array shape: {0}".format(prediction.shape))
 
@@ -118,13 +65,7 @@ def run_validation_case(output_dir, model, data_file,
     test_data = data_file.get_fdata()
     test_data = test_data[np.newaxis,np.newaxis, :, : , : ]
 
-    patch_shape = tuple([int(dim) for dim in model.input.shape[-3:]])
-
-    if patch_shape == test_data.shape[-3:]:
-
-        prediction = predict(model, test_data, permute=permute)
-    else:
-        prediction = patch_wise_prediction(model=model, data=test_data, overlap=overlap, permute=permute)[np.newaxis]
+    prediction = predict(model, test_data, permute=permute)
 
     prediction_image = prediction_to_image(prediction, affine, label_map=output_label_map, threshold=threshold,
                                            labels=labels)
@@ -134,18 +75,25 @@ def run_validation_case(output_dir, model, data_file,
 
 
 def predict(model, data, permute=False):
-    if permute:
-        predictions = list()
-        for batch_index in range(data.shape[0]):
-            predictions.append(predict_with_permutations(model, data[batch_index]))
-        return np.asarray(predictions)
-    else:
-        return model.predict(data)
+    return model.predict(data)
 
 
-def predict_with_permutations(model, data):
-    predictions = list()
-    for permutation_key in generate_permutation_keys():
-        temp_data = permute_data(data, permutation_key)[np.newaxis]
-        predictions.append(reverse_permute_data(model.predict(temp_data)[0], permutation_key))
-    return np.mean(predictions, axis=0)
+
+def load_old_model(model_file):
+    logging.info("Loading pre-trained model")
+    custom_objects = {'dice_coefficient_loss': dice_coefficient_loss, 'dice_coefficient': dice_coefficient,
+                      'dice_coef': dice_coef, 'dice_coef_loss': dice_coef_loss,
+                      'weighted_dice_coefficient': weighted_dice_coefficient,
+                      'weighted_dice_coefficient_loss': weighted_dice_coefficient_loss}
+    try:
+        custom_objects["InstanceNormalization"] = InstanceNormalization
+    except ImportError:
+        pass
+    try:
+        return load_model(model_file, custom_objects=custom_objects)
+    except ValueError as error:
+        if 'InstanceNormalization' in str(error):
+            raise ValueError(str(error) + "\n\nPlease install keras-contrib to use InstanceNormalization:\n"
+                                          "'pip install git+https://www.github.com/keras-team/keras-contrib.git'")
+        else:
+            raise error
