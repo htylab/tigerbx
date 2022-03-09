@@ -30,7 +30,7 @@ def main():
     parser.add_argument('--version', help="Shows the current version", action='version', version=version)
     args = parser.parse_args()
 
-    if args.onnx == True:
+    if args.onnx:
         segment.onnx_apply(input=args.input,output=args.output,modelpath=args.modelpath,only_CPU=args.CPU,seg_mode=int(args.seg_mode),report_enabled=args.report)
     else:
         segment.apply(input=args.input,output=args.output,modelpath=args.modelpath,only_CPU=args.CPU)
