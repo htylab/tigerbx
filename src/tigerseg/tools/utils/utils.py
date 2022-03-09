@@ -24,21 +24,21 @@ def preprocessing(data, mode=None):
         return data
 
 
-def postprocessing(data, mode=0, report=None, index=None):
+def postprocessing(data, config, report=None, index=None):
 
-    if mode is None:
+    if config['postprocessing_mode'] is None:
         return
 
-    elif mode==0:
-
+    elif config['postprocessing_mode']==0:
+        
         mask_pred = data.get_fdata()
         factor = data.header.get_zooms()[0]*data.header.get_zooms()[1]*data.header.get_zooms()[2]
-        for i in (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,44,46,47,49,50,51,52,53,54,58,60,62,63,77,85,251,252,253,254,255):
-            report.loc[index, i] = np.sum(mask_pred==i) * factor
+        for i in config['labels']:
+            report.loc[index, f'{i}: '+config['labels_name'][i] if config['labels_name'] else i] = np.sum(mask_pred==i) * factor
 
         return
 
-    elif mode==1:
+    elif config['postprocessing_mode']==1:
 
         mask_pred = np.array(data.get_fdata())
             
@@ -123,7 +123,7 @@ def read_image_by_mri_type(image_dir, image_shape=None, preprocessing_mode=None,
         elif  mri_type=='f':
             image_types.append('flair')
         else:
-            raise RuntimeError(f'Get wrong MRI image type: {mri_type}')
+            raise ValueError(f'Get wrong MRI image type: {mri_type}')
     
     image_list = list()
     for image_type in image_types:
