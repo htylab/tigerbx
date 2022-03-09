@@ -27,9 +27,13 @@ This package provides trained 3D U-Net model for subcortical brain segmentation
     tigerseg INPUT OUTPUT --CPU CPU --onnx ONNX --seg_mode SEG_MODE --report REPORT
 
 If INPUT points to a file, the file will be processed. If INPUT points to a directory, the directory will be searched for the specific format(nii.gz).
+
 OUTPUT is the output directory.
+
 If you don't want to use onnxruntime version, you can set ONNX to False.
+
 SEG_MODE: 0: Subcortical Brain Segmentation mode. 1: Brain Tumor Segmentation mode. 2: Nasopharyngeal Carcinoma Segmentation mode.
+
 If you need some report of the Segmentation, set the REPORT to True.
 
 For additional options type:
