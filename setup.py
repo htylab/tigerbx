@@ -11,20 +11,22 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.3',
+     version='0.1.4',
      description='Package for subcortical brain segmentation',
      long_description_content_type='text/x-rst',
-     url='https://github.com/JENNSHIUAN',
+     url='https://github.com/htylab',
      author='JENNSHIUAN',
      author_email='danny092608@gmail.com',
      License='MIT',
      classifiers=classifiers,
-     keywords='subcortical brain segmentation',
+     keywords='unet segmentation',
      package_dir={"": "src"},
      packages=find_packages(where="src"),
      entry_points={
         'console_scripts': [
-            'tigerseg = tigerseg.__main__:main'
+            'tigerseg = tigerseg.console.__main__:main',
+            'cine4d = tigerseg.console.__cine4d__:main',
+            'aseg = tigerseg.console.__aseg__:main'
         ]
     },
      python_requires='>=3.6',
@@ -33,7 +35,7 @@ setup(
              'nibabel>=2.5.1',
              'nilearn>=0.6.2',
              'SimpleITK>=2.0.0',
-             'tables>=3.6.1',
-             'h5py==2.10.0'
+             'onnxruntime>1.9.0'
+
          ]
 )
