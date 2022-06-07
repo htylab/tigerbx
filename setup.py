@@ -26,7 +26,8 @@ setup(
         'console_scripts': [
             'tigerseg = tigerseg.console.__main__:main',
             'cine4d = tigerseg.console.__cine4d__:main',
-            'aseg = tigerseg.console.__aseg__:main'
+            'aseg = tigerseg.console.__aseg__:main',
+            'tigerbet = tigerseg.console.__tigerbet__:main'
         ]
     },
      python_requires='>=3.6',
