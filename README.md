@@ -5,7 +5,7 @@ This package provides deep-learning segmentation models
 
 ### Install package
 
-    pip install tigerseg 
+    pip install git+https://github.com/htylab/tigerseg
 
 ## Usage
 
