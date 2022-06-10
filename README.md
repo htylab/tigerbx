@@ -11,11 +11,11 @@ This package provides deep-learning segmentation models
 
 ### As a command line tool:
 
-    tigerseg INPUT_FILE OUTPUT_DIR --modelname model --GPU True --report True
+    tigerseg INPUT_FILE OUTPUT_DIR --model model --GPU True --report True
 
 INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
 
-    tigerseg c:\data\*.nii.gz c:\output --modelname model
+    tigerseg c:\data\*.nii.gz c:\output --model model
 
 
 For subcortical segmentation:
