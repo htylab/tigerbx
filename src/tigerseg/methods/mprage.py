@@ -15,11 +15,19 @@ nib.Nifti1Header.quaternion_threshold = -100
 def run_SingleModel(model_ff, input_data, GPU):
 
 
+    so = ort.SessionOptions()
+    so.intra_op_num_threads = 1
+    so.inter_op_num_threads = 1
+
     if GPU and (ort.get_device() == "GPU"):
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
-        session = ort.InferenceSession(model_ff, providers=['CUDAExecutionProvider'])
+        session = ort.InferenceSession(model_ff,
+                                       providers=['CUDAExecutionProvider'],
+                                       sess_options=so)
     else:
-        session = ort.InferenceSession(model_ff, providers=['CPUExecutionProvider'])
+        session = ort.InferenceSession(model_ff,
+                                       providers=['CPUExecutionProvider'],
+                                       sess_options=so)
 
 
     seg_mode = basename(model_ff).split('_')[2] #aseg43, bet  
