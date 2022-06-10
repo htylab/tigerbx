@@ -1,52 +1,38 @@
-# Automated subcortical brain segmentation pipeline
-![subcortical Segmentation Example](doc/tumor_segmentation_illusatration.gif)
-
 ## Background
-This package provides trained 3D U-Net model for subcortical brain segmentation
+This package provides deep-learning segmentation models
 
-
-## Tutorial using SubBrainSegment
+## Tutorial using tigerseg
 
 ### Install package
 
-    pip install tigerseg 
-
-### Install Python 3 and dependencies:
-* numpy>=1.16.0
-* nibabel>=2.5.1
-* tables>=3.6.1
-* h5py==2.10.0
-* onnxruntime>=1.8.0
-* [SimpleITK](https://simpleitk.readthedocs.io/en/master/gettingStarted.html)
-
+    pip install git+https://github.com/htylab/tigerseg
 
 ## Usage
 
 ### As a command line tool:
 
-    tigerseg INPUT OUTPUT --CPU CPU --onnx ONNX --seg_mode SEG_MODE --report REPORT
+    tigerseg INPUT_FILE OUTPUT_DIR --model model --GPU True --report True
 
-If INPUT points to a file, the file will be processed. If INPUT points to a directory, the directory will be searched for the specific format(nii.gz).
-OUTPUT is the output directory.
-If you don't want to use onnxruntime version, you can set ONNX to False.
-SEG_MODE: 0: Subcortical Brain Segmentation mode. 1: Brain Tumor Segmentation mode. 2: Nasopharyngeal Carcinoma Segmentation mode.
-If you need some report of the Segmentation, set the REPORT to True.
+INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
 
-For additional options type:
+    tigerseg c:\data\*.nii.gz c:\output --model model
 
-    tigerseg -h
 
+For subcortical segmentation:
+
+    aseg c:\data\*.nii.gz c:\output
+
+For cine cardiac MRI segmentation:
+
+    cine4d c:\data\*.nii.gz c:\output
 
 
 ### As a python module:
 
 ```
-import tigerseg.segment
+from tigerseg import segment
 
-input_dir = /your/input/directory
-output_dir = /your/output/directory
+import segment
+result = segment.apply('cine4d_v0002_xyz_mms12acdc', r"C:\expdata\nchu_cine\sample\*o.nii")
 
-tigerseg.segment.apply(input=input_dir,output=output_dir)   # For tensorflow
-
-tigerseg.segment.onnx_apply(input=input_dir,output=output_dir,only_CPU=False,seg_mode=0,report_enabled=True) # For onnxruntime
 ```
