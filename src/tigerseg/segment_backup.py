@@ -2,7 +2,7 @@
 import os
 import warnings
 import urllib.request
-from os.path import join, isdir, basename, isfile
+from os.path import join, isdir, basename
 import glob
 import time
 import importlib
@@ -64,37 +64,33 @@ def apply(model_name, input_data, GPU=False):
     run_SingleModel = getattr(seg_module, 'run_SingleModel')
 
     #download model files
-    model_ffs = []
     for f in model_name.replace('@', '#').replace('*', '#').split('#'):
-
-        if isfile(f):
-            model_ffs.append(f)
-            continue
 
         model_url = model_server + f + '.onnx'
         model_file = join(model_path, f + '.onnx')
-        model_ffs.append(model_file)
+    
         if not os.path.exists(model_file):
             print(f'Downloading model files....')
             urllib.request.urlretrieve(model_url, model_file)
-        
-    #todo: verify model files
 
     
     if '#' in model_name: #model ensemble by softmax summation
         mask_softmax_sum = 0
 
-        for model_ff in model_ffs:
+        for model_name in model_name.split('#'):
+            model_ff = join(model_path, model_name + '.onnx')
             mask_pred, mask_softmax = run_SingleModel(model_ff, input_data, GPU)
             mask_softmax_sum += mask_softmax
 
         mask_pred = np.argmax(mask_softmax_sum, axis=0)
 
-    elif '*' in model_name: #mask segmentation
+    elif '*' in model_name: #todo two-stage segmenation
         print('Intersection of masks')
-
-        mask1, mask_softmax = run_SingleModel(model_ffs[0], input_data, GPU)
-        mask2, mask_softmax = run_SingleModel(model_ffs[1], input_data, GPU)
+        model1_ff, model2_ff = model_name.split('*')
+        model1_ff = join(model_path, model1_ff + '.onnx')
+        mask1, mask_softmax = run_SingleModel(model1_ff, input_data, GPU)
+        model2_ff = join(model_path, model2_ff + '.onnx')
+        mask2, mask_softmax = run_SingleModel(model2_ff, input_data, GPU)
 
         mask_pred = mask1 * (mask2 > 0)
         
@@ -113,7 +109,7 @@ def apply(model_name, input_data, GPU=False):
         #todo generate heartmask crop and perform cropseg model
 
     else: #single model mode
-        model_ff = model_ffs[0]
+        model_ff = join(model_path, model_name + '.onnx')
         mask_pred, mask_softmax = run_SingleModel(model_ff, input_data, GPU)
     
     if 'post' in dir(seg_module):
