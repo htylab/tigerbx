@@ -14,10 +14,18 @@ nib.Nifti1Header.quaternion_threshold = -100
 
 def run_SingleModel(model_ff, input_data, GPU):
 
-
     so = ort.SessionOptions()
-    so.intra_op_num_threads = 1
-    so.inter_op_num_threads = 1
+    try:
+        if os.cpu_count() is None:
+            so.intra_op_num_threads = 1
+            so.inter_op_num_threads = 1
+        else:
+            so.intra_op_num_threads = os.cpu_count()
+            so.inter_op_num_threads = os.cpu_count()
+    except:
+        so.intra_op_num_threads = 1
+        so.inter_op_num_threads = 1
+        
 
     if GPU and (ort.get_device() == "GPU"):
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
@@ -67,7 +75,7 @@ def run_SingleModel(model_ff, input_data, GPU):
 def read_file(model_ff, input_file):
     #reorder_img : reorient image to RAS 
 
-    return reorder_img(nib.load(input_file)).get_fdata()
+    return reorder_img(nib.load(input_file), resample='linear').get_fdata()
 
 
 def write_file(model_ff, input_file, output_dir, mask, report):
@@ -84,7 +92,7 @@ def write_file(model_ff, input_file, output_dir, mask, report):
     input_nib = nib.load(input_file)
     affine = input_nib.affine
     zoom = input_nib.header.get_zooms()   
-    result = nib.Nifti1Image(mask.astype(np.uint8), affine)
+    result = nib.Nifti1Image(mask.astype(np.uint8), reorder_img(input_nib, resample='linear').affine)
     result.header.set_zooms(zoom)
 
     result = resample_to_img(result, input_nib, interpolation="nearest")

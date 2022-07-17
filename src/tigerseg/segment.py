@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+from math import factorial
 import os
 import warnings
 import urllib.request
-from os.path import join, isdir, basename, isfile
+from os.path import join, isdir, basename, isfile, dirname
 import glob
 import time
 import importlib
@@ -22,7 +23,6 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
 
     seg_method = model_name.split('_')[0]
     seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
-
     
     print('Total nii files:', len(input_file_list))
 
@@ -35,12 +35,17 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
 
           
         input_data = seg_module.read_file(model_name, f)
-
+        
         mask = apply(model_name, input_data,  GPU)
 
         if output_dir is not None:
             output_file = seg_module.write_file(model_name, f, output_dir, mask, report)
             output_file_list.append(output_file)
+
+        else:
+            output_file = seg_module.write_file(model_name, f, dirname(f), mask, report)
+            output_file_list.append(output_file)
+
 
         #if report and output_file:
 
