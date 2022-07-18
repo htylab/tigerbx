@@ -36,14 +36,14 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
           
         input_data = seg_module.read_file(model_name, f)
         
-        mask = apply(model_name, input_data,  GPU)
+        mask = apply(model_name, input_data,  GPU=GPU)
 
         if output_dir is not None:
             output_file = seg_module.write_file(model_name, f, output_dir, mask, report)
             output_file_list.append(output_file)
 
         else:
-            output_file = seg_module.write_file(model_name, f, dirname(f), mask, report)
+            output_file = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask, report)
             output_file_list.append(output_file)
 
 
@@ -58,7 +58,7 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
     return output_file_list
 
 
-def apply(model_name, input_data, GPU=False):
+def apply(model_name, input_data, GPU=False, model_path=model_path):
     #apply 只處理 numpy array --> model --> mask output
     #有三種模式
     #
