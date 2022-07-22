@@ -93,9 +93,9 @@ def write_file(model_ff, input_file, output_dir, mask, report):
     affine = input_nib.affine
     zoom = input_nib.header.get_zooms()   
     result = nib.Nifti1Image(mask.astype(np.uint8), reorder_img(input_nib, resample='linear').affine)
-    result.header.set_zooms(zoom)
-
+    
     result = resample_to_img(result, input_nib, interpolation="nearest")
+    result.header.set_zooms(zoom)
 
     nib.save(result, output_file)
 
