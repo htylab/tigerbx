@@ -76,6 +76,7 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
         model_ffs.append(model_file)
         if not os.path.exists(model_file):
             print(f'Downloading model files....')
+            print(model_url, model_file)
             urllib.request.urlretrieve(model_url, model_file)
         
     #todo: verify model files
