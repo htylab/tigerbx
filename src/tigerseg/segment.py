@@ -15,7 +15,7 @@ from nilearn.image import reorder_img, resample_to_img
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
-model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub'
+model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
 os.makedirs(model_path, exist_ok=True)
 
