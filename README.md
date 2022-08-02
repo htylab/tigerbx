@@ -33,6 +33,6 @@ For cine cardiac MRI segmentation:
 from tigerseg import segment
 
 import segment
-result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', r"C:\expdata\nchu_cine\sample\*o.nii")
+result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', r"C:\sample\*o.nii")
 
 ```
