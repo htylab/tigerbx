@@ -2,7 +2,6 @@ import glob
 from os.path import join, basename, isdir
 import os
 import numpy as np
-from scipy.io import savemat
 import nibabel as nib
 import onnxruntime as ort
 from scipy.special import softmax
@@ -69,7 +68,7 @@ def read_file(model_ff, input_file):
 
     return nib.load(input_file).get_fdata()
 
-def write_file(model_ff, input_file, output_dir, mask, report):
+def write_file(model_ff, input_file, output_dir, mask):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
@@ -90,34 +89,8 @@ def write_file(model_ff, input_file, output_dir, mask, report):
     #result = resample_to_img(result, f, interpolation="nearest")
 
     nib.save(result, output_file)
-
-    if report:
-        get_report(input_file, output_file)
-
     return output_file
 
-
-
-
-def get_report(input_file, output_file):
-    
-    temp = nib.load(output_file)
-    mask4d = temp.get_fdata()
-    voxel_size = temp.header.get_zooms()
-    
-    LV_vol = np.sum(mask4d==1, axis=(0, 1, 2))* np.prod(voxel_size[0:3]) / 1000.
-    LVM_vol = np.sum(mask4d==2, axis=(0, 1, 2))* np.prod(voxel_size[0:3]) / 1000.
-    RV_vol = np.sum(mask4d==3, axis=(0, 1, 2))* np.prod(voxel_size[0:3]) / 1000.
-    
-    dict1 = {"input":np.asanyarray(nib.load(input_file).dataobj),
-             'LV': (mask4d==1)*1,
-             'LVM':(mask4d==2)*1,
-             'RV': (mask4d==3)*1,
-             'LV_vol': LV_vol,
-             'LVM_vol': LVM_vol,
-             'RV_vol': RV_vol}
-
-    savemat(output_file.replace('.nii.gz', '.mat'), dict1, do_compression=True)
 
 
 def post(mask):

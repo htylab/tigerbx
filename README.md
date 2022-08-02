@@ -15,16 +15,16 @@ This package provides deep-learning segmentation models
 
 INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
 
-    tigerseg -i 'c:\data\*.nii.gz' -o c:\output --model model
+    tigerseg -i c:\data\*.nii.gz -o c:\output --model model
 
 
 For subcortical segmentation:
 
-    aseg -i 'c:\data\*.nii.gz' -o c:\output
+    aseg -i c:\data\*.nii.gz -o c:\output
 
 For cine cardiac MRI segmentation:
 
-    cine4d -i 'c:\data\*.nii.gz' -o c:\output
+    cine4d -i c:\data\*.nii.gz -o c:\output
 
 
 ### As a python module:
@@ -33,6 +33,6 @@ For cine cardiac MRI segmentation:
 from tigerseg import segment
 
 import segment
-result = segment.apply('cine4d_v0002_xyz_mms12acdc', r"C:\expdata\nchu_cine\sample\*o.nii")
+result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', r"C:\expdata\nchu_cine\sample\*o.nii")
 
 ```

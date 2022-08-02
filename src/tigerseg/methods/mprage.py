@@ -78,7 +78,7 @@ def read_file(model_ff, input_file):
     return reorder_img(nib.load(input_file), resample='linear').get_fdata()
 
 
-def write_file(model_ff, input_file, output_dir, mask, report):
+def write_file(model_ff, input_file, output_dir, mask):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
@@ -99,15 +99,8 @@ def write_file(model_ff, input_file, output_dir, mask, report):
 
     nib.save(result, output_file)
 
-    if report:
-        get_report(input_file, output_file)
-
     return output_file
 
-def get_report(input_file, output_file):
-    
-    # todo: report for mprage aseg
-    pass
 
 def predict(model, data):
     if model.get_inputs()[0].type=='tensor(float)':

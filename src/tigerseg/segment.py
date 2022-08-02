@@ -19,7 +19,7 @@ model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
 os.makedirs(model_path, exist_ok=True)
 
-def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=False):
+def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
 
     seg_method = model_name.split('_')[0]
     seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
@@ -39,18 +39,13 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
         mask = apply(model_name, input_data,  GPU=GPU)
 
         if output_dir is not None:
-            output_file = seg_module.write_file(model_name, f, output_dir, mask, report)
+            output_file = seg_module.write_file(model_name, f, output_dir, mask)
             output_file_list.append(output_file)
 
         else:
-            output_file = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask, report)
+            output_file = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
             output_file_list.append(output_file)
 
-
-        #if report and output_file:
-
-        #    print('Writing report ....')
-        #    seg_module.get_report(f, output_file)
 
         print('Processing time: %d seconds' %  (time.time() - t))
 
@@ -103,7 +98,6 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
 
         mask_pred = mask1 * (mask2 > 0)
         
-        #todo generate heartmask crop and perform cropseg model
 
     elif '@' in model_name: #todo two-stage segmenation
         print('Two-stage model')
@@ -115,7 +109,6 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
 
         mask_pred = mask1 * mask2
         
-        #todo generate heartmask crop and perform cropseg model
 
     else: #single model mode
         model_ff = model_ffs[0]

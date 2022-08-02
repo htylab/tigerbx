@@ -26,8 +26,7 @@ def main():
     segment.apply_files(model_name=args.model,
                         input_file_list=input_file_list,
                         output_dir=args.output,                        
-                        GPU=args.GPU,
-                        report=args.report)
+                        GPU=args.GPU)
 
 
 
