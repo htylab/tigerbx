@@ -26,6 +26,10 @@ For cine cardiac MRI segmentation:
 
     cine4d -i c:\data\*.nii.gz -o c:\output
 
+For skull-stripping on 3D T1-weighted images:
+
+    tigerbet -i c:\data\*.nii.gz -o c:\output
+
 
 ### As a python module:
 
@@ -33,6 +37,8 @@ For cine cardiac MRI segmentation:
 from tigerseg import segment
 
 import segment
-result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', r"C:\sample\*o.nii")
+
+input_file_list = glob.glob(r"C:\sample\*o.nii")
+result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 
 ```
