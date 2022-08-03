@@ -70,9 +70,13 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
         if isfile(f):
             model_ffs.append(f)
             continue
+        if '.onnx' in f:
+            fn = f
+        else:
+            fn = f + '.onnx'
 
-        model_url = model_server + f + '.onnx'
-        model_file = join(model_path, f + '.onnx')
+        model_url = model_server + fn
+        model_file = join(model_path, fn)
         model_ffs.append(model_file)
         if not os.path.exists(model_file):
             print(f'Downloading model files....')
@@ -102,10 +106,8 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
 
     elif '@' in model_name: #todo two-stage segmenation
         print('Two-stage model')
-        model1_ff, model2_ff = model_name.split('@')
-        model1_ff = join(model_path, model1_ff + '.onnx')
+        model1_ff, model2_ff = model_ffs[0], model_ffs[1]
         mask1, mask_softmax = run_SingleModel(model1_ff, input_data, GPU)
-        model2_ff = join(model_path, model2_ff + '.onnx')
         mask2, mask_softmax = run_SingleModel(model2_ff, input_data, GPU)
 
         mask_pred = mask1 * mask2
