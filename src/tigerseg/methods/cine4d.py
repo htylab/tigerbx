@@ -10,8 +10,12 @@ nib.Nifti1Header.quaternion_threshold = -100
 
 def run_SingleModel(model_ff, input_data, GPU):
 
+ 
+
     so = ort.SessionOptions()
+
     '''
+    
     try:
         if os.cpu_count() is None:
             so.intra_op_num_threads = 1
@@ -22,11 +26,13 @@ def run_SingleModel(model_ff, input_data, GPU):
     except:
         so.intra_op_num_threads = 1
         so.inter_op_num_threads = 1
-    so.intra_op_num_threads = 1
-    so.inter_op_num_threads = 1
+    
+    so.intra_op_num_threads = 4
+    so.inter_op_num_threads = 4
     print('************', so.intra_op_num_threads)
     '''
     if GPU and (ort.get_device() == "GPU"):
+        print('Using GPU...')
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
         session = ort.InferenceSession(model_ff,
                                        providers=['CUDAExecutionProvider'],
