@@ -4,27 +4,31 @@ This package provides deep-learning segmentation models
 ## Tutorial using tigerseg
 
 ### Install package
-
+    
     pip install git+https://github.com/htylab/tigerseg
 
 ## Usage
 
 ### As a command line tool:
 
-    tigerseg INPUT_FILE OUTPUT_DIR --model model --GPU True --report True
+    tigerseg -i INPUT_FILE -o OUTPUT_DIR --model model --GPU True --report True
 
 INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
 
-    tigerseg c:\data\*.nii.gz c:\output --model model
+    tigerseg -i c:\data\*.nii.gz -o c:\output --model model
 
 
 For subcortical segmentation:
 
-    aseg c:\data\*.nii.gz c:\output
+    aseg -i c:\data\*.nii.gz -o c:\output
 
 For cine cardiac MRI segmentation:
 
-    cine4d c:\data\*.nii.gz c:\output
+    cine4d -i c:\data\*.nii.gz -o c:\output
+
+For skull-stripping on 3D T1-weighted images:
+
+    tigerbet -i c:\data\*.nii.gz -o c:\output
 
 
 ### As a python module:
@@ -33,6 +37,8 @@ For cine cardiac MRI segmentation:
 from tigerseg import segment
 
 import segment
-result = segment.apply('cine4d_v0002_xyz_mms12acdc', r"C:\expdata\nchu_cine\sample\*o.nii")
+
+input_file_list = glob.glob(r"C:\sample\*o.nii")
+result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 
 ```

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+from math import factorial
 import os
 import warnings
 import urllib.request
-from os.path import join, isdir, basename, isfile
+from os.path import join, isdir, basename, isfile, dirname
 import glob
 import time
 import importlib
@@ -14,15 +15,14 @@ from nilearn.image import reorder_img, resample_to_img
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
-model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub'
+model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
 os.makedirs(model_path, exist_ok=True)
 
-def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=False):
+def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
 
     seg_method = model_name.split('_')[0]
     seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
-
     
     print('Total nii files:', len(input_file_list))
 
@@ -35,17 +35,17 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
 
           
         input_data = seg_module.read_file(model_name, f)
-
-        mask = apply(model_name, input_data,  GPU)
+        
+        mask = apply(model_name, input_data,  GPU=GPU)
 
         if output_dir is not None:
-            output_file = seg_module.write_file(model_name, f, output_dir, mask, report)
+            output_file = seg_module.write_file(model_name, f, output_dir, mask)
             output_file_list.append(output_file)
 
-        #if report and output_file:
+        else:
+            output_file = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
+            output_file_list.append(output_file)
 
-        #    print('Writing report ....')
-        #    seg_module.get_report(f, output_file)
 
         print('Processing time: %d seconds' %  (time.time() - t))
 
@@ -53,7 +53,7 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, report=
     return output_file_list
 
 
-def apply(model_name, input_data, GPU=False):
+def apply(model_name, input_data, GPU=False, model_path=model_path):
     #apply 只處理 numpy array --> model --> mask output
     #有三種模式
     #
@@ -70,12 +70,17 @@ def apply(model_name, input_data, GPU=False):
         if isfile(f):
             model_ffs.append(f)
             continue
+        if '.onnx' in f:
+            fn = f
+        else:
+            fn = f + '.onnx'
 
-        model_url = model_server + f + '.onnx'
-        model_file = join(model_path, f + '.onnx')
+        model_url = model_server + fn
+        model_file = join(model_path, fn)
         model_ffs.append(model_file)
         if not os.path.exists(model_file):
             print(f'Downloading model files....')
+            print(model_url, model_file)
             urllib.request.urlretrieve(model_url, model_file)
         
     #todo: verify model files
@@ -98,19 +103,15 @@ def apply(model_name, input_data, GPU=False):
 
         mask_pred = mask1 * (mask2 > 0)
         
-        #todo generate heartmask crop and perform cropseg model
 
     elif '@' in model_name: #todo two-stage segmenation
         print('Two-stage model')
-        model1_ff, model2_ff = model_name.split('@')
-        model1_ff = join(model_path, model1_ff + '.onnx')
+        model1_ff, model2_ff = model_ffs[0], model_ffs[1]
         mask1, mask_softmax = run_SingleModel(model1_ff, input_data, GPU)
-        model2_ff = join(model_path, model2_ff + '.onnx')
         mask2, mask_softmax = run_SingleModel(model2_ff, input_data, GPU)
 
         mask_pred = mask1 * mask2
         
-        #todo generate heartmask crop and perform cropseg model
 
     else: #single model mode
         model_ff = model_ffs[0]
