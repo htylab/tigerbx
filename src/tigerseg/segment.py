@@ -4,13 +4,11 @@ import os
 import warnings
 import urllib.request
 from os.path import join, isdir, basename, isfile, dirname
-import glob
 import time
 import importlib
-import onnxruntime as ort
 import nibabel as nib
 import numpy as np
-from nilearn.image import reorder_img, resample_to_img
+
 
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
