@@ -13,6 +13,8 @@ def run_SingleModel(model_ff, input_data, GPU):
  
 
     so = ort.SessionOptions()
+    so.intra_op_num_threads = 4
+    so.inter_op_num_threads = 4
 
     '''
     
