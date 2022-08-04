@@ -33,9 +33,7 @@ setup(
      python_requires='>=3.6',
      install_requires=[
              'numpy>=1.16.0',
-             'nibabel>=2.5.1',
-             'nilearn>=0.6.2',
-             'SimpleITK>=2.0.0',
+             'nilearn>=0.9.1',
              'onnxruntime>1.9.0'
 
          ]
