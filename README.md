@@ -36,8 +36,6 @@ For skull-stripping on 3D T1-weighted images:
 ```
 from tigerseg import segment
 
-import segment
-
 input_file_list = glob.glob(r"C:\sample\*o.nii")
 result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 
