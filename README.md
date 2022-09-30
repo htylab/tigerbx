@@ -30,6 +30,10 @@ For skull-stripping on 3D T1-weighted images:
 
     tigerbet -i c:\data\*.nii.gz -o c:\output
 
+For VDM method on EPI images:
+
+    vdm -i c:\data\*.nii.gz -o c:\output
+
 
 ### As a python module:
 
