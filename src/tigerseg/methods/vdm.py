@@ -35,13 +35,18 @@ def run_SingleModel(model_ff, input_data, GPU):
     if len(orig_data.shape) == 3:
         
         output_vol, vdm_pred = correct_3dvol(session, orig_data)
+    
     elif len(orig_data.shape) == 4:
         output_vol = orig_data * 0
         vdm_pred = orig_data * 0.0
         for nn in range(orig_data.shape[-1]):
             orig_data3d = orig_data[..., nn]
-            output_vol[..., nn], vdm_pred[..., nn] = correct_3dvol(
+            if nn == 0:
+                output_vol[..., nn], vdm_pred = correct_3dvol(
                 session, orig_data3d)
+            else:
+                output_vol[..., nn] = apply_vdm_3d(orig_data3d, vdm_pred)
+
 
 
     return output_vol.astype(np.int16), vdm_pred
