@@ -16,7 +16,7 @@ nib.Nifti1Header.quaternion_threshold = -100
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_server = 'https://data.mrilab.org/onnxmodel/'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
-#print(model_path)
+print(model_path)
 os.makedirs(model_path, exist_ok=True)
 
 def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
