@@ -45,22 +45,51 @@ def run_SingleModel(model_ff, input_data, GPU):
 
     orig_data = input_data.copy()
 
-   
-    data = transform.resize(orig_data, (128, 128, 128), preserve_range=True)
+    input_shape = session.get_inputs()[0].shape
+    do_resize = False
+
+    if 'x' not in input_shape:
+        #fix input size
+        do_resize = True
+        infer_size = input_shape[2:]
+        data = transform.resize(orig_data, infer_size,
+                                 preserve_range=True)
+    elif 'MXRW' in model_ff:
+        do_resize = True
+        data = transform.resize(orig_data, (128, 128, 128),
+                                 preserve_range=True)
+    else:
+        data = orig_data
+    '''
+    if 'MX_RW' in model_ff:
+        data = transform.resize(orig_data, (128, 128, 128),
+                                 preserve_range=True)
+    else:
+        data = orig_data
+    '''
 
     image = data[None, ...][None, ...]
     image = image/np.max(image)
 
     #sigmoid = session.run(None, {"modelInput": image.astype(np.float64)})[0]
 
-    logits = predict(session, image)
+    logits = predict(session, image)[0, ...]
 
-    if seg_mode == 'bet':
-        mask_pred = np.argmax(logits[0, ...], axis=0)
-        mask_softmax = softmax(logits[0, ...], axis=0)
+    label_num = dict()
+    label_num['bet'] = 2
+    label_num['aseg43'] = 44
+
+    if label_num[seg_mode] > logits.shape[0]:
+        #sigmoid mode
+        mask_pred = np.argmax(logits, axis=0) + 1
+        mask_pred[np.max(logits, axis=0) < 0.5] = 0
+        prob = logits
     else:
-        mask_pred = np.argmax(logits[0, ...], axis=0) + 1
-        mask_pred[np.max(logits[0, ...], axis=0) < 0.5] = 0
+        #softmax mode
+        mask_pred = np.argmax(logits, axis=0)
+        prob = softmax(logits, axis=0)
+
+    if seg_mode == 'aseg43':
 
         mask_pred_relabel = mask_pred * 0
         for ii in range(len(labels)):
@@ -68,11 +97,11 @@ def run_SingleModel(model_ff, input_data, GPU):
 
         mask_pred = mask_pred_relabel
 
-        mask_softmax = logits
+    if do_resize:
+        mask_pred = transform.resize(mask_pred, orig_data.shape,
+                                     order=0, preserve_range=True)
 
-    mask_pred = transform.resize(mask_pred, orig_data.shape, order=0, preserve_range=True)
-
-    return mask_pred.astype(np.uint8), mask_softmax
+    return mask_pred.astype(np.uint8), prob
 
 
 def read_file(model_ff, input_file):
