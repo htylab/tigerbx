@@ -27,6 +27,7 @@ setup(
             'tigerseg = tigerseg.console.__main__:main',
             'cine4d = tigerseg.console.__cine4d__:main',
             'aseg = tigerseg.console.__aseg__:main',
+            'aseg2 = tigerseg.console.__aseg2__:main',
             'tigerbet = tigerseg.console.__tigerbet__:main',
             'vdm = tigerseg.console.__vdm__:main',
         ]

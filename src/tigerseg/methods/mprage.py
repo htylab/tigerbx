@@ -48,15 +48,23 @@ def run_SingleModel(model_ff, input_data, GPU):
     input_shape = session.get_inputs()[0].shape
     do_resize = False
 
-    if 'x' not in input_shape:
+
+    if 'MXRW' in model_ff:
+        do_resize = True
+        data = transform.resize(orig_data, (128, 128, 128),
+                                 preserve_range=True)
+    elif 'Wang' in model_ff:
+        xx, yy, zz = orig_data.shape
+        data = orig_data
+        if xx*yy*zz > 220**3 or np.max([xx, yy, zz]) > 300:
+            do_resize = True
+            data = transform.resize(orig_data, (220, 220, 220),
+                                 preserve_range=True)
+    elif 'x' not in input_shape:
         #fix input size
         do_resize = True
         infer_size = input_shape[2:]
         data = transform.resize(orig_data, infer_size,
-                                 preserve_range=True)
-    elif 'MXRW' in model_ff:
-        do_resize = True
-        data = transform.resize(orig_data, (128, 128, 128),
                                  preserve_range=True)
     else:
         data = orig_data
