@@ -15,7 +15,7 @@ def path(string):
 def main():
 
     #default_model = 'mprage_v0001_aseg43_MXRW*mprage_v0002_bet_kuo' #weng's thesis
-    default_model = 'mprage_v0003_aseg43_WangM1*mprage_v0002_bet_kuo' #wang's thesis
+    default_model = 'mprage_v0003_aseg43_WangM1r256*mprage_v0002_bet_kuor128' #wang's thesis
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', metavar='INPUT_FILE', required=True, type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')

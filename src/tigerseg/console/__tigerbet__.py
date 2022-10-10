@@ -14,7 +14,7 @@ def path(string):
 
 def main():
 
-    default_model = 'mprage_v0002_bet_kuo'
+    default_model = 'mprage_v0002_bet_kuor128'
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', metavar='INPUT_FILE', required=True, type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', metavar='OUTPUT_DIR', default=None, type=path, help='Filepath for output segmentation, default: the directory of input files')

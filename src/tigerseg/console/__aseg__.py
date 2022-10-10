@@ -14,7 +14,7 @@ def path(string):
 
 def main():
 
-    default_model = 'mprage_v0001_aseg43_MXRW*mprage_v0002_bet_kuo' #weng's thesis
+    default_model = 'mprage_v0001_aseg43_MXRWr128*mprage_v0002_bet_kuor128' #weng's thesis
     #default_model = 'mprage_v0003_aseg43_WangM1*mprage_v0002_bet_kuo' #wang's thesis
 
     parser = argparse.ArgumentParser()
