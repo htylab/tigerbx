@@ -41,8 +41,6 @@ def run_SingleModel(model_ff, input_data, GPU):
 
     data = input_data.copy()
 
-    print(model_str)
-
     if 'r128' in model_str:
         data = transform.resize(data, (128, 128, 128),
                                 preserve_range=True)
