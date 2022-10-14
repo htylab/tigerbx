@@ -16,10 +16,10 @@ nib.Nifti1Header.quaternion_threshold = -100
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_server = 'https://data.mrilab.org/onnxmodel/'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
-print(model_path)
+# print(model_path)
 os.makedirs(model_path, exist_ok=True)
 
-def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
+def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_path=model_path):
 
     seg_method = basename(model_name).split('_')[0]
     seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
@@ -36,7 +36,7 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
           
         input_data = seg_module.read_file(model_name, f)
         
-        mask = apply(model_name, input_data,  GPU=GPU)
+        mask = apply(model_name, input_data, GPU=GPU, model_path=model_path)
 
         if output_dir is not None:
             output_file = seg_module.write_file(model_name, f, output_dir, mask)
