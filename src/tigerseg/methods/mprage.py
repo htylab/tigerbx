@@ -41,13 +41,17 @@ def run_SingleModel(model_ff, input_data, GPU):
 
     data = input_data.copy()
     do_transform = False
-    if 'r128' in model_str:
+
+    if 'r128' in model_str and data.shape != (128, 128, 128):
+
         data = transform.resize(data, (128, 128, 128),
                                 preserve_range=True)
         do_transform = True
-    elif 'r256' in model_str:
-        
-        pass
+    elif 'r256' in model_str and data.shape != (256, 256, 256):
+
+        data = transform.resize(data, (256, 256, 256),
+                                preserve_range=True)
+        do_transform = True
 
     image = data[None, ...][None, ...]
     image = image/np.max(image)
@@ -86,9 +90,20 @@ def run_SingleModel(model_ff, input_data, GPU):
 
 def read_file(model_ff, input_file):
 
-    affine, shape = get_affine(mat_size=256)
-    vol = resample_img(nib.load(input_file), target_affine=affine, target_shape=shape).get_fdata()
-    #vol = resample_to_img(nib.load(input_file), nib.load(r"C:\expdata\nchu_cine\template256.nii.gz")).get_fdata()
+    seg_mode, model_str = basename(model_ff).split('_')[2:4] #aseg43, bet  
+
+    if 'r128' in model_str:
+        affine, shape = get_affine(mat_size=128)
+        vol = resample_img(nib.load(input_file),
+                           target_affine=affine, target_shape=shape).get_fdata()
+
+    elif 'r256' in model_str:
+
+        affine, shape = get_affine(mat_size=256)
+        vol = resample_img(nib.load(input_file),
+                           target_affine=affine, target_shape=shape).get_fdata()
+    else:
+        vol = nib.load(input_file).get_fdata()
     return vol 
 
 
@@ -97,22 +112,31 @@ def write_file(model_ff, input_file, output_dir, mask):
     if not isdir(output_dir):
         print('Output dir does not exist.')
         return 0
+    seg_mode, model_str = basename(model_ff).split('_')[2:4] #aseg43, bet 
 
     output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
-    output_file = output_file + '_pred.nii.gz'
+    output_file = output_file + f'_{seg_mode}.nii.gz'
     output_file = join(output_dir, output_file)
     print('Writing output file: ', output_file)
 
     input_nib = nib.load(input_file)
-    affine = input_nib.affine
+    input_affine = input_nib.affine
     zoom = input_nib.header.get_zooms()
     
-    target_affine, _ = get_affine(mat_size=256)
+    do_resample = False
+    if 'r128' in model_str:
+        do_resample = True
+        target_affine, _ = get_affine(mat_size=128)
+    elif 'r256' in model_str:
+        do_resample = True
+        target_affine, _ = get_affine(mat_size=256)
     #result = nib.Nifti1Image(mask.astype(np.uint8), reorder_img(input_nib, resample='linear').affine)
-    result = nib.Nifti1Image(mask.astype(np.uint8), target_affine)
-
+    if do_resample:
+        result = nib.Nifti1Image(mask.astype(np.uint8), target_affine)    
+        result = resample_to_img(result, input_nib, interpolation="nearest")
+    else:
+        result = nib.Nifti1Image(mask.astype(np.uint8), input_affine)
     
-    result = resample_to_img(result, input_nib, interpolation="nearest")
     result.header.set_zooms(zoom)
 
     nib.save(result, output_file)
