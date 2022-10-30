@@ -38,6 +38,7 @@ setup(
              'nilearn>=0.9.1',
              'onnxruntime>1.9.0',
              'simpleitk>=2.2.0',
+             'scikit-image',
              'tqdm'
 
          ]
