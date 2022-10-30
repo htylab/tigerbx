@@ -40,13 +40,13 @@ def run_SingleModel(model_ff, input_data, GPU):
     seg_mode, model_str = basename(model_ff).split('_')[2:4] #aseg43, bet  
 
     data = input_data.copy()
-
+    do_transform = False
     if 'r128' in model_str:
         data = transform.resize(data, (128, 128, 128),
                                 preserve_range=True)
         do_transform = True
     elif 'r256' in model_str:
-        do_transform = False
+        
         pass
 
     image = data[None, ...][None, ...]
