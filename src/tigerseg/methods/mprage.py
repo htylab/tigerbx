@@ -20,7 +20,7 @@ def get_affine(mat_size=256):
     new_affine = np.zeros((4, 4))
     new_affine[:3, :3] = np.diag(new_resolution)
     # putting point 0,0,0 in the middle of the new volume - this could be refined in the future
-    new_affine[:3, 3] = target_shape*new_resolution/2.*-1
+    new_affine[:3, 3] = target_shape * new_resolution/2.*-1
     new_affine[3, 3] = 1.
     #print(model_ff, target_shape)
     return new_affine, target_shape
@@ -44,7 +44,9 @@ def run_SingleModel(model_ff, input_data, GPU):
     if 'r128' in model_str:
         data = transform.resize(data, (128, 128, 128),
                                 preserve_range=True)
+        do_transform = True
     elif 'r256' in model_str:
+        do_transform = False
         pass
 
     image = data[None, ...][None, ...]
@@ -74,7 +76,8 @@ def run_SingleModel(model_ff, input_data, GPU):
 
         mask_pred = mask_pred_relabel
 
-    mask_pred = transform.resize(mask_pred, input_data.shape,
+    if do_transform:
+        mask_pred = transform.resize(mask_pred, input_data.shape,
                                     order=0, preserve_range=True)
 
    
