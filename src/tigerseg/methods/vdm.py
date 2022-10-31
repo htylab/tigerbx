@@ -70,7 +70,7 @@ def write_file(model_ff, input_file, output_dir, vol_out):
         return 0
 
     output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
-    output_file = output_file + '_pred.nii.gz'
+    output_file = output_file + '_vdm.nii.gz'
     output_file = join(output_dir, output_file)
     print('Writing output file: ', output_file)
 
