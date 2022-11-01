@@ -17,14 +17,10 @@ def getLarea(input_mask):
     from scipy import ndimage
     labeled_mask, cc_num = ndimage.label(input_mask)
     if cc_num > 0:
-
-
-    
-    try:
         labeled_mask, cc_num = ndimage.label(input_mask)
         mask = (labeled_mask == (np.bincount(
             labeled_mask.flat)[1:].argmax() + 1))
-    except:
+    else:
         mask = input_mask
     return mask
 
