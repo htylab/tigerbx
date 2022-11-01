@@ -13,13 +13,15 @@ import numpy as np
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
-model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
+#model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
+model_server = 'https://data.mrilab.org/onnxmodel/'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
+# print(model_path)
 os.makedirs(model_path, exist_ok=True)
 
-def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
+def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_path=model_path):
 
-    seg_method = model_name.split('_')[0]
+    seg_method = basename(model_name).split('_')[0]
     seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
     
     print('Total nii files:', len(input_file_list))
@@ -34,7 +36,7 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
           
         input_data = seg_module.read_file(model_name, f)
         
-        mask = apply(model_name, input_data,  GPU=GPU)
+        mask = apply(model_name, input_data, GPU=GPU, model_path=model_path)
 
         if output_dir is not None:
             output_file = seg_module.write_file(model_name, f, output_dir, mask)
@@ -52,14 +54,6 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
 
 
 def apply(model_name, input_data, GPU=False, model_path=model_path):
-    #apply 只處理 numpy array --> model --> mask output
-    #有三種模式
-    #
-
-   
-    seg_method = model_name.split('_')[0]
-    seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
-    run_SingleModel = getattr(seg_module, 'run_SingleModel')
 
     #download model files
     model_ffs = []
@@ -82,6 +76,14 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
             urllib.request.urlretrieve(model_url, model_file)
         
     #todo: verify model files
+
+        #apply 只處理 numpy array --> model --> mask output
+    #有三種模式
+    #
+
+    seg_method = basename(model_ffs[0]).split('_')[0]
+    seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
+    run_SingleModel = getattr(seg_module, 'run_SingleModel')
 
     
     if '#' in model_name: #model ensemble by softmax summation

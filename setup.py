@@ -11,7 +11,7 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.5',
+     version='0.1.6',
      description='Package for subcortical brain segmentation',
      long_description_content_type='text/x-rst',
      url='https://github.com/htylab',
@@ -27,14 +27,19 @@ setup(
             'tigerseg = tigerseg.console.__main__:main',
             'cine4d = tigerseg.console.__cine4d__:main',
             'aseg = tigerseg.console.__aseg__:main',
-            'tigerbet = tigerseg.console.__tigerbet__:main'
+            'aseg2 = tigerseg.console.__aseg2__:main',
+            'tigerbet = tigerseg.console.__tigerbet__:main',
+            'vdm = tigerseg.console.__vdm__:main',
         ]
     },
      python_requires='>=3.6',
      install_requires=[
              'numpy>=1.16.0',
              'nilearn>=0.9.1',
-             'onnxruntime>1.9.0'
+             'onnxruntime>1.9.0',
+             'simpleitk>=2.2.0',
+             'scikit-image',
+             'tqdm'
 
          ]
 )
