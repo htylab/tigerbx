@@ -79,7 +79,7 @@ def run_SingleModel(model_ff, input_data, GPU):
             from scipy.special import expit
             logits = expit(logits)
         mask_pred = np.argmax(logits, axis=0) + 1
-        mask_pred[np.max(logits, axis=0) <=0.5] = 0
+        mask_pred[np.max(logits, axis=0) <=0.6] = 0
         mask_pred = getLarea(mask_pred)
         prob = logits
     else:
