@@ -11,7 +11,7 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.5',
+     version='0.1.6',
      description='Package for subcortical brain segmentation',
      long_description_content_type='text/x-rst',
      url='https://github.com/htylab',
