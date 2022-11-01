@@ -13,6 +13,21 @@ labels = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,44,46,4
 nib.Nifti1Header.quaternion_threshold = -100
 
 
+def getLarea(input_mask):
+    from scipy import ndimage
+    labeled_mask, cc_num = ndimage.label(input_mask)
+    if cc_num > 0:
+
+
+    
+    try:
+        labeled_mask, cc_num = ndimage.label(input_mask)
+        mask = (labeled_mask == (np.bincount(
+            labeled_mask.flat)[1:].argmax() + 1))
+    except:
+        mask = input_mask
+    return mask
+
 def get_affine(mat_size=256):
 
     target_shape = np.array((mat_size, mat_size, mat_size))
@@ -68,7 +83,7 @@ def run_SingleModel(model_ff, input_data, GPU):
             from scipy.special import expit
             logits = expit(logits)
         mask_pred = np.argmax(logits, axis=0) + 1
-        mask_pred[np.max(logits, axis=0) < 0.51] = 0
+        mask_pred[np.max(logits, axis=0) <=0.55] = 0
         prob = logits
     else:
         #softmax mode
