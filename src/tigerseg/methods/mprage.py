@@ -64,6 +64,9 @@ def run_SingleModel(model_ff, input_data, GPU):
 
     if label_num[seg_mode] > logits.shape[0]:
         #sigmoid mode
+        if seg_mode == 'bet':
+            from scipy.special import expit
+            logits = expit(logits)
         mask_pred = np.argmax(logits, axis=0) + 1
         mask_pred[np.max(logits, axis=0) < 0.5] = 0
         prob = logits
