@@ -114,8 +114,11 @@ def write_file(model_ff, input_file, output_dir, mask):
         return 0
     seg_mode, model_str = basename(model_ff).split('_')[2:4] #aseg43, bet 
 
-    output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
-    output_file = output_file + f'_{seg_mode}.nii.gz'
+    #output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '')
+
+    output_file = basename(input_file).replace('.nii', f'_{seg_mode}.nii')
+    
+    #output_file = output_file + f'_{seg_mode}.nii.gz'
     output_file = join(output_dir, output_file)
     print('Writing output file: ', output_file)
 
