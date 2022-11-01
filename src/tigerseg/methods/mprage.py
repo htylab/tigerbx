@@ -153,7 +153,7 @@ def predict(model, data, GPU):
     so.intra_op_num_threads = 4
     so.inter_op_num_threads = 4
 
-    if GPU and (ort.get_device() == "GPU"):
+    if GPU:
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
         session = ort.InferenceSession(model,
                                        providers=['CUDAExecutionProvider'],
