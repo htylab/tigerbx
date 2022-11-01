@@ -33,8 +33,7 @@ def run_SingleModel(model_ff, input_data, GPU):
     so.inter_op_num_threads = 4
     print('************', so.intra_op_num_threads)
     '''
-    if GPU:
-        print('Using GPU...')
+    if GPU and (ort.get_device() == "GPU"):
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
         session = ort.InferenceSession(model_ff,
                                        providers=['CUDAExecutionProvider'],
