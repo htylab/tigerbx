@@ -46,7 +46,7 @@ def main():
         print('Processing :', os.path.basename(f))
         t = time.time()
             
-        input_data = read_file(model_name, f)
+        input_data = tigerseg.methods.mprage.read_file(model_name, f)
 
         mask = tigerseg.segment.apply(model_name, input_data,  GPU=args.gpu)
 
