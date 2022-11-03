@@ -57,9 +57,9 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
-            mask_file, mask_niimem = tigerseg.methods.mprage.write_file(model_name,
-                                               f, f_output_dir, 
-                                               mask, postfix='tbetmask', inmem=True)
+        mask_file, mask_niimem = tigerseg.methods.mprage.write_file(model_name,
+                                            f, f_output_dir, 
+                                            mask, postfix='tbetmask', inmem=True)
 
         if args.maskonly:
 
