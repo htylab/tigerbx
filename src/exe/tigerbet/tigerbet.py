@@ -4,8 +4,7 @@ from os.path import basename, join, isdir
 import argparse
 import time
 import tigerseg.segment
-#import tigerseg.methods.mprage
-from tigerseg.methods.mprage import read_file, write_file
+import tigerseg.methods.mprage
 from distutils.util import strtobool
 import glob
 import platform
@@ -59,14 +58,19 @@ def main():
             os.makedirs(f_output_dir, exist_ok=True)
 
         if args.maskonly:
-            write_file(model_name, f, f_output_dir, mask, postfix='tbetmask')
+
+            tigerseg.methods.mprage.write_file(model_name,
+             f, f_output_dir, mask, postfix='tbetmask')
         
         else:
-            write_file(model_name, f, f_output_dir, input_data*mask,
+            tigerseg.methods.mprage.write_file(model_name,
+             f, f_output_dir, input_data*mask,
                 postfix='tbet', dtype='orig')
             
             if args.mask:
-                write_file(model_name, f, f_output_dir, mask, postfix='tbetmask')
+                tigerseg.methods.mprage.write_file(model_name,
+                 f, f_output_dir, mask, postfix='tbetmask')
+
 
 
 
