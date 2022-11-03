@@ -18,7 +18,9 @@ def main():
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('-m', '--mask', action='store_true', help='Produced mask')
+    parser.add_argument('-m', '--mask', action='store_true', help='Producing mask')
+    parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
+    parser.add_argument('--maskonly', action='store_true', help='Producing only bet mask')
     parser.add_argument('--model', default=default_model, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
@@ -33,7 +35,10 @@ def main():
 
     output_dir = args.output
 
-    model_name = args.model    
+    if args.fast:
+        model_name = 'mprage_v0002_bet_kuor128.onnx'
+    else:
+        model_name = args.model    
 
     print('Total nii files:', len(input_file_list))
 
@@ -53,11 +58,15 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
-        write_file(model_name, f, f_output_dir, input_data*mask,
-            postfix='bet', dtype='orig')
+        if args.maskonly:
+            write_file(model_name, f, f_output_dir, mask, postfix='tbetmask')
         
-        if args.mask:
-            write_file(model_name, f, f_output_dir, mask, postfix='betmask')
+        else:
+            write_file(model_name, f, f_output_dir, input_data*mask,
+                postfix='tbet', dtype='orig')
+            
+            if args.mask:
+                write_file(model_name, f, f_output_dir, mask, postfix='tbetmask')
 
 
 
