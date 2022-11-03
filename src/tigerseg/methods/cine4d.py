@@ -99,7 +99,7 @@ def read_file(model_ff, input_file):
 
     return nib.load(input_file).get_fdata()
 
-def write_file(model_ff, input_file, output_dir, mask):
+def write_file(model_ff, input_file, output_dir, mask, inmem=False):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
@@ -118,9 +118,10 @@ def write_file(model_ff, input_file, output_dir, mask):
 
     #if 'mprage' in model_name:
     #result = resample_to_img(result, f, interpolation="nearest")
+    if not inmem:
+        nib.save(result, output_file)
 
-    nib.save(result, output_file)
-    return output_file
+    return output_file, result
 
 
 

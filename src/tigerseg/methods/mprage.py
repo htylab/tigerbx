@@ -131,7 +131,8 @@ def read_file(model_ff, input_file):
     return vol 
 
 
-def write_file(model_ff, input_file, output_dir, mask, postfix=None, dtype='mask'):
+def write_file(model_ff, input_file, output_dir,
+               mask, postfix=None, dtype='mask', inmem=False):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
@@ -162,9 +163,10 @@ def write_file(model_ff, input_file, output_dir, mask, postfix=None, dtype='mask
     result = resample_to_img(result, input_nib, interpolation="nearest")
     result.header.set_zooms(zoom)
 
-    nib.save(result, output_file)
+    if not inmem:        
+        nib.save(result, output_file)
 
-    return output_file
+    return output_file, result
 
 
 def predict(model, data, GPU):

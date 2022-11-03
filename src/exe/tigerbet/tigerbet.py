@@ -5,9 +5,9 @@ import argparse
 import time
 import tigerseg.segment
 import tigerseg.methods.mprage
-from distutils.util import strtobool
 import glob
 import platform
+import nibabel as nib
 
 
 def main():
@@ -57,19 +57,32 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
+            mask_file, mask_niimem = tigerseg.methods.mprage.write_file(model_name,
+                                               f, f_output_dir, 
+                                               mask, postfix='tbetmask', inmem=True)
+
         if args.maskonly:
 
-            tigerseg.methods.mprage.write_file(model_name,
-             f, f_output_dir, mask, postfix='tbetmask')
+            nib.save(mask_niimem, mask_file)
         
         else:
-            tigerseg.methods.mprage.write_file(model_name,
-             f, f_output_dir, input_data*mask,
-                postfix='tbet', dtype='orig')
+            input_nib = nib.load(f)
+            bet = input_nib.get_fdata() * mask_niimem.get_fdata()
+            bet = bet.astype(
+                input_nib.dataobj.dtype)
+
+            bet = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
+
+            output_file = basename(f).replace(
+                '.nii', f'_tbet.nii')
+            output_file = join(f_output_dir, output_file)
+            nib.save(bet, output_file)
+            print('Writing output file: ', output_file)
             
+             
             if args.mask:
-                tigerseg.methods.mprage.write_file(model_name,
-                 f, f_output_dir, mask, postfix='tbetmask')
+                nib.save(mask_niimem, mask_file)
+
 
 
 
