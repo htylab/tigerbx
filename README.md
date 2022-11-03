@@ -48,8 +48,10 @@ input_file_list = glob.glob(r"C:\sample\*o.nii")
 result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 
 ```
-## Label names:
-# ASEG
+# Label names:
+## cine4d
+1: LV blood pool, 2: Myocardium, 3: RV blood pool
+## ASEG
 
 | Label No. | Structure Name                | Label No. | Structure Name               |
 | --------- | ----------------------------- | --------- | ---------------------------- |

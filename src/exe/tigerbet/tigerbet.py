@@ -4,8 +4,8 @@ from os.path import basename, join, isdir
 import argparse
 import time
 import tigerseg.segment
-#import tigerseg.methods.mprage
-from tigerseg.methods.mprage import read_file, write_file
+import tigerseg.methods.mprage
+#from tigerseg.methods.mprage import read_file, write_file
 from distutils.util import strtobool
 import glob
 import platform
@@ -47,7 +47,7 @@ def main():
         print('Processing :', os.path.basename(f))
         t = time.time()
             
-        input_data = read_file(model_name, f)
+        input_data = tigerseg.methods.mprage.read_file(model_name, f)
 
         mask = tigerseg.segment.apply(model_name, input_data,  GPU=args.gpu)
 
@@ -59,14 +59,17 @@ def main():
             os.makedirs(f_output_dir, exist_ok=True)
 
         if args.maskonly:
-            write_file(model_name, f, f_output_dir, mask, postfix='tbetmask')
+            tigerseg.methods.mprage.write_file(model_name,
+             f, f_output_dir, mask, postfix='tbetmask')
         
         else:
-            write_file(model_name, f, f_output_dir, input_data*mask,
+            tigerseg.methods.mprage.write_file(model_name,
+             f, f_output_dir, input_data*mask,
                 postfix='tbet', dtype='orig')
             
             if args.mask:
-                write_file(model_name, f, f_output_dir, mask, postfix='tbetmask')
+                tigerseg.methods.mprage.write_file(model_name,
+                 f, f_output_dir, mask, postfix='tbetmask')
 
 
 
