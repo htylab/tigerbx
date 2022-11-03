@@ -32,7 +32,7 @@ setup(
             'vdm = tigerseg.console.__vdm__:main',
         ]
     },
-     python_requires='>=3.7',
+     python_requires='>=3.6',
      install_requires=[
              'numpy>=1.16.0',
              'nilearn>=0.9.1',
