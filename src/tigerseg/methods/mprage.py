@@ -144,7 +144,7 @@ def write_file(model_ff, input_file, output_dir,
     output_file = basename(input_file).replace('.nii', f'_{postfix}.nii')    
 
     output_file = join(output_dir, output_file)
-    print('Writing output file: ', output_file)
+    
     input_nib = nib.load(input_file)
     input_affine = input_nib.affine
     zoom = input_nib.header.get_zooms()    
@@ -165,6 +165,7 @@ def write_file(model_ff, input_file, output_dir,
 
     if not inmem:        
         nib.save(result, output_file)
+        print('Writing output file: ', output_file)
 
     return output_file, result
 
