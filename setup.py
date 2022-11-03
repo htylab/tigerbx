@@ -12,14 +12,14 @@ classifiers = [
 setup(
      name='tigerseg',
      version='0.1.6',
-     description='Package for subcortical brain segmentation',
+     description='Processing MRI images based on deep-learning',
      long_description_content_type='text/x-rst',
      url='https://github.com/htylab',
-     author='JENNSHIUAN',
-     author_email='danny092608@gmail.com',
+     author='Biomedical Imaging Lab, Taiwan Tech',
+     author_email='',
      License='MIT',
      classifiers=classifiers,
-     keywords='unet segmentation',
+     keywords='MRI segmentation',
      package_dir={"": "src"},
      packages=find_packages(where="src"),
      entry_points={
@@ -40,6 +40,5 @@ setup(
              'simpleitk>=2.0.0',
              'scikit-image',
              'tqdm'
-
          ]
 )

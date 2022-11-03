@@ -10,6 +10,11 @@ This package provides deep-learning segmentation models
 or
 
     pip install https://github.com/htylab/tigerseg/archive/release.zip
+    
+or install the nightly unstable build:
+
+    pip install git+https://github.com/htylab/tigerseg
+
 
 ## Usage
 
