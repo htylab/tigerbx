@@ -9,6 +9,7 @@ models/
 
 # Distribution / packaging
 .Python
+ignore/
 build/
 develop-eggs/
 dist/
