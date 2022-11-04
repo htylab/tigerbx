@@ -6,6 +6,8 @@
 ![tigerbet](./doc/tigerbet.png)
 ## Tutorial using tigerseg
 
+### Install stand-alone version
+    https://github.com/htylab/tigerseg/releases
 ### Install package
     
     pip install tigerseg
@@ -17,7 +19,7 @@ or
 or install the nightly unstable build:
 
     pip install git+https://github.com/htylab/tigerseg
-
+    
 
 ## Usage
 
