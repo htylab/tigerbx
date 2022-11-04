@@ -17,10 +17,10 @@ def main():
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('-m', '--mask', action='store_true', help='Producing bet mask')
+    parser.add_argument('-m', '--betmask', action='store_true', help='Producing bet mask')
     parser.add_argument('-a', '--aseg', action='store_true', help='Producing aseg mask')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    parser.add_argument('--nobrain', action='store_true', help='Producing only bet mask')
+    parser.add_argument('--onlymask', action='store_true', help='Producing only masks')
     parser.add_argument('--model', default=default_model, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
@@ -66,7 +66,7 @@ def main():
 
 
         
-        if not args.nobrain:
+        if not args.onlymask:
             input_nib = nib.load(f)
             bet = input_nib.get_fdata() * mask_niimem.get_fdata()
             bet = bet.astype(
@@ -81,7 +81,7 @@ def main():
             print('Writing output file: ', output_file)
             
              
-        if args.mask:
+        if args.betmask:
             nib.save(mask_niimem, mask_file)
             print('Writing output file: ', mask_file)
 
