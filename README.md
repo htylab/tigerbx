@@ -1,6 +1,6 @@
 ## Background
 This package provides deep-learning segmentation models
-
+![tigerbet](./doc/tigerbet_intro.gif)
 ## Tutorial using tigerseg
 
 ### Install package
