@@ -131,16 +131,20 @@ def read_file(model_ff, input_file):
     return vol 
 
 
-def write_file(model_ff, input_file, output_dir, mask):
+def write_file(model_ff, input_file, output_dir,
+               mask, postfix=None, dtype='mask', inmem=False):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
         return 0
     seg_mode, model_str = basename(model_ff).split('_')[2:4] #aseg43, bet 
-    output_file = basename(input_file).replace('.nii', f'_{seg_mode}.nii')    
+    if postfix is None:
+        postfix = seg_mode
+    
+    output_file = basename(input_file).replace('.nii', f'_{postfix}.nii')    
 
     output_file = join(output_dir, output_file)
-    print('Writing output file: ', output_file)
+    
     input_nib = nib.load(input_file)
     input_affine = input_nib.affine
     zoom = input_nib.header.get_zooms()    
@@ -152,14 +156,18 @@ def write_file(model_ff, input_file, output_dir, mask):
     else:
         target_affine = reorder_img(nib.load(input_file), resample='linear').affine
 
-
-    result = nib.Nifti1Image(mask.astype(np.uint8), target_affine)
+    if dtype == 'orig':
+        result = nib.Nifti1Image(mask.astype(input_nib.dataobj.dtype), target_affine)
+    else:
+        result = nib.Nifti1Image(mask.astype(np.uint8), target_affine)
     result = resample_to_img(result, input_nib, interpolation="nearest")
     result.header.set_zooms(zoom)
 
-    nib.save(result, output_file)
+    if not inmem:        
+        nib.save(result, output_file)
+        print('Writing output file: ', output_file)
 
-    return output_file
+    return output_file, result
 
 
 def predict(model, data, GPU):

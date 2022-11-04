@@ -32,18 +32,17 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
 
         print('Predicting:', f)
         t = time.time()
-
           
         input_data = seg_module.read_file(model_name, f)
         
         mask = apply(model_name, input_data, GPU=GPU, model_path=model_path)
 
         if output_dir is not None:
-            output_file = seg_module.write_file(model_name, f, output_dir, mask)
+            output_file, _ = seg_module.write_file(model_name, f, output_dir, mask)
             output_file_list.append(output_file)
 
         else:
-            output_file = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
+            output_file, _ = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
             output_file_list.append(output_file)
 
 
