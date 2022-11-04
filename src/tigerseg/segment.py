@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
-model_server = 'https://data.mrilab.org/onnxmodel/release016'
+model_server = 'https://data.mrilab.org/onnxmodel/'
 model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
 # print(model_path)
 os.makedirs(model_path, exist_ok=True)
