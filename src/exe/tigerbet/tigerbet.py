@@ -10,6 +10,7 @@ import platform
 import nibabel as nib
 
 
+
 def main():
 
     default_model = 'mprage_v0004_bet_full.onnx'    
@@ -19,8 +20,10 @@ def main():
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
     parser.add_argument('-m', '--betmask', action='store_true', help='Producing bet mask')
     parser.add_argument('-a', '--aseg', action='store_true', help='Producing aseg mask')
+    parser.add_argument('-b', '--bet', action='store_true', help='Producing bet mask')
+    parser.add_argument('-d', '--deepgm', action='store_true',
+                        help='Producing deepgm mask')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    parser.add_argument('--onlymask', action='store_true', help='Producing only masks')
     parser.add_argument('--model', default=default_model, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
@@ -35,12 +38,17 @@ def main():
 
     output_dir = args.output
 
+    #model_name = args.model
+    #model_aseg = 'mprage_v0006_aseg43_full.onnx'
+
+    
     if args.fast:
         model_name = 'mprage_v0002_bet_kuor128.onnx'
         model_aseg = 'mprage_v0001_aseg43_MXRWr128.onnx'
     else:
         model_name = args.model
         model_aseg = 'mprage_v0005_aseg43_full.onnx'
+    
 
     print('Total nii files:', len(input_file_list))
 
@@ -66,7 +74,7 @@ def main():
 
 
         
-        if not args.onlymask:
+        if args.bet:
             input_nib = nib.load(f)
             bet = input_nib.get_fdata() * mask_niimem.get_fdata()
             bet = bet.astype(
@@ -85,7 +93,7 @@ def main():
             nib.save(mask_niimem, mask_file)
             print('Writing output file: ', mask_file)
 
-        if args.aseg:
+        if args.aseg or args.deepgm:
             input_nib = nib.load(f)
             input_data = tigerseg.methods.mprage.read_file(model_aseg, f)
             asegmask = tigerseg.segment.apply(
@@ -96,9 +104,29 @@ def main():
             aseg = aseg_niimem.get_fdata() * mask_niimem.get_fdata()
             aseg = aseg.astype(int)
 
-            aseg = nib.Nifti1Image(aseg, input_nib.affine, input_nib.header)
-            nib.save(aseg, aseg_file)
-            print('Writing output file: ', aseg_file)
+            if args.aseg:
+                asegnii = nib.Nifti1Image(aseg, input_nib.affine, input_nib.header)
+                nib.save(asegnii, aseg_file)
+                print('Writing output file: ', aseg_file)
+
+            if args.deepgm:
+                deepgm = aseg * 0
+                count = 0
+                for ii in [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]:
+                    count += 1
+                    deepgm[aseg==ii] = count
+
+                deepgm = deepgm.astype(int)
+
+                output_file = basename(f).replace(
+                    '.nii', f'_deegm.nii')
+                output_file = join(f_output_dir, output_file)
+                deepgm = nib.Nifti1Image(
+                    deepgm, input_nib.affine, input_nib.header)
+                nib.save(deepgm, output_file)
+                print('Writing output file: ', output_file)
+
+            
             
             
 

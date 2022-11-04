@@ -1,8 +1,6 @@
 ## Background
 This package provides deep-learning segmentation models
-
 ![tigerbet](./doc/tigerbet.png)
-
 ## Tutorial using tigerseg
 
 ### Install package
@@ -39,7 +37,7 @@ For cine cardiac MRI segmentation:
 
 For skull-stripping on 3D T1-weighted images:
 
-    tigerbet -i c:\data\*.nii.gz -o c:\output
+    pybet -i c:\data\*.nii.gz -o c:\output
 
 For VDM method on EPI images:
 
@@ -59,9 +57,9 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 ## cine4d
 1: LV blood pool, 2: Myocardium, 3: RV blood pool
 ## ASEG
+
 | Label No. | Structure Name                | Label No. | Structure Name               |
 | --------- | ----------------------------- | --------- | ---------------------------- |
-| 2         | Left-Cerebral-White-Matter    | 49        | Right-Thalamus-Proper        |
 | 4         | Left-Lateral-Ventricle        | 50        | Right-Caudate                |
 | 5         | Left-Inf-Lat-Vent             | 51        | Right-Putamen                |
 | 7         | Left-Cerebellum-White-Matter  | 52        | Right-Pallidum               |
@@ -80,8 +78,18 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 | 28        | Left-VentralDC                | 82        | Right-non-WM-hypointensities |
 | 30        | Left-vessel                   | 85        | Optic-Chiasm                 |
 | 31        | Left-choroid-plexus           | 251       | CC\_Posterior                |
-| 41        | Right-Cerebral-White-Matter   | 252       | CC\_Mid\_Posterior           |
-| 43        | Right-Lateral-Ventricle       | 253       | CC\_Central                  |
-| 44        | Right-Inf-Lat-Vent            | 254       | CC\_Mid\_Anterior            |
-| 46        | Right-Cerebellum-White-Matter | 255       | CC\_Anterior                 |
-| 47        | Right-Cerebellum-Cortex       |           |                              |
+| 43        | Right-Lateral-Ventricle       | 252       | CC\_Mid\_Posterior           |
+| 44        | Right-Inf-Lat-Vent            | 253       | CC\_Central                  |
+| 46        | Right-Cerebellum-White-Matter | 254       | CC\_Mid\_Anterior            |
+| 47        | Right-Cerebellum-Cortex       | 255       | CC\_Anterior                 |
+| 49        | Right-Thalamus-Proper         |           |                              |
+
+## DeepGM: Deep gray-matter structures extracted from ASEG
+| Label No. | Structure Name       | Label No. | Structure Name        |
+| --------- | -------------------- | --------- | --------------------- |
+| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
+| 3         | Left-Caudate         | 4         | Right-Caudate         |
+| 5         | Left-Putamen         | 6         | Right-Putamen         |
+| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
+| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
+| 11        | Left-Amygdala        | 12        | Right-Amygdala        |

@@ -11,7 +11,7 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.6',
+     version='0.1.7',
      description='Processing MRI images based on deep-learning',
      long_description_content_type='text/x-rst',
      url='https://github.com/htylab',
@@ -28,7 +28,7 @@ setup(
             'cine4d = tigerseg.console.__cine4d__:main',
             'aseg = tigerseg.console.__aseg__:main',
             'aseg2 = tigerseg.console.__aseg2__:main',
-            'tigerbetpy = tigerseg.console.__tigerbet__:main',
+            'pybet = tigerseg.console.__tigerbet__:main',
             'vdm = tigerseg.console.__vdm__:main',
         ]
     },
