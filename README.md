@@ -57,9 +57,9 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 ## cine4d
 1: LV blood pool, 2: Myocardium, 3: RV blood pool
 ## ASEG
-
 | Label No. | Structure Name                | Label No. | Structure Name               |
 | --------- | ----------------------------- | --------- | ---------------------------- |
+| 2         | Left-Cerebral-White-Matter    | 49        | Right-Thalamus-Proper        |
 | 4         | Left-Lateral-Ventricle        | 50        | Right-Caudate                |
 | 5         | Left-Inf-Lat-Vent             | 51        | Right-Putamen                |
 | 7         | Left-Cerebellum-White-Matter  | 52        | Right-Pallidum               |
@@ -78,8 +78,8 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 | 28        | Left-VentralDC                | 82        | Right-non-WM-hypointensities |
 | 30        | Left-vessel                   | 85        | Optic-Chiasm                 |
 | 31        | Left-choroid-plexus           | 251       | CC\_Posterior                |
-| 43        | Right-Lateral-Ventricle       | 252       | CC\_Mid\_Posterior           |
-| 44        | Right-Inf-Lat-Vent            | 253       | CC\_Central                  |
-| 46        | Right-Cerebellum-White-Matter | 254       | CC\_Mid\_Anterior            |
-| 47        | Right-Cerebellum-Cortex       | 255       | CC\_Anterior                 |
-| 49        | Right-Thalamus-Proper         |           |                              |
+| 41        | Right-Cerebral-White-Matter   | 252       | CC\_Mid\_Posterior           |
+| 43        | Right-Lateral-Ventricle       | 253       | CC\_Central                  |
+| 44        | Right-Inf-Lat-Vent            | 254       | CC\_Mid\_Anterior            |
+| 46        | Right-Cerebellum-White-Matter | 255       | CC\_Anterior                 |
+| 47        | Right-Cerebellum-Cortex       |           |                              |
