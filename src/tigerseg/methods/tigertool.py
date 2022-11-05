@@ -123,7 +123,7 @@ def predict(model, data, GPU):
     #from .tool import cpu_count
 
     so = ort.SessionOptions()
-    cpu = max(int(cpu_count()*0.75), 1)
+    cpu = max(int(cpu_count()*0.8), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
 
