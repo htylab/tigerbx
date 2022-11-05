@@ -2,12 +2,11 @@ import glob
 from os.path import join, basename, isdir
 import os
 import numpy as np
-from scipy.io import savemat
 import nibabel as nib
-import onnxruntime as ort
 from scipy.special import softmax
 from skimage import transform
 from nilearn.image import reorder_img, resample_to_img, resample_img
+from .tigertool import predict
 
 labels = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,44,46,47,49,50,51,52,53,54,58,60,62,63,77,85,251,252,253,254,255)
 nib.Nifti1Header.quaternion_threshold = -100
@@ -35,17 +34,7 @@ def get_affine(mat_size=256):
     new_affine[3, 3] = 1.
     #print(model_ff, target_shape)
     return new_affine, target_shape
-'''
-def get_resample(input_file, matrix=128):
 
-    target_affine = [  [  1,  0,  0,  -94], [  0,  1,  0, -111],
-                [  0,  0,  1, -147], [  0,  0,  0,    1]]
-    
-    target_affine = np.array(target_affine)
-    target_shape = [192, 256, 256]
-
-    return target_affine, target_shape
-'''
 def run_SingleModel(model_ff, input_data, GPU):
 
     seg_mode, model_str = basename(model_ff).split('_')[2:4] #aseg43, bet  
@@ -168,28 +157,6 @@ def write_file(model_ff, input_file, output_dir,
         print('Writing output file: ', output_file)
 
     return output_file, result
-
-
-def predict(model, data, GPU):
-
-    so = ort.SessionOptions()
-    so.intra_op_num_threads = 4
-    so.inter_op_num_threads = 4
-
-    if GPU and (ort.get_device() == "GPU"):
-        #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
-        session = ort.InferenceSession(model,
-                                       providers=['CUDAExecutionProvider'],
-                                       sess_options=so)
-    else:
-        session = ort.InferenceSession(model,
-                                       providers=['CPUExecutionProvider'],
-                                       sess_options=so)
-    data_type = 'float64'
-    if session.get_inputs()[0].type == 'tensor(float)':
-        data_type = 'float32'  
-
-    return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
 
 
 
