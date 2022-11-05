@@ -59,8 +59,14 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 
 ```
 # Label names:
+
 ## cine4d
-1: LV blood pool, 2: Myocardium, 3: RV blood pool
+| Label No. | Structure Name            |
+| --------- | ------------------------- |
+| 1         | Left Ventricle blood      |
+| 2         | Left Ventricle Myocardium |
+| 3         | Right Ventricle blood     |
+
 ## ASEG
 | Label No. | Structure Name                | Label No. | Structure Name               |
 | --------- | ----------------------------- | --------- | ---------------------------- |
@@ -89,7 +95,7 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 | 46        | Right-Cerebellum-White-Matter | 255       | CC\_Anterior                 |
 | 47        | Right-Cerebellum-Cortex       |           |                              |
 
-## DeepGM: Deep gray-matter structures extracted from ASEG
+## DeepGM: Deep gray-matter structures
 | Label No. | Structure Name       | Label No. | Structure Name        |
 | --------- | -------------------- | --------- | --------------------- |
 | 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
