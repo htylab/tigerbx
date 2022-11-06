@@ -9,6 +9,7 @@ import time
 import importlib
 import nibabel as nib
 import numpy as np
+import sys
 
 
 
@@ -17,7 +18,17 @@ nib.Nifti1Header.quaternion_threshold = -100
 
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_server = 'https://data.mrilab.org/onnxmodel/'
-model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
+
+import sys
+
+
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(os.path.abspath(__file__))
+
+model_path = join(application_path, 'models')
 # print(model_path)
 os.makedirs(model_path, exist_ok=True)
 
