@@ -31,7 +31,7 @@ jobs:
     - name: Run Pyinstaller
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        run pyinstaller -c --icon=ico.ico -F ./src/exe/tigerbet/tigerbet.py
+        pyinstaller -c --icon=ico.ico -F ./src/exe/tigerbet/tigerbet.py
         
     - uses: actions/upload-artifact@v2
       with:
