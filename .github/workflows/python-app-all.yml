@@ -34,13 +34,15 @@ jobs:
         pip install .
         pip install pyinstaller
     - name: Run Pyinstaller
+      if: matrix.os == 'windows-latest'
       run: |
-        # stop the build if there are Python syntax errors or undefined names
-        if: matrix.os == 'windows-latest'
         pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/onnxruntime_providers_shared.dll;onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
-        if: matrix.os == 'ubuntu-18.04'
+        
+      if: matrix.os == 'ubuntu-18.04'
+      run: |
         pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
-        if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-latest'
+      run: |
         pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
         
     - uses: actions/upload-artifact@v2
