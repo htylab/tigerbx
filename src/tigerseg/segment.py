@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import shutil
 from math import factorial
 import os
 import warnings
@@ -8,6 +9,7 @@ import time
 import importlib
 import nibabel as nib
 import numpy as np
+
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -51,8 +53,17 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
 
     return output_file_list
 
+def download(url, file_name):
+    import urllib.request
+    import certifi
+    
+    with urllib.request.urlopen(url,
+         cafile=certifi.where()) as response, open(file_name, 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
 
 def apply(model_name, input_data, GPU=False, model_path=model_path):
+
+    #import urllib.request
 
     #download model files
     model_ffs = []
@@ -72,7 +83,8 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
         if not os.path.exists(model_file):
             print(f'Downloading model files....')
             print(model_url, model_file)
-            urllib.request.urlretrieve(model_url, model_file)
+            #urllib.request.urlretrieve(model_url, model_file)
+            download(model_url, model_file)
         
     #todo: verify model files
 
