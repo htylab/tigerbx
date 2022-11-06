@@ -33,3 +33,8 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         pyinstaller -c --icon=ico.ico -F ./src/exe/tigerbet/tigerbet.py
+        
+    - uses: actions/upload-artifact@v2
+      with:
+        name: outputname-of-artifact
+        path: ./src/exe/tigerbet/dist/*
