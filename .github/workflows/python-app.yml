@@ -37,4 +37,4 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: outputname-of-artifact
-        path: ./src/exe/tigerbet/dist/*
+        path: dist/*
