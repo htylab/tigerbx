@@ -25,14 +25,14 @@ jobs:
         python-version: "3.6"
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        pip install -r ./src/exe/tigerbet/requirements.txt
-
+        python -m pip install --upgrade pip        
+        pip install pipenv
+        pipenv install --site-packages https://github.com/htylab/tigerseg/archive/main.zip
+        pipenv install pyinstaller
     - name: Run Pyinstaller
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        pyinstaller -c --icon=ico.ico -F ./src/exe/tigerbet/tigerbet.py
+        pipenv run pyinstaller -c --icon=ico.ico -F ./src/exe/tigerbet/tigerbet.py
         
     - uses: actions/upload-artifact@v2
       with:
