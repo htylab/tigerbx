@@ -36,7 +36,7 @@ jobs:
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
-        pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/onnxruntime_providers_shared.dll:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
+        pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data "./src/exe/tigerbet/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./src/exe/tigerbet/tigerbet.py
     - name: Run Pyinstaller  2
       if: matrix.os == 'ubuntu-18.04'
       run: |
