@@ -1,7 +1,7 @@
 ## Background
 
 * This package provides deep-learning segmentation models.
-* We also provided the stand-alone application working on Linux and Windows.
+* We also provided the stand-alone application working on Windows, Mac, and Linux.
 
 ![tigerbet](./doc/tigerbet.png)
 ## Tutorial using tigerseg
