@@ -13,7 +13,7 @@ import nibabel as nib
 
 def main():
 
-    default_model = 'mprage_v0004_bet_full.onnx'    
+      
     parser = argparse.ArgumentParser()
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
@@ -24,7 +24,7 @@ def main():
     parser.add_argument('-d', '--deepgm', action='store_true',
                         help='Producing deepgm mask')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    parser.add_argument('--model', default=default_model, type=str, help='Specifies the modelname')
+    parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
 
@@ -50,14 +50,16 @@ def main():
     #model_name = args.model
     #model_aseg = 'mprage_v0006_aseg43_full.onnx'
 
-    
-    if args.fast:
-        model_name = 'mprage_v0002_bet_kuor128.onnx'
-        model_aseg = 'mprage_v0001_aseg43_MXRWr128.onnx'
+    if args.model is None:
+        if args.fast:
+            model_name = 'mprage_v0002_bet_kuor128.onnx'
+            model_aseg = 'mprage_v0001_aseg43_MXRWr128.onnx'
+        else:
+            model_name = 'mprage_v0004_bet_full.onnx'        
+            model_aseg = 'mprage_v0006_aseg43_full.onnx'
+            #model_aseg = 'mprage_v0003_aseg43_WangM1r256.onnx'
     else:
-        model_name = args.model
-        model_aseg = 'mprage_v0006_aseg43_full.onnx'
-        #model_aseg = 'mprage_v0003_aseg43_WangM1r256.onnx'
+        model_aseg, model_name = args.model.split('*')
     
 
     print('Total nii files:', len(input_file_list))
