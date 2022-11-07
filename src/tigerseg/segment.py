@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import shutil
 from math import factorial
 import os
 import warnings
@@ -8,6 +9,8 @@ import time
 import importlib
 import nibabel as nib
 import numpy as np
+import sys
+
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -15,7 +18,17 @@ nib.Nifti1Header.quaternion_threshold = -100
 
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_server = 'https://data.mrilab.org/onnxmodel/'
-model_path = join(os.path.dirname(os.path.abspath(__file__)), 'models')
+
+import sys
+
+
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(os.path.abspath(__file__))
+
+model_path = join(application_path, 'models')
 # print(model_path)
 os.makedirs(model_path, exist_ok=True)
 
@@ -32,18 +45,17 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
 
         print('Predicting:', f)
         t = time.time()
-
           
         input_data = seg_module.read_file(model_name, f)
         
         mask = apply(model_name, input_data, GPU=GPU, model_path=model_path)
 
         if output_dir is not None:
-            output_file = seg_module.write_file(model_name, f, output_dir, mask)
+            output_file, _ = seg_module.write_file(model_name, f, output_dir, mask)
             output_file_list.append(output_file)
 
         else:
-            output_file = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
+            output_file, _ = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
             output_file_list.append(output_file)
 
 
@@ -52,8 +64,17 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
 
     return output_file_list
 
+def download(url, file_name):
+    import urllib.request
+    import certifi
+    
+    with urllib.request.urlopen(url,
+         cafile=certifi.where()) as response, open(file_name, 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
 
 def apply(model_name, input_data, GPU=False, model_path=model_path):
+
+    #import urllib.request
 
     #download model files
     model_ffs = []
@@ -73,7 +94,8 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
         if not os.path.exists(model_file):
             print(f'Downloading model files....')
             print(model_url, model_file)
-            urllib.request.urlretrieve(model_url, model_file)
+            #urllib.request.urlretrieve(model_url, model_file)
+            download(model_url, model_file)
         
     #todo: verify model files
 

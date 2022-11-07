@@ -11,15 +11,15 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.6',
-     description='Package for subcortical brain segmentation',
+     version='0.1.7',
+     description='Processing MRI images based on deep-learning',
      long_description_content_type='text/x-rst',
      url='https://github.com/htylab',
-     author='JENNSHIUAN',
-     author_email='danny092608@gmail.com',
+     author='Biomedical Imaging Lab, Taiwan Tech',
+     author_email='',
      License='MIT',
      classifiers=classifiers,
-     keywords='unet segmentation',
+     keywords='MRI segmentation',
      package_dir={"": "src"},
      packages=find_packages(where="src"),
      entry_points={
@@ -28,7 +28,7 @@ setup(
             'cine4d = tigerseg.console.__cine4d__:main',
             'aseg = tigerseg.console.__aseg__:main',
             'aseg2 = tigerseg.console.__aseg2__:main',
-            'tigerbet = tigerseg.console.__tigerbet__:main',
+            'pybet = tigerseg.console.__tigerbet__:main',
             'vdm = tigerseg.console.__vdm__:main',
         ]
     },
@@ -37,9 +37,8 @@ setup(
              'numpy>=1.16.0',
              'nilearn>=0.9.1',
              'onnxruntime>1.9.0',
-             'simpleitk>=2.2.0',
+             'simpleitk>=2.0.0',
              'scikit-image',
              'tqdm'
-
          ]
 )

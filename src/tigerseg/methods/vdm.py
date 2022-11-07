@@ -63,7 +63,7 @@ def read_file(model_ff, input_file):
     return nib.load(input_file).get_fdata()
 
 
-def write_file(model_ff, input_file, output_dir, vol_out):
+def write_file(model_ff, input_file, output_dir, vol_out, inmem=False):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
@@ -80,9 +80,11 @@ def write_file(model_ff, input_file, output_dir, vol_out):
     result = nib.Nifti1Image(vol_out.astype(np.int16), affine)
 
     result.header.set_zooms(zoom)
-    nib.save(result, output_file)
 
-    return output_file
+    if not inmem:
+        nib.save(result, output_file)
+
+    return output_file, result
 
 
 def predict(model, data):
