@@ -56,8 +56,8 @@ def main():
             model_aseg = 'mprage_v0001_aseg43_MXRWr128.onnx'
         else:
             model_name = 'mprage_v0004_bet_full.onnx'        
-            model_aseg = 'mprage_v0006_aseg43_full.onnx'
-            #model_aseg = 'mprage_v0003_aseg43_WangM1r256.onnx'
+            #model_aseg = 'mprage_v0006_aseg43_full.onnx'
+            model_aseg = 'mprage_v0003_aseg43_WangM1r256.onnx'
     else:
         model_aseg, model_name = args.model.split('*')
     
