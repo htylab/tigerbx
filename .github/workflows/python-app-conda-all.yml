@@ -40,7 +40,7 @@ jobs:
         /usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
         /usr/share/miniconda/envs/foo/bin/pip install .
         #/usr/share/miniconda/envs/foo/bin/pip install pyinstaller
-        conda install --name numpy scipy pyinstaller
+        conda install --name foo numpy scipy pyinstaller
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
