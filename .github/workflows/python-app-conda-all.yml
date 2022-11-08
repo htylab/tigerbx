@@ -29,10 +29,11 @@ jobs:
         curl -LO https://repo.anaconda.com/miniconda/Miniconda3-py37_4.11.0-Linux-x86_64.sh
         bash Miniconda3-py37_4.11.0-Linux-x86_64.sh -p ./miniconda -b
         rm Miniconda3-py37_4.11.0-Linux-x86_64.sh
-        echo "export PATH=./miniconda/bin:$PATH" >> /etc/bash.bashrc
-        export PATH=./miniconda/bin:$PATH
+        #echo "export PATH=./miniconda/bin:$PATH" >> /etc/bash.bashrc
+        #export PATH=./miniconda/bin:$PATH
         pip install . pyinstaller
         conda install numpy scipy
+        echo "./miniconda/bin" >> $GITHUB_PATH
       env:
         PATH: /miniconda/bin:${PATH}
 
