@@ -44,7 +44,7 @@ jobs:
     - name: Run Pyinstaller  2
       if: matrix.os == 'ubuntu-18.04'
       run: |
-        /usr/share/miniconda/envs/foo/bin/python pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
+        /usr/share/miniconda/envs/foo/bin/python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
     - name: Run Pyinstaller 3
       if: matrix.os == 'macos-latest'
       run: |
