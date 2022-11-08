@@ -31,12 +31,13 @@ jobs:
       shell: bash -l {0}
       run: |
         conda create --name foo python=3.7
+        conda install --name foo pip numpy scipy
         conda activate foo
-        conda install --name foo pip
-        /usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
-        /usr/share/miniconda/envs/foo/bin/pip install .
-        /usr/share/miniconda/envs/foo/bin/pip install pyinstaller
-        conda install --name foo numpy scipy
+        
+        #/usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
+        /usr/share/miniconda/envs/foo/bin/pip install . pyinstaller
+        #/usr/share/miniconda/envs/foo/bin/pip install pyinstaller
+        #conda install --name foo numpy scipy pyinstaller
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
