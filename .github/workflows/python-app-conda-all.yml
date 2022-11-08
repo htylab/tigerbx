@@ -36,11 +36,11 @@ jobs:
       shell: bash -l {0}
       run: |
         conda activate foo
-        conda install pip
+        conda install --name pip
         /usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
         /usr/share/miniconda/envs/foo/bin/pip install .
         #/usr/share/miniconda/envs/foo/bin/pip install pyinstaller
-        conda install numpy scipy pyinstaller
+        conda install --name numpy scipy pyinstaller
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
