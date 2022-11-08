@@ -34,9 +34,10 @@ jobs:
     - name: Install dependencies
       run: |
         conda create -n gogo python=3.7
-        conda activate gogo
+        conda init bash
+        conda activate gogo        
         conda install numpy scipy
-        python -m pip install --upgrade pip
+        #python -m pip install --upgrade pip
         pip install .
         pip install pyinstaller
     - name: Run Pyinstaller 1
