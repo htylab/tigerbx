@@ -34,6 +34,7 @@ jobs:
     - name: Install dependencies
       shell: bash -l {0}
       run: |
+        conda activate foo
         conda install pip numpy scipy
         python -m pip install --upgrade pip
         python -m pip install .
