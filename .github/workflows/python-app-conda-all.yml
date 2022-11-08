@@ -20,14 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-latest']
+        os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.7"
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: "3.7"
     - name: Install dependencies
       run: |
         $CONDA/bin/conda env update --file environment.yml --name base
