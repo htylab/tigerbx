@@ -14,8 +14,6 @@ permissions:
 
 jobs:
   build:
-
-    #runs-on: ubuntu-18.04
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
