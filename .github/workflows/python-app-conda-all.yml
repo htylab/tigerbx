@@ -27,8 +27,7 @@ jobs:
         python-version: "3.7"
     - name: Install dependencies
       run: |
-        $CONDA/bin/conda env update --file environment.yml --name base
-        $CONDA/bin/conda install numpy scipy
+        conda install numpy scipy
         python -m pip install --upgrade pip        
         pip install --compile .
         pip install pyinstaller
