@@ -22,10 +22,6 @@ jobs:
         #os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
 
     steps:
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.7"
     - uses: actions/checkout@v3
     - uses: conda-incubator/setup-miniconda@v2
       with:
@@ -39,8 +35,8 @@ jobs:
         conda install --name foo pip
         /usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
         /usr/share/miniconda/envs/foo/bin/pip install .
-        #/usr/share/miniconda/envs/foo/bin/pip install pyinstaller
-        conda install --name foo numpy scipy pyinstaller
+        /usr/share/miniconda/envs/foo/bin/pip install pyinstaller
+        conda install --name foo numpy scipy
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
@@ -48,7 +44,7 @@ jobs:
     - name: Run Pyinstaller  2
       if: matrix.os == 'ubuntu-18.04'
       run: |
-        pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
+        /usr/share/miniconda/envs/foo/bin/python pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
     - name: Run Pyinstaller 3
       if: matrix.os == 'macos-latest'
       run: |
