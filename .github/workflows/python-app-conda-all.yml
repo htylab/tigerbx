@@ -23,20 +23,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        auto-update-conda: true
-        python-version: 3.7
     - name: Install dependencies
       shell: bash -l {0}
       run: |
-        conda create --name foo python=3.7
-        conda install --name foo pip numpy scipy
-        conda activate foo
-        
-        #/usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
-        /usr/share/miniconda/envs/foo/bin/pip install . pyinstaller
-        #/usr/share/miniconda/envs/foo/bin/pip install pyinstaller
+        curl -LO http://repo.continuum.io/miniconda/Miniconda3-4.2.12-Linux-x86_64.sh
+        bash Miniconda3-4.2.12-Linux-x86_64.sh -p /miniconda -b
+        rm Miniconda3-4.2.12-Linux-x86_64.sh
+        echo "export PATH=/miniconda/bin:$PATH" >> /etc/bash.bashrc
+        pip install . pyinstaller
+        conda install numpy scipy
+
         #conda install --name foo numpy scipy pyinstaller
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
