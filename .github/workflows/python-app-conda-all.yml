@@ -36,7 +36,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda activate foo
-        conda install --name pip
+        conda install --name foo pip
         /usr/share/miniconda/envs/foo/bin/pip install --upgrade pip
         /usr/share/miniconda/envs/foo/bin/pip install .
         #/usr/share/miniconda/envs/foo/bin/pip install pyinstaller
