@@ -21,6 +21,10 @@ jobs:
         os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
 
     steps:
+    - name: Set up Python 3.7
+    - uses: actions/setup-python@v3
+      with:
+        python-version: "3.7"
     - uses: actions/checkout@v3
     - uses: conda-incubator/setup-miniconda@v2
       with:
