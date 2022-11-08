@@ -44,15 +44,15 @@ jobs:
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
-        /usr/share/miniconda/envs/foo/bin/python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data "./src/exe/tigerbet/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./src/exe/tigerbet/tigerbet.py
+        python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data "./src/exe/tigerbet/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./src/exe/tigerbet/tigerbet.py
     - name: Run Pyinstaller  2
       if: matrix.os == 'ubuntu-18.04'
       run: |
-        /usr/share/miniconda/envs/foo/bin/python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
+        python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
     - name: Run Pyinstaller 3
       if: matrix.os == 'macos-latest'
       run: |
-        /usr/share/miniconda/envs/foo/bin/python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
+        python -m pyinstaller -c --icon=./src/exe/tigerbet/ico.ico --add-data ./src/exe/tigerbet/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./src/exe/tigerbet/tigerbet.py
         
     - uses: actions/upload-artifact@v3
       with:
