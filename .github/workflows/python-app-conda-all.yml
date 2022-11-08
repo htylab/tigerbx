@@ -34,8 +34,6 @@ jobs:
         pip install . pyinstaller
         conda install numpy scipy
         echo "./miniconda/bin" >> $GITHUB_PATH
-      env:
-        PATH: /miniconda/bin:${PATH}
 
         #conda install --name foo numpy scipy pyinstaller
     - name: Run Pyinstaller 1
