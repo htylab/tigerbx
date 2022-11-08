@@ -31,9 +31,12 @@ jobs:
         rm Miniconda3-py37_4.11.0-Linux-x86_64.sh
         #echo "export PATH=./miniconda/bin:$PATH" >> /etc/bash.bashrc
         #export PATH=./miniconda/bin:$PATH
+        conda install --yes python==3.7
         pip install . pyinstaller
         conda install numpy scipy
         echo "./miniconda/bin" >> $GITHUB_PATH
+
+
 
         #conda install --name foo numpy scipy pyinstaller
     - name: Run Pyinstaller 1
