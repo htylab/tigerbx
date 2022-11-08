@@ -26,6 +26,7 @@ jobs:
       with:
         auto-update-conda: true
         python-version: 3.7
+        auto-activate-base: True
     - name: Install dependencies
       run: |
         conda install numpy scipy
