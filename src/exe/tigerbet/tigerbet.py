@@ -26,7 +26,7 @@ def main():
     parser.add_argument('-k', '--dkt', action='store_true',
                         help='Producing dkt mask')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
+    #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
 
