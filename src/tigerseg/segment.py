@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
-model_server = 'https://data.mrilab.org/onnxmodel/'
+model_server = 'https://data.mrilab.org/onnxmodel/releasev1/'
 
 import sys
 
