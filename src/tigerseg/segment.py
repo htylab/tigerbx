@@ -19,8 +19,6 @@ nib.Nifti1Header.quaternion_threshold = -100
 #model_server = 'https://github.com/htylab/tigerseg/releases/download/modelhub/'
 model_server = 'https://data.mrilab.org/onnxmodel/releasev1/'
 
-import sys
-
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
@@ -50,6 +48,9 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
         
         mask = apply(model_name, input_data, GPU=GPU, model_path=model_path)
 
+        #if we use multiple models, we write file according to the first model.
+        #aseg*bet --> aseg
+        model_name = model_name.replace('@', '#').replace('*', '#').split('#')[0]
         if output_dir is not None:
             output_file, _ = seg_module.write_file(model_name, f, output_dir, mask)
             output_file_list.append(output_file)
@@ -123,17 +124,7 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
         mask1, mask_softmax = run_SingleModel(model_ffs[0], input_data, GPU)
         mask2, mask_softmax = run_SingleModel(model_ffs[1], input_data, GPU)
 
-        mask_pred = mask1 * (mask2 > 0)
-        
-
-    elif '@' in model_name: #todo two-stage segmenation
-        print('Two-stage model')
-        model1_ff, model2_ff = model_ffs[0], model_ffs[1]
-        mask1, mask_softmax = run_SingleModel(model1_ff, input_data, GPU)
-        mask2, mask_softmax = run_SingleModel(model2_ff, input_data, GPU)
-
-        mask_pred = mask1 * mask2
-        
+        mask_pred = mask1 * (mask2 > 0)      
 
     else: #single model mode
         model_ff = model_ffs[0]
