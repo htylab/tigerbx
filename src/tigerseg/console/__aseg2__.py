@@ -17,7 +17,7 @@ def main():
 
     #default_model = 'mprage_v0001_aseg43_MXRW*mprage_v0002_bet_kuo' #weng's thesis
     #default_model = 'mprage_v0003_aseg43_WangM1r256*mprage_v0004_bet_full'  # wang's thesis
-    default_model = 'mprage_v0006_aseg43_full*mprage_v0004_bet_full'  # hty version
+    default_model = 'mprage_aseg43_v002_WangM1r256*mprage_bet_v002_full'  # hty version
     
 
     parser = argparse.ArgumentParser()

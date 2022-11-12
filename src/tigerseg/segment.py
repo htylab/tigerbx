@@ -50,13 +50,13 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
 
         #if we use multiple models, we write file according to the first model.
         #aseg*bet --> aseg
-        model_name = model_name.replace('@', '#').replace('*', '#').split('#')[0]
+        model_name_new = model_name.replace('@', '#').replace('*', '#').split('#')[0]
         if output_dir is not None:
-            output_file, _ = seg_module.write_file(model_name, f, output_dir, mask)
+            output_file, _ = seg_module.write_file(model_name_new, f, output_dir, mask)
             output_file_list.append(output_file)
 
         else:
-            output_file, _ = seg_module.write_file(model_name, f, dirname(os.path.abspath(f)), mask)
+            output_file, _ = seg_module.write_file(model_name_new, f, dirname(os.path.abspath(f)), mask)
             output_file_list.append(output_file)
 
 
