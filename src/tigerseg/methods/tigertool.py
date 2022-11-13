@@ -163,6 +163,6 @@ def predict2(model_ff, data, GPU):
                                        providers=['CPUExecutionProvider'],
                                        sess_options=so)
 
-    return session.run(None, {"modelInput": image.astype(np.float32)})[0]
+    return session.run(None, {"modelInput": data.astype(np.float32)})[0]
 
 
