@@ -7,7 +7,7 @@ import numpy as np
 import nibabel as nib
 import onnxruntime as ort
 from scipy.special import softmax
-import tqdm
+
 
 
 nib.Nifti1Header.quaternion_threshold = -100
@@ -40,7 +40,7 @@ def run_SingleModel(model_ff, input_data, GPU):
     elif len(orig_data.shape) == 4:
         output_vol = orig_data * 0
         vdm_pred = orig_data * 0.0
-        for nn in tqdm.tqdm(range(orig_data.shape[-1])):
+        for nn in range(orig_data.shape[-1]):
             orig_data3d = orig_data[..., nn]
             if nn == 0:
                 output_vol[..., nn], vdm_pred = correct_3dvol(

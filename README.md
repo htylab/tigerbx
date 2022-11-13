@@ -8,16 +8,16 @@
 
 ### Install stand-alone version
     https://github.com/htylab/tigerseg/releases
-### Install package
-    
+
+### Prerequisite: Install ONNXruntime 
+    pip install onnxruntime-gpu
+It is fine if you don't have GPU.
+
+### Install package    
     pip install tigerseg
-
 or
-
-    pip install https://github.com/htylab/tigerseg/archive/release.zip
-    
+    pip install https://github.com/htylab/tigerseg/archive/release.zip    
 or install the nightly unstable build:
-
     pip install git+https://github.com/htylab/tigerseg
     
 
