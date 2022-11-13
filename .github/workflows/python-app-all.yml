@@ -5,9 +5,9 @@ name: Python All OS
 
 on:
   push:
-    branches: [ "compile" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "compile" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
