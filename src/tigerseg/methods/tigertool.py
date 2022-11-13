@@ -146,7 +146,8 @@ def predict(model, data, GPU):
 
 
 def predict2(model_ff, data, GPU):
-    print('I am here')
+    print('I am here', cpu_count())
+
     so = ort.SessionOptions()
     so.intra_op_num_threads = 4
     so.inter_op_num_threads = 4
