@@ -8,31 +8,41 @@
 
 ### Install stand-alone version
     https://github.com/htylab/tigerseg/releases
-
-### Prerequisite: Install ONNXruntime 
-    pip install onnxruntime-gpu
-It is fine if you don't have GPU.
-
-### Install package    
+### Install package
+    
     pip install tigerseg
+
 or
-    pip install https://github.com/htylab/tigerseg/archive/release.zip    
+
+    pip install https://github.com/htylab/tigerseg/archive/release.zip
+    
 or install the nightly unstable build:
+
     pip install git+https://github.com/htylab/tigerseg
     
 
 ## Usage
 
 ### As a command line tool:
-For brain extraction:
 
-    tigerbx -bmadf c:\data\*.nii.gz -o c:\output
-    tigerbx -h (for more detail)
+    tigerseg -i INPUT_FILE -o OUTPUT_DIR --model model --GPU True --report True
+
+INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
+
+    tigerseg -i c:\data\*.nii.gz -o c:\output --model model
+
+
+For subcortical segmentation:
+
+    aseg -i c:\data\*.nii.gz -o c:\output
 
 For cine cardiac MRI segmentation:
 
     cine4d -i c:\data\*.nii.gz -o c:\output
 
+For skull-stripping on 3D T1-weighted images:
+
+    pybet -i c:\data\*.nii.gz -o c:\output
 
 For VDM method on EPI images:
 
