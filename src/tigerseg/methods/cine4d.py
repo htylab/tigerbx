@@ -5,19 +5,22 @@ import numpy as np
 import nibabel as nib
 import onnxruntime as ort
 from scipy.special import softmax
+from .tigertool import predict
+
 nib.Nifti1Header.quaternion_threshold = -100
 
 
 def run_SingleModel(model_ff, input_data, GPU):
 
- 
+
+    '''
 
     so = ort.SessionOptions()
     so.intra_op_num_threads = 4
     so.inter_op_num_threads = 4
     so.log_severity_level = 3
 
-    '''
+
     
     try:
         if os.cpu_count() is None:
@@ -33,7 +36,7 @@ def run_SingleModel(model_ff, input_data, GPU):
     so.intra_op_num_threads = 4
     so.inter_op_num_threads = 4
     print('************', so.intra_op_num_threads)
-    '''
+
     if GPU and (ort.get_device() == "GPU"):
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
         session = ort.InferenceSession(model_ff,
@@ -43,6 +46,8 @@ def run_SingleModel(model_ff, input_data, GPU):
         session = ort.InferenceSession(model_ff,
                                        providers=['CPUExecutionProvider'],
                                        sess_options=so)
+
+    '''
 
 
     xyzt_mode=basename(model_ff).split('_')[2]
@@ -73,8 +78,9 @@ def run_SingleModel(model_ff, input_data, GPU):
         if np.max(image) == 0:
             continue
         image = image/np.max(image)
+        predict(model_ff, image, GPU)[0, ...]
 
-        logits = session.run(None, {"modelInput": image.astype(np.float32)})[0]
+        #logits = session.run(None, {"modelInput": image.astype(np.float32)})[0]
 
         mask_pred = post(np.argmax(logits[0, ...], axis=0))
         mask_softmax = softmax(logits[0, ...], axis=0)
