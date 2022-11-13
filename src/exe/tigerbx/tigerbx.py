@@ -12,7 +12,6 @@ import nibabel as nib
 
 
 def main():
-
       
     parser = argparse.ArgumentParser()
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
