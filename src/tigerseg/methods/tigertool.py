@@ -121,6 +121,7 @@ def cpu_count():
 
 def predict(model, data, GPU):
     #from .tool import cpu_count
+    #will reload model file every time
 
     so = ort.SessionOptions()
     cpu = max(int(cpu_count()*0.8), 1)
@@ -143,27 +144,4 @@ def predict(model, data, GPU):
         data_type = 'float32'
 
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
-
-
-def predict2(model_ff, data, GPU):
-    print('I am here', cpu_count())
-
-    so = ort.SessionOptions()
-    so.intra_op_num_threads = 4
-    so.inter_op_num_threads = 4
-    so.log_severity_level = 3
-
-
-    if GPU and (ort.get_device() == "GPU"):
-        #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
-        session = ort.InferenceSession(model_ff,
-                                       providers=['CUDAExecutionProvider'],
-                                       sess_options=so)
-    else:
-        session = ort.InferenceSession(model_ff,
-                                       providers=['CPUExecutionProvider'],
-                                       sess_options=so)
-
-    return session.run(None, {"modelInput": data.astype('float32')})[0]
-
 
