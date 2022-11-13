@@ -6,15 +6,16 @@ with open("README.md", "r", encoding="utf-8") as fh:
 classifiers = [
     'Intended Audience :: Developers',
     'Programming Language :: Python :: 3.6',
-    'License :: OSI Approved :: MIT License'
+    'License :: OSI Approved :: MIT License',
+    "Operating System :: OS Independent"
 ]
 
 setup(
      name='tigerseg',
-     version='0.1.7',
+     version='0.1.8',
      description='Processing MRI images based on deep-learning',
-     long_description_content_type='text/x-rst',
-     url='https://github.com/htylab',
+     long_description_content_type='text/markdown',
+     url='https://github.com/htylab/tigerseg',
      author='Biomedical Imaging Lab, Taiwan Tech',
      author_email='',
      License='MIT',
@@ -24,10 +25,7 @@ setup(
      packages=find_packages(where="src"),
      entry_points={
         'console_scripts': [
-            'tigerseg = tigerseg.console.__main__:main',
             'cine4d = tigerseg.console.__cine4d__:main',
-            'aseg = tigerseg.console.__aseg__:main',
-            'aseg2 = tigerseg.console.__aseg2__:main',
             'tigerbx = tigerseg.console.tigerbx.tigerbx:main',
             'vdm = tigerseg.console.__vdm__:main',
         ]
