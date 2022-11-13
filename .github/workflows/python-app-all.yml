@@ -48,5 +48,5 @@ jobs:
         
     - uses: actions/upload-artifact@v3
       with:
-        name: tigerbet-${{ matrix.os }}
+        name: tigerbx-${{ matrix.os }}
         path: dist/*
