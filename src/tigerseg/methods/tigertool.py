@@ -126,6 +126,7 @@ def predict(model, data, GPU):
     cpu = max(int(cpu_count()*0.8), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
+    so.log_severity_level = 3
 
     if GPU and (ort.get_device() == "GPU"):
 
