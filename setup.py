@@ -28,7 +28,7 @@ setup(
             'cine4d = tigerseg.console.__cine4d__:main',
             'aseg = tigerseg.console.__aseg__:main',
             'aseg2 = tigerseg.console.__aseg2__:main',
-            'pybet = tigerseg.console.__tigerbet__:main',
+            'tigerbx = tigerseg.console.tigerbx.tigerbx:main',
             'vdm = tigerseg.console.__vdm__:main',
         ]
     },
@@ -36,9 +36,6 @@ setup(
      install_requires=[
              'numpy>=1.16.0',
              'nilearn>=0.9.1',
-             'onnxruntime>1.9.0',
              'simpleitk>=2.0.0',
-             'scikit-image',
-             'tqdm'
          ]
 )

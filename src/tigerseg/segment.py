@@ -30,7 +30,7 @@ model_path = join(application_path, 'models')
 # print(model_path)
 os.makedirs(model_path, exist_ok=True)
 
-def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_path=model_path):
+def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
 
     seg_method = basename(model_name).split('_')[0]
     seg_module = importlib.import_module('tigerseg.methods.' + seg_method)
@@ -46,7 +46,7 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False, model_p
           
         input_data = seg_module.read_file(model_name, f)
         
-        mask = apply(model_name, input_data, GPU=GPU, model_path=model_path)
+        mask = apply(model_name, input_data, GPU=GPU)
 
         #if we use multiple models, we write file according to the first model.
         #aseg*bet --> aseg
@@ -75,11 +75,7 @@ def download(url, file_name):
          cafile=certifi.where()) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
-def apply(model_name, input_data, GPU=False, model_path=model_path):
-
-    #import urllib.request
-
-    #download model files
+def model_name2ffs(model_name):
     model_ffs = []
     for f in model_name.replace('@', '#').replace('*', '#').split('#'):
 
@@ -99,11 +95,20 @@ def apply(model_name, input_data, GPU=False, model_path=model_path):
             print(model_url, model_file)
             #urllib.request.urlretrieve(model_url, model_file)
             download(model_url, model_file)
-        
+    return model_ffs
+
+
+
+def apply(model_name, input_data, GPU=False):
+
+    #import urllib.request
+
+    #download model files
+    model_ffs = model_name2ffs(model_name)
+            
     #todo: verify model files
 
-        #apply 只處理 numpy array --> model --> mask output
-    #有三種模式
+    #apply: numpy array --> model --> mask output
     #
 
     seg_method = basename(model_ffs[0]).split('_')[0]

@@ -4,7 +4,6 @@ import os
 import numpy as np
 import nibabel as nib
 from scipy.special import softmax
-from skimage import transform
 from nilearn.image import reorder_img, resample_to_img, resample_img
 from .tigertool import predict
 
@@ -61,14 +60,12 @@ def run_SingleModel(model_ff, input_data, GPU):
 
     if 'r128' in model_str and data.shape != (128, 128, 128):
 
-        data = transform.resize(data, (128, 128, 128),
-                                preserve_range=True)
-        do_resize = True
+        raise Exception(
+            'Please resize your data to (128 x 128 x 128) for the r128 model.')
     elif 'r256' in model_str and data.shape != (256, 256, 256):
 
-        data = transform.resize(data, (256, 256, 256),
-                                preserve_range=True)
-        do_resize = True
+        raise Exception(
+            'Please resize your data to (256 x 256 x 256) for the r256 model.')
 
     image = data[None, ...][None, ...]
     image = image/np.max(image)
@@ -107,12 +104,6 @@ def run_SingleModel(model_ff, input_data, GPU):
             mask_pred_relabel[mask_pred == (ii + 1)] = labels[ii]
             #print((ii+1), labels[ii])
         mask_pred = mask_pred_relabel
-
-
-
-    if do_resize:
-        mask_pred = transform.resize(mask_pred, input_data.shape,
-                                    order=0, preserve_range=True)
 
     if seg_mode == 'dkt':
         return mask_pred.astype(np.int16), prob

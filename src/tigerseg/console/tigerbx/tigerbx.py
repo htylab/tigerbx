@@ -4,7 +4,7 @@ from os.path import basename, join, isdir
 import argparse
 import time
 import tigerseg.segment
-import tigerseg.methods.mprage
+import tigerseg.methods.mprage as mprage
 import glob
 import platform
 import nibabel as nib
@@ -75,7 +75,7 @@ def main():
         print('Processing :', os.path.basename(f))
         t = time.time()
             
-        input_data = tigerseg.methods.mprage.read_file(model_name, f)
+        input_data = mprage.read_file(model_name, f)
 
         mask = tigerseg.segment.apply(model_name, input_data,  GPU=args.gpu)
 
@@ -86,7 +86,7 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
-        mask_file, mask_niimem = tigerseg.methods.mprage.write_file(model_name,
+        mask_file, mask_niimem = mprage.write_file(model_name,
                                             f, f_output_dir, 
                                             mask, postfix='tbetmask', inmem=True)
 
@@ -111,10 +111,10 @@ def main():
 
         if get_a or get_d:
             input_nib = nib.load(f)
-            input_data = tigerseg.methods.mprage.read_file(model_aseg, f)
+            input_data = mprage.read_file(model_aseg, f)
             asegmask = tigerseg.segment.apply(
                 model_aseg, input_data,  GPU=args.gpu)
-            aseg_file, aseg_niimem = tigerseg.methods.mprage.write_file(model_aseg,
+            aseg_file, aseg_niimem = mprage.write_file(model_aseg,
                                                                         f, f_output_dir,
                                                                         asegmask, postfix='aseg', inmem=True)
             aseg = aseg_niimem.get_fdata() * mask_niimem.get_fdata()
@@ -144,10 +144,10 @@ def main():
 
         if get_k:
             input_nib = nib.load(f)
-            input_data = tigerseg.methods.mprage.read_file(model_dkt, f)
+            input_data = mprage.read_file(model_dkt, f)
             dktmask = tigerseg.segment.apply(
                 model_dkt, input_data,  GPU=args.gpu)
-            dkt_file, dkt_niimem = tigerseg.methods.mprage.write_file(model_dkt,
+            dkt_file, dkt_niimem = mprage.write_file(model_dkt,
                                                                         f, f_output_dir,
                                                                         dktmask, postfix='dkt', inmem=True)
             dkt = dkt_niimem.get_fdata() * mask_niimem.get_fdata()
