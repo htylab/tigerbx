@@ -33,7 +33,6 @@ jobs:
         python -m pip install --upgrade pip        
         pip install .
         pip install pyinstaller
-        ls -LR
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
