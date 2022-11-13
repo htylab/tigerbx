@@ -52,18 +52,20 @@ def main():
     #model_name = args.model
     #model_aseg = 'mprage_v0006_aseg43_full.onnx'
 
-    if args.model is None:
-        if args.fast:
-            model_name = 'mprage_bet_v001_kuor128.onnx'
-            model_aseg = 'mprage_aseg43_v001_MXRWr128.onnx'
-            
-        else:
-            model_name = 'mprage_bet_v002_full.onnx'        
-            #model_aseg = 'mprage_v0006_aseg43_full.onnx'
-            model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
-        model_dkt = 'mprage_dkt_v001_f16r256.onnx'
+    if args.fast:
+        model_name = 'mprage_bet_v001_kuor128.onnx'
+        model_aseg = 'mprage_aseg43_v001_MXRWr128.onnx'
+        
     else:
-        model_aseg, model_name = args.model.split('*')
+        model_name = 'mprage_bet_v002_full.onnx'        
+        #model_aseg = 'mprage_v0006_aseg43_full.onnx'
+        model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
+    model_dkt = 'mprage_dkt_v001_f16r256.onnx'
+
+    #if args.model is None:
+
+    #else:
+    #    model_aseg, model_name = args.model.split('*')
     
 
     print('Total nii files:', len(input_file_list))
