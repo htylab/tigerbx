@@ -78,7 +78,7 @@ def run_SingleModel(model_ff, input_data, GPU):
         if np.max(image) == 0:
             continue
         image = image/np.max(image)
-        predict(model_ff, image, GPU)[0, ...]
+        logits = predict(model_ff, image, GPU)[0, ...]
 
         #logits = session.run(None, {"modelInput": image.astype(np.float32)})[0]
 

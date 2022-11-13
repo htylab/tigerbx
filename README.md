@@ -25,24 +25,13 @@ or install the nightly unstable build:
 
 ### As a command line tool:
 
-    tigerseg -i INPUT_FILE -o OUTPUT_DIR --model model --GPU True --report True
+For subcortical segmentation or skull-stripping on 3D T1-weighted images:
 
-INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
-
-    tigerseg -i c:\data\*.nii.gz -o c:\output --model model
-
-
-For subcortical segmentation:
-
-    aseg -i c:\data\*.nii.gz -o c:\output
+    tigerbx -bmadf c:\data\*.nii.gz -o c:\output
 
 For cine cardiac MRI segmentation:
 
     cine4d -i c:\data\*.nii.gz -o c:\output
-
-For skull-stripping on 3D T1-weighted images:
-
-    pybet -i c:\data\*.nii.gz -o c:\output
 
 For VDM method on EPI images:
 
