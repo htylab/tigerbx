@@ -39,7 +39,8 @@ jobs:
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
-        pyinstaller -c –-paths ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
+        #pyinstaller -c –-paths ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
     - name: Run Pyinstaller  2
       if: matrix.os == 'ubuntu-18.04'
       run: |
