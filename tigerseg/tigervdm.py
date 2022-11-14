@@ -8,8 +8,8 @@ from scipy.io import savemat
 import nibabel as nib
 import numpy as np
 import time
-import methods.vdm as vdm
-import methods.tigertool as tigertool
+import lib_vdm as vdm
+import lib_tigertool as tigertool
 
 
 def main():
