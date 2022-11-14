@@ -8,8 +8,8 @@ from scipy.io import savemat
 import nibabel as nib
 import numpy as np
 import time
-import lib_cine4d as cine4d
-import lib_tigertool as tigertool
+from .  import lib_cine4d as cine4d
+from . import lib_tigertool as tigertool
 
 def get_report(input_file, output_file):
     
