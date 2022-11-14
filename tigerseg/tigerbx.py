@@ -3,12 +3,12 @@ import os
 from os.path import basename, join, isdir
 import argparse
 import time
-#import methods.mprage as mprage
+import tigerseg.methods.mprage as mprage
 import glob
 import platform
 import nibabel as nib
-#import methods.tigertool as tigertool
-from tigerseg.methods import tigertool, mprage
+import tigerseg.methods.tigertool as tigertool
+#from tigerseg.methods import tigertool, mprage
 
 
 def main():
