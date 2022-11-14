@@ -20,8 +20,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
-        py: ['tigerbx', 'tigerhx', 'tigervdm']
+        #os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
+        os: ['windows-latest']
+        #py: ['tigerbx', 'tigerhx', 'tigervdm']
+        py: ['tigerbx']
 
     steps:
     - uses: actions/checkout@v3
