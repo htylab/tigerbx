@@ -5,7 +5,7 @@ import numpy as np
 import nibabel as nib
 import onnxruntime as ort
 from scipy.special import softmax
-from lib_tigertool import cpu_count
+from lib_tool import cpu_count
 
 nib.Nifti1Header.quaternion_threshold = -100
 

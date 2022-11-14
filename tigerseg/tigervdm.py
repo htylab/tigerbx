@@ -9,7 +9,7 @@ import nibabel as nib
 import numpy as np
 import time
 import lib_vdm as vdm
-import lib_tigertool as tigertool
+import lib_tool as tigertool
 
 
 def main():

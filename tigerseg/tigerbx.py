@@ -11,8 +11,8 @@ import nibabel as nib
 #import tigerseg.methods.mprage as mprage
 #from methods import tigertool, mprage
 
-import lib_tigertool as tigertool
-import lib_mprage as mprage
+import lib_tool
+import lib_bx
 
 
 
@@ -80,10 +80,10 @@ def main():
         print('Processing :', os.path.basename(f))
         t = time.time()         
 
-        model_bet_ff = tigertool.get_model(model_bet)
+        model_bet_ff = lib_tool.get_model(model_bet)
 
-        input_data = mprage.read_file(model_bet_ff, f)
-        mask, _ = mprage.run(
+        input_data = lib_bx.read_file(model_bet_ff, f)
+        mask, _ = lib_bx.run(
             model_bet_ff, input_data, GPU=args.gpu)
 
         f_output_dir = output_dir
@@ -93,7 +93,7 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
-        mask_file, mask_niimem = mprage.write_file(model_bet_ff,
+        mask_file, mask_niimem = lib_bx.write_file(model_bet_ff,
                                             f, f_output_dir, 
                                             mask, postfix='tbetmask', inmem=True)
 
@@ -117,11 +117,11 @@ def main():
             print('Writing output file: ', mask_file)
 
         if get_a or get_d:
-            model_aseg = tigertool.get_model(model_aseg)
+            model_aseg = lib_tool.get_model(model_aseg)
             input_nib = nib.load(f)
-            input_data = mprage.read_file(model_aseg, f)
-            asegmask, _ = mprage.run(model_aseg, input_data, GPU=args.gpu)
-            aseg_file, aseg_niimem = mprage.write_file(model_aseg, f, f_output_dir,
+            input_data = lib_bx.read_file(model_aseg, f)
+            asegmask, _ = lib_bx.run(model_aseg, input_data, GPU=args.gpu)
+            aseg_file, aseg_niimem = lib_bx.write_file(model_aseg, f, f_output_dir,
                                                                         asegmask, postfix='aseg', inmem=True)
             aseg = aseg_niimem.get_fdata() * mask_niimem.get_fdata()
             aseg = aseg.astype(int)
@@ -150,11 +150,11 @@ def main():
 
         if get_k:
             input_nib = nib.load(f)
-            model_dkt = tigertool.get_model(model_dkt)
-            input_data = mprage.read_file(model_dkt, f)
-            dktmask, _ = mprage.run(
+            model_dkt = lib_tool.get_model(model_dkt)
+            input_data = lib_bx.read_file(model_dkt, f)
+            dktmask, _ = lib_bx.run(
                 model_dkt, input_data,  GPU=args.gpu)
-            dkt_file, dkt_niimem = mprage.write_file(model_dkt, f, f_output_dir,
+            dkt_file, dkt_niimem = lib_bx.write_file(model_dkt, f, f_output_dir,
                                                     dktmask, postfix='dkt', inmem=True)
             dkt = dkt_niimem.get_fdata() * mask_niimem.get_fdata()
             dkt = dkt.astype(int)

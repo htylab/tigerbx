@@ -8,8 +8,8 @@ from scipy.io import savemat
 import nibabel as nib
 import numpy as np
 import time
-import lib_cine4d as cine4d
-import lib_tigertool as tigertool
+import lib_hx
+import lib_tool
 
 def get_report(input_file, output_file):
     
@@ -62,17 +62,17 @@ def main():
 
     print('Total nii files:', len(input_file_list))
 
-    model_name = tigertool.get_model('cine4d_xyz_v002_m12ac')
+    model_name = lib_tool.get_model('cine4d_xyz_v002_m12ac')
 
     for f in input_file_list:
 
         print('Predicting:', f)
         t = time.time()
-        input_data = cine4d.read_file(model_name, f)
-        mask_pred, _ = cine4d.run(
+        input_data = lib_hx.read_file(model_name, f)
+        mask_pred, _ = lib_hx.run(
             model_name, input_data, GPU=args.gpu)
-        mask_pred = cine4d.post(mask_pred)
-        output_file, _ = cine4d.write_file(
+        mask_pred = lib_hx.post(mask_pred)
+        output_file, _ = lib_hx.write_file(
             model_name, f, output_dir, mask_pred, postfix='hseg3')
 
         if args.report:
