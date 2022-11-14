@@ -8,7 +8,7 @@ import glob
 import platform
 import nibabel as nib
 #import methods.tigertool as tigertool
-from methods import tigertool, mprage
+from tigerseg.methods import tigertool, mprage
 
 
 def main():
