@@ -10,7 +10,7 @@ from .tigertool import cpu_count
 nib.Nifti1Header.quaternion_threshold = -100
 
 
-def run_SingleModel(model_ff, input_data, GPU):
+def run(model_ff, input_data, GPU):
 
     cpu = max(int(cpu_count()*0.8), 1)
 
@@ -87,14 +87,14 @@ def read_file(model_ff, input_file):
 
     return nib.load(input_file).get_fdata()
 
-def write_file(model_ff, input_file, output_dir, mask, inmem=False):
+def write_file(model_ff, input_file, output_dir, mask, inmem=False, postfix='pred'):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
         return 0
 
     output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
-    output_file = output_file + '_pred.nii.gz'
+    output_file = output_file + f'_{postfix}.nii.gz'
     output_file = join(output_dir, output_file)
     print('Writing output file: ', output_file)
 
@@ -104,8 +104,6 @@ def write_file(model_ff, input_file, output_dir, mask, inmem=False):
     result = nib.Nifti1Image(mask.astype(np.uint8), affine)
     result.header.set_zooms(zoom)
 
-    #if 'mprage' in model_name:
-    #result = resample_to_img(result, f, interpolation="nearest")
     if not inmem:
         nib.save(result, output_file)
 

@@ -50,7 +50,7 @@ def get_affine(mat_size=256):
     #print(model_ff, target_shape)
     return new_affine, target_shape
 
-def run_SingleModel(model_ff, input_data, GPU):
+def run(model_ff, input_data, GPU):
 
     seg_mode, _ , model_str = get_segmode(model_ff)
      

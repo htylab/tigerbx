@@ -12,7 +12,7 @@ from scipy.special import softmax
 
 nib.Nifti1Header.quaternion_threshold = -100
 
-def run_SingleModel(model_ff, input_data, GPU):
+def run(model_ff, input_data, GPU):
 
     so = ort.SessionOptions()
     so.intra_op_num_threads = 4
@@ -63,14 +63,14 @@ def read_file(model_ff, input_file):
     return nib.load(input_file).get_fdata()
 
 
-def write_file(model_ff, input_file, output_dir, vol_out, inmem=False):
+def write_file(model_ff, input_file, output_dir, vol_out, inmem=False, postfix='vdmi'):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
         return 0
 
     output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
-    output_file = output_file + '_vdm.nii.gz'
+    output_file = output_file + f'_{postfix}.nii.gz'
     output_file = join(output_dir, output_file)
     print('Writing output file: ', output_file)
 
@@ -114,17 +114,27 @@ def apply_vdm_2d(ima, vdm, readout=1):
     return new_ima*jac_np
 
 
-def apply_vdm_3d(vol, vdm_pred):
-    output_vol = vol * 0
+def apply_vdm_3d(ima, vdm, readout=1,  AP_RL='AP'):
 
-    for nslice in range(vol.shape[-1]):
-        ima_org = vol[..., nslice].astype(np.float)
-        vdm_slice = vdm_pred[..., nslice]
-        ima_transform = apply_vdm_2d(ima_org, vdm_slice)
+    if AP_RL == 'AP':
+        arr = np.stack([vdm*0, vdm*readout, vdm*0], axis=-1)
+    else:
+        arr = np.stack([vdm*0, vdm*0, vdm*readout], axis=-1)
+    displacement_image = sitk.GetImageFromArray(arr, isVector=True)
 
-        output_vol[..., nslice] = ima_transform
+    jac = sitk.DisplacementFieldJacobianDeterminant(displacement_image)
+    tx = sitk.DisplacementFieldTransform(displacement_image)
+    ref = sitk.GetImageFromArray(ima*0)
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetReferenceImage(ref)
+    # sitkNearestNeighbor, sitk.sitkLinear
+    resampler.SetInterpolator(sitk.sitkLinear)
+    resampler.SetTransform(tx)
 
-    return output_vol
+    new_ima = resampler.Execute(sitk.GetImageFromArray(ima))
+    new_ima = sitk.GetArrayFromImage(new_ima)
+    jac_np = sitk.GetArrayFromImage(jac)
+    return new_ima*jac_np
 
 
 def correct_3dvol(session, orig_data):

@@ -5,6 +5,58 @@ import os
 import re
 import subprocess
 import onnxruntime as ort
+import shutil
+import warnings
+from os.path import join, isdir, basename, isfile, dirname
+import nibabel as nib
+import numpy as np
+import sys
+
+
+
+warnings.filterwarnings("ignore", category=UserWarning)
+nib.Nifti1Header.quaternion_threshold = -100
+
+model_server = 'https://data.mrilab.org/onnxmodel/releasev1/'
+
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(os.path.abspath(__file__))
+
+model_path = join(application_path, 'models')
+# print(model_path)
+os.makedirs(model_path, exist_ok=True)
+
+
+def download(url, file_name):
+    import urllib.request
+    import certifi
+    
+    with urllib.request.urlopen(url,
+         cafile=certifi.where()) as response, open(file_name, 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
+
+def get_model(f):
+
+    if isfile(f):
+        return f
+
+    if '.onnx' in f:
+        fn = f
+    else:
+        fn = f + '.onnx'
+    model_url = model_server + fn
+    model_file = join(model_path, fn)
+
+    if not os.path.exists(model_file):
+        print(f'Downloading model files....')
+        print(model_url, model_file)
+        #urllib.request.urlretrieve(model_url, model_file)
+        download(model_url, model_file)
+    return model_file
+
 
 def cpu_count():
     """ Number of available virtual or physical CPUs on this system, i.e.
