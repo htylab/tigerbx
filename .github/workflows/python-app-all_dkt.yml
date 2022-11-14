@@ -20,8 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
-        os: ['windows-latest']
+        os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
+        #os: ['windows-latest']
         py: ['tigerbx', 'tigerhx', 'tigervdm']
         #py: ['tigerbx']
 
