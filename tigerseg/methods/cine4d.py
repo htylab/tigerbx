@@ -10,6 +10,14 @@ from .tigertool import cpu_count
 nib.Nifti1Header.quaternion_threshold = -100
 
 
+def get_mode(model_ff):
+    seg_mode, version, model_str = basename(model_ff).split('_')[
+        1:4]  # aseg43, bet
+
+    #print(seg_mode, version , model_str)
+
+    return seg_mode, version, model_str
+
 def run(model_ff, input_data, GPU):
 
     cpu = max(int(cpu_count()*0.8), 1)
@@ -30,10 +38,8 @@ def run(model_ff, input_data, GPU):
                                        providers=['CPUExecutionProvider'],
                                        sess_options=so)
 
+    xyzt_mode, _, _ = get_mode(model_ff)
 
-
-    xyzt_mode=basename(model_ff).split('_')[2]
-    
 
     data = input_data.copy()
     xx, yy, zz, tt = data.shape

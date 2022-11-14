@@ -11,6 +11,12 @@ from scipy.special import softmax
 
 
 nib.Nifti1Header.quaternion_threshold = -100
+def get_mode(model_ff):
+    seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
+
+    #print(seg_mode, version , model_str)
+
+    return seg_mode, version, model_str
 
 def run(model_ff, input_data, GPU):
 
@@ -28,8 +34,7 @@ def run(model_ff, input_data, GPU):
                                        providers=['CPUExecutionProvider'],
                                        sess_options=so)
 
-
-    seg_mode = basename(model_ff).split('_')[2] #3dunet
+    vdm_mode, _, _ = get_mode(model_ff) #vdmmode: 3dunet, gan    
 
     orig_data = input_data.copy()   
 

@@ -5,7 +5,7 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-from .tigertool import predict
+from tigertool import predict
 
 
 label_all = dict()
@@ -20,12 +20,13 @@ label_all['dkt'] = ( 1002, 1003,
                2029, 2030, 2031, 2034, 2035)
 nib.Nifti1Header.quaternion_threshold = -100
 
-def get_segmode(model_ff):
-    seg_mode, version , model_str = basename(model_ff).split('_')[1:4] #aseg43, bet
+
+def get_mode(model_ff):
+    seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
 
     #print(seg_mode, version , model_str)
 
-    return seg_mode, version , model_str
+    return seg_mode, version, model_str
 
 def getLarea(input_mask):
     from scipy import ndimage
@@ -52,7 +53,7 @@ def get_affine(mat_size=256):
 
 def run(model_ff, input_data, GPU):
 
-    seg_mode, _ , model_str = get_segmode(model_ff)
+    seg_mode, _ , model_str = get_mode(model_ff)
      
 
     data = input_data.copy()
@@ -113,7 +114,7 @@ def run(model_ff, input_data, GPU):
 
 def read_file(model_ff, input_file):
 
-    seg_mode, _ , model_str = get_segmode(model_ff)
+    seg_mode, _ , model_str = get_mode(model_ff)
 
     if 'r128' in model_str:
 
@@ -138,7 +139,7 @@ def read_file(model_ff, input_file):
 
 def write_file(model_ff, input_file, output_dir,
                mask, postfix=None, dtype='mask', inmem=False):
-    seg_mode, _ , model_str = get_segmode(model_ff)
+    seg_mode, _ , model_str = get_mode(model_ff)
 
     mask_dtype = mask.dtype
 
