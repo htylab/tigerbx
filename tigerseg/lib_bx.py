@@ -5,7 +5,7 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-from lib_tool import predict
+from .lib_tool import predict
 
 
 label_all = dict()
