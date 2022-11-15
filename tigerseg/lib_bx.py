@@ -5,7 +5,7 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-from .lib_tool import predict
+from tigerseg import lib_tool
 
 
 label_all = dict()
@@ -20,7 +20,7 @@ label_all['dkt'] = ( 1002, 1003,
                2029, 2030, 2031, 2034, 2035)
 nib.Nifti1Header.quaternion_threshold = -100
 
-
+print('heloo llsdgaldgkj;s')
 def get_mode(model_ff):
     seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
 
@@ -71,7 +71,7 @@ def run(model_ff, input_data, GPU):
     image = data[None, ...][None, ...]
     image = image/np.max(image)
 
-    logits = predict(model_ff, image, GPU)[0, ...]
+    logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
 
     label_num = dict()
     label_num['bet'] = 2

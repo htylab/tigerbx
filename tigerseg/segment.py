@@ -10,7 +10,7 @@ import importlib
 import nibabel as nib
 import numpy as np
 import sys
-from . import lib_tool
+from tigerseg import lib_tool
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -38,11 +38,11 @@ def apply_files(model_name, input_file_list, output_dir=None, GPU=False):
 
     seg_method = basename(model_name).split('_')[0]
     if seg_method == 'mprage':
-        from . import lib_bx as seg_module
+        from tigerseg import lib_bx as seg_module
     elif seg_method == 'cine4d':
-        from . import lib_hx as seg_module
+        from tigerseg import lib_hx as seg_module
     elif seg_method == 'vdm':
-        from . import lib_vdm as seg_module
+        from tigerseg import lib_vdm as seg_module
 
     
     print('Total nii files:', len(input_file_list))

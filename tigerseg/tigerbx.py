@@ -7,8 +7,8 @@ import time
 import glob
 import platform
 import nibabel as nib
-import lib_tool
-import lib_bx
+from tigerseg import lib_tool
+from tigerseg import lib_bx
 
 
 

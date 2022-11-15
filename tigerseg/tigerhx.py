@@ -8,8 +8,8 @@ from scipy.io import savemat
 import nibabel as nib
 import numpy as np
 import time
-import lib_hx
-import lib_tool
+from tigerseg import lib_hx
+from tigerseg import lib_tool
 
 def get_report(input_file, output_file):
     
