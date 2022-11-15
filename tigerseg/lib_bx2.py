@@ -5,7 +5,9 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-from .tigertool import predict
+
+from tigerseg import lib_tool
+
 
 
 label_all = dict()
@@ -20,12 +22,13 @@ label_all['dkt'] = ( 1002, 1003,
                2029, 2030, 2031, 2034, 2035)
 nib.Nifti1Header.quaternion_threshold = -100
 
-def get_segmode(model_ff):
-    seg_mode, version , model_str = basename(model_ff).split('_')[1:4] #aseg43, bet
+
+def get_mode(model_ff):
+    seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
 
     #print(seg_mode, version , model_str)
 
-    return seg_mode, version , model_str
+    return seg_mode, version, model_str
 
 def getLarea(input_mask):
     from scipy import ndimage
@@ -50,32 +53,19 @@ def get_affine(mat_size=256):
     #print(model_ff, target_shape)
     return new_affine, target_shape
 
-def run_SingleModel(model_ff, input_data, GPU):
+def run(model_ff, input_data, GPU):
 
-    seg_mode, _ , model_str = get_segmode(model_ff)
-     
+    seg_mode, _ , model_str = get_mode(model_ff)     
 
     data = input_data.copy()
-    do_resize = False
-
-    if 'r128' in model_str and data.shape != (128, 128, 128):
-
-        raise Exception(
-            'Please resize your data to (128 x 128 x 128) for the r128 model.')
-    elif 'r256' in model_str and data.shape != (256, 256, 256):
-
-        raise Exception(
-            'Please resize your data to (256 x 256 x 256) for the r256 model.')
-
     image = data[None, ...][None, ...]
     image = image/np.max(image)
-
-    logits = predict(model_ff, image, GPU)[0, ...]
-
+    logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
     label_num = dict()
     label_num['bet'] = 2
     label_num['aseg43'] = 44
     label_num['dkt'] = 63
+    label_num['dgm12'] = 13
 
     if label_num[seg_mode] > logits.shape[0]:
         #print('sigmoid')
@@ -113,7 +103,7 @@ def run_SingleModel(model_ff, input_data, GPU):
 
 def read_file(model_ff, input_file):
 
-    seg_mode, _ , model_str = get_segmode(model_ff)
+    seg_mode, _ , model_str = get_mode(model_ff)
 
     if 'r128' in model_str:
 
@@ -138,7 +128,7 @@ def read_file(model_ff, input_file):
 
 def write_file(model_ff, input_file, output_dir,
                mask, postfix=None, dtype='mask', inmem=False):
-    seg_mode, _ , model_str = get_segmode(model_ff)
+    seg_mode, _ , model_str = get_mode(model_ff)
 
     mask_dtype = mask.dtype
 
