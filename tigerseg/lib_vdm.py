@@ -51,7 +51,7 @@ def run(model_ff, input_data, GPU):
             orig_data3d = orig_data[..., nn]
             if nn == 0:
                 output_vol[..., nn], vdm_pred = correct_3dvol(
-                session, orig_data3d)
+                session, orig_data3d, orig_data)
             else:
                 output_vol[..., nn] = apply_vdm_3d(orig_data3d, vdm_pred)
 
