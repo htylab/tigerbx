@@ -20,7 +20,7 @@ label_all['dkt'] = ( 1002, 1003,
                2029, 2030, 2031, 2034, 2035)
 nib.Nifti1Header.quaternion_threshold = -100
 
-print('heloo llsdgaldgkj;s')
+
 def get_mode(model_ff):
     seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
 
