@@ -24,9 +24,9 @@ setup(
      packages=find_packages(),
      entry_points={
         'console_scripts': [
-            'cine4d = tigerseg.console.__cine4d__:main',
-            'tigerbx = tigerseg.console.tigerbx.tigerbx:main',
-            'vdm = tigerseg.console.__vdm__:main',
+            'tigerhx = tigerseg.tigerhx:main',
+            'tigerbx = tigerseg.tigerbx:main',
+            'tigervdm = tigerseg.tigervdm:main',
         ]
     },
      python_requires='>=3.6',

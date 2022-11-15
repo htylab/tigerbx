@@ -31,11 +31,11 @@ For subcortical segmentation or skull-stripping on 3D T1-weighted images:
 
 For cine cardiac MRI segmentation:
 
-    cine4d -i c:\data\*.nii.gz -o c:\output
+    tigerhx c:\data\*.nii.gz -o c:\output
 
 For VDM method on EPI images:
 
-    vdm -i c:\data\*.nii.gz -o c:\output
+    tigervdm c:\data\*.nii.gz -o c:\output
 
 
 ### As a python module:
@@ -56,7 +56,7 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 | 2         | Left Ventricle Myocardium |
 | 3         | Right Ventricle blood     |
 
-## ASEG
+## ASEG43
 | Label | Structure              | Label | Structure               |
 | ----- | ---------------------- | ----- | ----------------------- |
 | 2     | Left Cerebral WM       | 41    | Right Cerebral WM       |
