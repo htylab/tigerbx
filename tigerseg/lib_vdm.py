@@ -40,7 +40,9 @@ def run(model_ff, input_data, GPU):
 
     if len(orig_data.shape) == 3:
         
+
         output_vol, vdm_pred = correct_3dvol(vdm_mode, session, orig_data)
+
     
     elif len(orig_data.shape) == 4:
         output_vol = orig_data * 0
@@ -142,7 +144,9 @@ def apply_vdm_3d(ima, vdm, readout=1,  AP_RL='AP'):
     return new_ima*jac_np
 
 
+
 def correct_3dvol(vdm_mode, session, orig_data):
+
     image = orig_data[None, ...][None, ...]
 
     image = image/np.max(image)
@@ -171,6 +175,7 @@ def correct_3dvol(vdm_mode, session, orig_data):
             softmax_all += mask_softmax[ii, ...] * ii
 
         vdm_pred = gaussian_filter(softmax_all*0.4 - 20, 0.5).astype(np.float)
+
 
     output_vol = apply_vdm_3d(orig_data, vdm_pred)
 
