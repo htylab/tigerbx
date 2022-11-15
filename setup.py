@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 classifiers = [
     'Intended Audience :: Developers',
-    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
     'License :: OSI Approved :: MIT License',
     "Operating System :: OS Independent"
 ]
@@ -29,7 +29,7 @@ setup(
             'tigervdm = tigerseg.tigervdm:main',
         ]
     },
-     python_requires='>=3.6',
+     python_requires='>=3.7',
      install_requires=[
              'numpy>=1.16.0',
              'nilearn>=0.9.1',

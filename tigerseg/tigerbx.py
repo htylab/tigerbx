@@ -7,12 +7,10 @@ import time
 import glob
 import platform
 import nibabel as nib
-#import tigerseg.methods.tigertool as tigertool
-#import tigerseg.methods.mprage as mprage
-#from methods import tigertool, mprage
 
-import lib_tool
-import lib_bx
+from tigerseg import lib_tool
+from tigerseg import lib_bx
+
 
 
 

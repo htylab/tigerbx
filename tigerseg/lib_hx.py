@@ -5,7 +5,9 @@ import numpy as np
 import nibabel as nib
 import onnxruntime as ort
 from scipy.special import softmax
-from lib_tool import cpu_count
+
+from tigerseg import lib_tool
+
 
 nib.Nifti1Header.quaternion_threshold = -100
 
@@ -20,7 +22,9 @@ def get_mode(model_ff):
 
 def run(model_ff, input_data, GPU):
 
-    cpu = max(int(cpu_count()*0.8), 1)
+
+    cpu = max(int(lib_tool.cpu_count()*0.8), 1)
+
 
     so = ort.SessionOptions()
     so.intra_op_num_threads = cpu

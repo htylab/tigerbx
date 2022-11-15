@@ -8,8 +8,10 @@ from scipy.io import savemat
 import nibabel as nib
 import numpy as np
 import time
-import lib_vdm as vdm
-import lib_tool as tigertool
+
+from tigerseg import lib_vdm as vdm
+from tigerseg import lib_tool as tigertool
+
 
 
 def main():
@@ -33,7 +35,11 @@ def main():
 
     print('Total nii files:', len(input_file_list))
 
-    model_name = tigertool.get_model('vdm_3dunet_v0001_orig')
+
+    #model_name = tigertool.get_model('vdm_3dunet_v0001_orig')
+    model_name = tigertool.get_model('vdm_gan_v0001_fold0')
+
+
 
     for f in input_file_list:
 

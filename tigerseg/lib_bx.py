@@ -5,7 +5,9 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-from lib_tool import predict
+
+from tigerseg import lib_tool
+
 
 
 label_all = dict()
@@ -71,7 +73,9 @@ def run(model_ff, input_data, GPU):
     image = data[None, ...][None, ...]
     image = image/np.max(image)
 
-    logits = predict(model_ff, image, GPU)[0, ...]
+
+    logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
+
 
     label_num = dict()
     label_num['bet'] = 2
