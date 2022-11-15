@@ -40,7 +40,7 @@ def run(model_ff, input_data, GPU):
 
     if len(orig_data.shape) == 3:
         
-        output_vol, vdm_pred = correct_3dvol(session, orig_data)
+        output_vol, vdm_pred = correct_3dvol(vdm_mode, session, orig_data)
     
     elif len(orig_data.shape) == 4:
         output_vol = orig_data * 0
@@ -142,7 +142,7 @@ def apply_vdm_3d(ima, vdm, readout=1,  AP_RL='AP'):
     return new_ima*jac_np
 
 
-def correct_3dvol(session, orig_data):
+def correct_3dvol(vdm_mode, session, orig_data):
     image = orig_data[None, ...][None, ...]
 
     image = image/np.max(image)
@@ -151,13 +151,26 @@ def correct_3dvol(session, orig_data):
 
     logits = predict(session, image)
 
-    mask_softmax = softmax(logits[0, ...], axis=0)
+    if vdm_mode == 'gan':
 
-    softmax_all = 0
-    for ii in range(101):
-        softmax_all += mask_softmax[ii, ...] * ii
+        df_map = logits[0, 0, ...]
 
-    vdm_pred = gaussian_filter(softmax_all*0.4 - 20, 0.5).astype(np.float)
+
+        df_map_f = np.array(df_map*0, dtype='float64')
+        for nslice in np.arange(df_map.shape[2]):
+            df_map_slice = gaussian_filter(df_map[..., nslice], sigma=1.5).astype('float64')
+            df_map_f[..., nslice] = df_map_slice
+        vdm_pred = df_map_f
+
+    else: #3dunet
+
+        mask_softmax = softmax(logits[0, ...], axis=0)
+
+        softmax_all = 0
+        for ii in range(101):
+            softmax_all += mask_softmax[ii, ...] * ii
+
+        vdm_pred = gaussian_filter(softmax_all*0.4 - 20, 0.5).astype(np.float)
 
     output_vol = apply_vdm_3d(orig_data, vdm_pred)
 
