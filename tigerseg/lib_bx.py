@@ -41,7 +41,7 @@ def getLarea(input_mask):
         mask = input_mask
     return mask
 
-def get_affine(mat_size=256):
+def get_affine(mat_size):
 
     target_shape = np.array((mat_size, mat_size, mat_size))
     new_resolution = [256/mat_size, ]*3
@@ -52,6 +52,15 @@ def get_affine(mat_size=256):
     new_affine[3, 3] = 1.
     #print(model_ff, target_shape)
     return new_affine, target_shape
+
+
+def get_mat_size(model_ff):
+    import re
+    tmp = re.compile('r\d{2,4}.onnx').findall(basename(model_ff))
+    mat_size = -1
+    if len(tmp) > 0:
+        mat_size = int(tmp[0].replace('.onnx', '')[1:])
+    return mat_size
 
 def run(model_ff, input_data, GPU):
 
@@ -119,27 +128,17 @@ def run(model_ff, input_data, GPU):
 
 def read_file(model_ff, input_file):
 
-    seg_mode, _ , model_str = get_mode(model_ff)
+    mat_size = get_mat_size(model_ff)
 
-    if 'r128' in model_str:
-
-        affine, shape = get_affine(mat_size=128)
-        vol = resample_img(nib.load(input_file),
-                           target_affine=affine, target_shape=shape).get_fdata()
-
-    elif 'r256' in model_str:
-
-        affine, shape = get_affine(mat_size=256)
-        vol = resample_img(nib.load(input_file),
-                           target_affine=affine, target_shape=shape).get_fdata()
-    else:
-        #vol = nib.load(input_file).get_fdata()
-
+    if mat_size == -1:
         vol = reorder_img(nib.load(input_file), resample='linear').get_fdata()
-        #print(reorder_img(nib.load(input_file), resample='linear').affine)
+    else:
+        affine, shape = get_affine(mat_size)
+        vol = resample_img(nib.load(input_file),
+                           target_affine=affine, target_shape=shape).get_fdata()
 
-    #print(vol.shape)
     return vol 
+
 
 
 def write_file(model_ff, input_file, output_dir,
@@ -161,14 +160,15 @@ def write_file(model_ff, input_file, output_dir,
     
     input_nib = nib.load(input_file)
     input_affine = input_nib.affine
-    zoom = input_nib.header.get_zooms()    
+    zoom = input_nib.header.get_zooms()
 
-    if 'r128' in model_str:
-        target_affine, _ = get_affine(mat_size=128)
-    elif 'r256' in model_str:
-        target_affine, _ = get_affine(mat_size=256)         
+    mat_size = get_mat_size(model_ff)
+
+    if mat_size == -1:
+        target_affine = reorder_img(nib.load(input_file),
+                                     resample='linear').affine
     else:
-        target_affine = reorder_img(nib.load(input_file), resample='linear').affine
+        target_affine, _ = get_affine(mat_size)
 
     if dtype == 'orig':
         result = nib.Nifti1Image(mask.astype(input_nib.dataobj.dtype), target_affine)

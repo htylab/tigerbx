@@ -13,8 +13,7 @@ nib.Nifti1Header.quaternion_threshold = -100
 
 
 def get_mode(model_ff):
-    seg_mode, version, model_str = basename(model_ff).split('_')[
-        1:4]  # aseg43, bet
+    seg_mode, version, model_str = basename(model_ff).split('_')[1:4]
 
     #print(seg_mode, version , model_str)
 
