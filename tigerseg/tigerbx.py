@@ -12,8 +12,6 @@ from tigerseg import lib_tool
 from tigerseg import lib_bx
 
 
-
-
 def main():
       
     parser = argparse.ArgumentParser()
@@ -62,7 +60,10 @@ def main():
     else:
         model_bet = 'mprage_bet_v002_full.onnx'
         #model_aseg = 'mprage_v0006_aseg43_full.onnx'
-        model_aseg = 'mprage_aseg43_v006_WangM1r220.onnx'
+        
+        model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
+        #model_aseg = 'mprage_aseg43_v002_WangM1r220.onnx'
+
     model_dkt = 'mprage_dkt_v001_f16r256.onnx'
 
     #if args.model is None:
