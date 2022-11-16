@@ -51,7 +51,7 @@ def get_affine(mat_size):
     new_affine[:3, 3] = target_shape * new_resolution/2.*-1
     new_affine[3, 3] = 1.
     #print(model_ff, target_shape)
-    print(new_affine, target_shape)
+    #print(new_affine, target_shape)
     return new_affine, target_shape
 
 
@@ -61,7 +61,7 @@ def get_mat_size(model_ff):
     mat_size = -1
     if len(tmp) > 0:
         mat_size = int(tmp[0].replace('.onnx', '')[1:])
-    print(model_ff, mat_size)
+    #print(model_ff, mat_size)
     return mat_size
 
 def run(model_ff, input_data, GPU):
