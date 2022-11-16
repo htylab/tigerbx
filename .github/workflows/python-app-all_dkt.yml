@@ -5,9 +5,9 @@ name: Python All OS DKT
 
 on:
   push:
-    branches: [ "dev2" ]
+    branches: [ "dev3" ]
   pull_request:
-    branches: [ "dev2" ]
+    branches: [ "dev3" ]
 
 permissions:
   contents: read
@@ -20,10 +20,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
-        #os: ['windows-latest']
-        py: ['tigerbx', 'tigerhx', 'tigervdm']
-        #py: ['tigerbx']
+        #os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
+        os: ['windows-latest']
+        #py: ['tigerbx', 'tigerhx', 'tigervdm']
+        py: ['tigerbx']
 
     steps:
     - uses: actions/checkout@v3
