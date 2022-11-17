@@ -1,15 +1,14 @@
 ## Background
 
 * This package provides deep-learning segmentation models.
-* We also provided the stand-alone application working on Linux and Windows.
+* We also provided the stand-alone application working on Windows, Mac, and Linux.
 
-![tigerbet](./doc/tigerbet.png)
-## Tutorial using tigerseg
+![tigerbet](./doc/tigerbet2.png)
 
 ### Install stand-alone version
     https://github.com/htylab/tigerseg/releases
 ### Install package
-    
+
     pip install tigerseg
 
 or
@@ -25,39 +24,19 @@ or install the nightly unstable build:
 
 ### As a command line tool:
 
-    tigerseg -i INPUT_FILE -o OUTPUT_DIR --model model --GPU True --report True
+For subcortical segmentation or skull-stripping on 3D T1-weighted images:
 
-INPUT_FILE: For example, t1.nii.gz. A wildcard is allowed. For example, you can use 
-
-    tigerseg -i c:\data\*.nii.gz -o c:\output --model model
-
-
-For subcortical segmentation:
-
-    aseg -i c:\data\*.nii.gz -o c:\output
+    tigerbx -bmadf c:\data\*.nii.gz -o c:\output
 
 For cine cardiac MRI segmentation:
 
-    cine4d -i c:\data\*.nii.gz -o c:\output
-
-For skull-stripping on 3D T1-weighted images:
-
-    pybet -i c:\data\*.nii.gz -o c:\output
+    tigerhx c:\data\*.nii.gz -o c:\output
 
 For VDM method on EPI images:
 
-    vdm -i c:\data\*.nii.gz -o c:\output
+    tigervdm c:\data\*.nii.gz -o c:\output
 
 
-### As a python module:
-
-```
-from tigerseg import segment
-
-input_file_list = glob.glob(r"C:\sample\*o.nii")
-result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
-
-```
 # Label names:
 
 ## cine4d
@@ -67,33 +46,32 @@ result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
 | 2         | Left Ventricle Myocardium |
 | 3         | Right Ventricle blood     |
 
-## ASEG
-| Label No. | Structure Name                | Label No. | Structure Name               |
-| --------- | ----------------------------- | --------- | ---------------------------- |
-| 2         | Left-Cerebral-White-Matter    | 49        | Right-Thalamus-Proper        |
-| 4         | Left-Lateral-Ventricle        | 50        | Right-Caudate                |
-| 5         | Left-Inf-Lat-Vent             | 51        | Right-Putamen                |
-| 7         | Left-Cerebellum-White-Matter  | 52        | Right-Pallidum               |
-| 8         | Left-Cerebellum-Cortex        | 53        | Right-Hippocampus            |
-| 10        | Left-Thalamus-Proper          | 54        | Right-Amygdala               |
-| 11        | Left-Caudate                  | 58        | Right-Accumbens-area         |
-| 12        | Left-Putamen                  | 60        | Right-VentralDC              |
-| 13        | Left-Pallidum                 | 62        | Right-vessel                 |
-| 14        | 3rd-Ventricle                 | 63        | Right-choroid-plexus         |
-| 15        | 4th-Ventricle                 | 72        | 5th-Ventricle                |
-| 16        | Brain-Stem                    | 77        | WM-hypointensities           |
-| 17        | Left-Hippocampus              | 78        | Left-WM-hypointensities      |
-| 18        | Left-Amygdala                 | 79        | Right-WM-hypointensities     |
-| 24        | CSF                           | 80        | non-WM-hypointensities       |
-| 26        | Left-Accumbens-area           | 81        | Left-non-WM-hypointensities  |
-| 28        | Left-VentralDC                | 82        | Right-non-WM-hypointensities |
-| 30        | Left-vessel                   | 85        | Optic-Chiasm                 |
-| 31        | Left-choroid-plexus           | 251       | CC\_Posterior                |
-| 41        | Right-Cerebral-White-Matter   | 252       | CC\_Mid\_Posterior           |
-| 43        | Right-Lateral-Ventricle       | 253       | CC\_Central                  |
-| 44        | Right-Inf-Lat-Vent            | 254       | CC\_Mid\_Anterior            |
-| 46        | Right-Cerebellum-White-Matter | 255       | CC\_Anterior                 |
-| 47        | Right-Cerebellum-Cortex       |           |                              |
+## ASEG43
+| Label | Structure              | Label | Structure               |
+| ----- | ---------------------- | ----- | ----------------------- |
+| 2     | Left Cerebral WM       | 41    | Right Cerebral WM       |
+| 3     | Left Cerebral Cortex   | 42    | Right Cerebral Cortex   |
+| 4     | Left Lateral Ventricle | 43    | Right Lateral Ventricle |
+| 5     | Left Inf Lat Vent      | 44    | Right Inf Lat Vent      |
+| 7     | Left Cerebellum WM     | 46    | Right Cerebellum WM     |
+| 8     | Left Cerebellum Cortex | 47    | Right Cerebellum Cortex |
+| 10    | Left Thalamus          | 49    | Right Thalamus          |
+| 11    | Left Caudate           | 50    | Right Caudate           |
+| 12    | Left Putamen           | 51    | Right Putamen           |
+| 13    | Left Pallidum          | 52    | Right Pallidum          |
+| 14    | 3rd Ventricle          | 53    | Right Hippocampus       |
+| 15    | 4th Ventricle          | 54    | Right Amygdala          |
+| 16    | Brain Stem             | 58    | Right Accumbens area    |
+| 17    | Left Hippocampus       | 60    | Right VentralDC         |
+| 18    | Left Amygdala          | 62    | Right vessel            |
+| 24    | CSF                    | 63    | Right choroid plexus    |
+| 26    | Left Accumbens area    | 77    | WM hypointensities      |
+| 28    | Left VentralDC         | 85    | Optic Chiasm            |
+| 30    | Left vessel            | 251   | CC Posterior            |
+| 31    | Left choroid plexus    | 252   | CC Mid Posterior        |
+|       |                        | 253   | CC Central              |
+|       |                        | 254   | CC Mid Anterior         |
+|       |                        | 255   | CC Anterior             |
 
 ## DeepGM: Deep gray-matter structures
 | Label No. | Structure Name       | Label No. | Structure Name        |

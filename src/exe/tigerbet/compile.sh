@@ -1,1 +1,0 @@
-pyinstaller -c --icon=ico.ico -F --add-data libonnxruntime_providers_shared.so:onnxruntime/capi --add-data mprage_v0004_bet_full.onnx:tigerseg/models --add-data mprage_v0002_bet_kuor128.onnx:tigerseg/models tigerbet.py

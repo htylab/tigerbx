@@ -5,7 +5,7 @@ models/
 *$py.class
 .ipynb_checkpoints/
 # C extensions
-*.so
+#*.so
 
 # Distribution / packaging
 .Python

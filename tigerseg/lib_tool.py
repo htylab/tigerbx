@@ -5,6 +5,108 @@ import os
 import re
 import subprocess
 import onnxruntime as ort
+import shutil
+import warnings
+from os.path import join, isdir, basename, isfile, dirname
+import nibabel as nib
+import numpy as np
+import sys
+
+
+
+warnings.filterwarnings("ignore", category=UserWarning)
+nib.Nifti1Header.quaternion_threshold = -100
+
+model_servers = ['https://github.com/htylab/tigerseg/releases/download/modelhub/',
+                    'https://data.mrilab.org/onnxmodel/dev/']
+
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(os.path.abspath(__file__))
+
+model_path = join(application_path, 'models')
+# print(model_path)
+os.makedirs(model_path, exist_ok=True)
+
+
+def download_old(url, file_name):
+    import urllib.request
+    import certifi
+    
+    with urllib.request.urlopen(url,
+         cafile=certifi.where()) as response, open(file_name, 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
+
+
+def download(url, file_name):
+    import urllib.request
+    import certifi
+    import shutil
+    import ssl
+    context = ssl.create_default_context(cafile=certifi.where())
+    #urllib.request.urlopen(url, cafile=certifi.where())
+    with urllib.request.urlopen(url,
+                                context=context) as response, open(file_name, 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
+
+
+def get_model(f):
+    from os.path import join, isfile
+    import os
+
+
+    if isfile(f):
+        return f
+
+    if '.onnx' in f:
+        fn = f
+    else:
+        fn = f + '.onnx'
+    
+    model_file = join(model_path, fn)
+    
+    if not os.path.exists(model_file):
+        
+        for server in model_servers:
+            try:
+                print(f'Downloading model files....')
+                model_url = server + fn
+                print(model_url, model_file)
+                download(model_url, model_file)
+                download_ok = True
+                print('Download finished...')
+                break
+            except:
+                download_ok = False
+
+        if not download_ok:
+            raise ValueError('Server error. Please check the model name or internet connection.')
+                
+    return model_file
+
+def get_model_old(f):
+
+    if isfile(f):
+        return f
+
+    if '.onnx' in f:
+        fn = f
+    else:
+        fn = f + '.onnx'
+    model_url = model_server + fn
+    model_file = join(model_path, fn)
+
+    if not os.path.exists(model_file):
+        print(f'Downloading model files....')
+        print(model_url, model_file)
+        #urllib.request.urlretrieve(model_url, model_file)
+        download(model_url, model_file)
+    return model_file
+
+
+
 
 def cpu_count():
     """ Number of available virtual or physical CPUs on this system, i.e.
@@ -121,11 +223,13 @@ def cpu_count():
 
 def predict(model, data, GPU):
     #from .tool import cpu_count
+    #will reload model file every time
 
     so = ort.SessionOptions()
     cpu = max(int(cpu_count()*0.8), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
+    so.log_severity_level = 3
 
     if GPU and (ort.get_device() == "GPU"):
 
@@ -142,3 +246,4 @@ def predict(model, data, GPU):
         data_type = 'float32'
 
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
+

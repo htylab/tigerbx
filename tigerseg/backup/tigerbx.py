@@ -3,17 +3,17 @@ import os
 from os.path import basename, join, isdir
 import argparse
 import time
-import tigerseg.segment
-import tigerseg.methods.mprage
+
 import glob
 import platform
 import nibabel as nib
 
+from tigerseg import lib_tool
+from tigerseg import lib_bx
 
 
 def main():
-
-    default_model = 'mprage_v0004_bet_full.onnx'    
+      
     parser = argparse.ArgumentParser()
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
@@ -23,8 +23,10 @@ def main():
     parser.add_argument('-b', '--bet', action='store_true', help='Producing bet images')
     parser.add_argument('-d', '--deepgm', action='store_true',
                         help='Producing deepgm mask')
+    parser.add_argument('-k', '--dkt', action='store_true',
+                        help='Producing dkt mask')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    parser.add_argument('--model', default=default_model, type=str, help='Specifies the modelname')
+    #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
 
@@ -32,8 +34,9 @@ def main():
     get_a = args.aseg
     get_b = args.bet
     get_d = args.deepgm
+    get_k = args.dkt
 
-    if True not in [get_m, get_a, get_b, get_d]:
+    if True not in [get_m, get_a, get_b, get_d, get_k]:
         get_b = True
         # Producing extracted brain by default 
 
@@ -50,14 +53,23 @@ def main():
     #model_name = args.model
     #model_aseg = 'mprage_v0006_aseg43_full.onnx'
 
-    
     if args.fast:
-        model_name = 'mprage_v0002_bet_kuor128.onnx'
-        model_aseg = 'mprage_v0001_aseg43_MXRWr128.onnx'
+        model_bet = 'mprage_bet_v001_kuor128.onnx'
+        model_aseg = 'mprage_aseg43_v001_MXRWr128.onnx'
+        
     else:
-        model_name = args.model
-        model_aseg = 'mprage_v0006_aseg43_full.onnx'
-        #model_aseg = 'mprage_v0003_aseg43_WangM1r256.onnx'
+        model_bet = 'mprage_bet_v002_full.onnx'
+        #model_aseg = 'mprage_v0006_aseg43_full.onnx'
+        
+        model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
+        #model_aseg = 'mprage_aseg43_v002_WangM1r220.onnx'
+
+    model_dkt = 'mprage_dkt_v001_f16r256.onnx'
+
+    #if args.model is None:
+
+    #else:
+    #    model_aseg, model_name = args.model.split('*')
     
 
     print('Total nii files:', len(input_file_list))
@@ -65,11 +77,13 @@ def main():
     for f in input_file_list:
 
         print('Processing :', os.path.basename(f))
-        t = time.time()
-            
-        input_data = tigerseg.methods.mprage.read_file(model_name, f)
+        t = time.time()         
 
-        mask = tigerseg.segment.apply(model_name, input_data,  GPU=args.gpu)
+        model_bet_ff = lib_tool.get_model(model_bet)
+
+        input_data = lib_bx.read_file(model_bet_ff, f)
+        mask, _ = lib_bx.run(
+            model_bet_ff, input_data, GPU=args.gpu)
 
         f_output_dir = output_dir
 
@@ -78,7 +92,7 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
-        mask_file, mask_niimem = tigerseg.methods.mprage.write_file(model_name,
+        mask_file, mask_niimem = lib_bx.write_file(model_bet_ff,
                                             f, f_output_dir, 
                                             mask, postfix='tbetmask', inmem=True)
 
@@ -102,12 +116,11 @@ def main():
             print('Writing output file: ', mask_file)
 
         if get_a or get_d:
+            model_aseg = lib_tool.get_model(model_aseg)
             input_nib = nib.load(f)
-            input_data = tigerseg.methods.mprage.read_file(model_aseg, f)
-            asegmask = tigerseg.segment.apply(
-                model_aseg, input_data,  GPU=args.gpu)
-            aseg_file, aseg_niimem = tigerseg.methods.mprage.write_file(model_aseg,
-                                                                        f, f_output_dir,
+            input_data = lib_bx.read_file(model_aseg, f)
+            asegmask, _ = lib_bx.run(model_aseg, input_data, GPU=args.gpu)
+            aseg_file, aseg_niimem = lib_bx.write_file(model_aseg, f, f_output_dir,
                                                                         asegmask, postfix='aseg', inmem=True)
             aseg = aseg_niimem.get_fdata() * mask_niimem.get_fdata()
             aseg = aseg.astype(int)
@@ -133,6 +146,21 @@ def main():
                     deepgm, input_nib.affine, input_nib.header)
                 nib.save(deepgm, output_file)
                 print('Writing output file: ', output_file)
+
+        if get_k:
+            input_nib = nib.load(f)
+            model_dkt = lib_tool.get_model(model_dkt)
+            input_data = lib_bx.read_file(model_dkt, f)
+            dktmask, _ = lib_bx.run(
+                model_dkt, input_data,  GPU=args.gpu)
+            dkt_file, dkt_niimem = lib_bx.write_file(model_dkt, f, f_output_dir,
+                                                    dktmask, postfix='dkt', inmem=True)
+            dkt = dkt_niimem.get_fdata() * mask_niimem.get_fdata()
+            dkt = dkt.astype(int)
+
+            dktnii = nib.Nifti1Image(dkt, input_nib.affine, input_nib.header)
+            nib.save(dktnii, dkt_file)
+            print('Writing output file: ', dkt_file)
 
         print('Processing time: %d seconds' %  (time.time() - t))
 
