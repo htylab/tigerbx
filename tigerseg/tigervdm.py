@@ -37,7 +37,7 @@ def main():
 
 
     #model_name = tigertool.get_model('vdm_3dunet_v0001_orig')
-    model_name = tigertool.get_model('vdm_gan_v0001_fold0')
+    model_name = tigertool.get_model('vdm_gan_v001_fold0')
 
 
 

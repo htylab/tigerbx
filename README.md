@@ -38,15 +38,6 @@ For VDM method on EPI images:
     tigervdm c:\data\*.nii.gz -o c:\output
 
 
-### As a python module:
-
-```
-from tigerseg import segment
-
-input_file_list = glob.glob(r"C:\sample\*o.nii")
-result = segment.apply_files('cine4d_v0002_xyz_mms12acdc', input_file_list)
-
-```
 # Label names:
 
 ## cine4d
