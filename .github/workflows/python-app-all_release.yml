@@ -1,0 +1,58 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python All OS DKT
+
+on:
+  push:
+    branches: [ "release" ]
+  pull_request:
+    branches: [ "release" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    #runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        #os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
+        os: ['windows-latest']
+        #py: ['tigerbx', 'tigerhx', 'tigervdm']
+        py: ['tigerbx']
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.7"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip        
+        pip install .
+        pip install pyinstaller onnxruntime
+    - name: Run Pyinstaller 1
+      if: matrix.os == 'windows-latest'
+      run: |
+
+        #pyinstaller -c –-paths ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
+    - name: Run Pyinstaller  2
+      if: matrix.os == 'ubuntu-18.04'
+      run: |
+        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data ./tigerseg/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerseg/${{ matrix.py }}.py
+    - name: Run Pyinstaller 3
+      if: matrix.os == 'macos-latest'
+      run: |
+        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data ./tigerseg/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerseg/${{ matrix.py }}.py
+
+        
+    - uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.py }}-${{ matrix.os }}
+        path: dist/*
