@@ -5,34 +5,32 @@ import numpy as np
 import nibabel as nib
 import onnxruntime as ort
 from scipy.special import softmax
+
+from tigerseg import lib_tool
+
+
 nib.Nifti1Header.quaternion_threshold = -100
 
 
-def run_SingleModel(model_ff, input_data, GPU):
+def get_mode(model_ff):
+    seg_mode, version, model_str = basename(model_ff).split('_')[1:4]
 
- 
+    #print(seg_mode, version , model_str)
+
+    return seg_mode, version, model_str
+
+def run(model_ff, input_data, GPU):
+
+
+    cpu = max(int(lib_tool.cpu_count()*0.8), 1)
+
 
     so = ort.SessionOptions()
-    so.intra_op_num_threads = 4
-    so.inter_op_num_threads = 4
+    so.intra_op_num_threads = cpu
+    so.inter_op_num_threads = cpu
+    so.log_severity_level = 3
 
-    '''
-    
-    try:
-        if os.cpu_count() is None:
-            so.intra_op_num_threads = 1
-            so.inter_op_num_threads = 1
-        else:
-            so.intra_op_num_threads = os.cpu_count()
-            so.inter_op_num_threads = os.cpu_count()
-    except:
-        so.intra_op_num_threads = 1
-        so.inter_op_num_threads = 1
-    
-    so.intra_op_num_threads = 4
-    so.inter_op_num_threads = 4
-    print('************', so.intra_op_num_threads)
-    '''
+
     if GPU and (ort.get_device() == "GPU"):
         #ort.InferenceSession(model_file, providers=['CPUExecutionProvider'])
         session = ort.InferenceSession(model_ff,
@@ -43,9 +41,8 @@ def run_SingleModel(model_ff, input_data, GPU):
                                        providers=['CPUExecutionProvider'],
                                        sess_options=so)
 
+    xyzt_mode, _, _ = get_mode(model_ff)
 
-    xyzt_mode=basename(model_ff).split('_')[2]
-    
 
     data = input_data.copy()
     xx, yy, zz, tt = data.shape
@@ -72,7 +69,7 @@ def run_SingleModel(model_ff, input_data, GPU):
         if np.max(image) == 0:
             continue
         image = image/np.max(image)
-
+   
         logits = session.run(None, {"modelInput": image.astype(np.float32)})[0]
 
         mask_pred = post(np.argmax(logits[0, ...], axis=0))
@@ -99,14 +96,14 @@ def read_file(model_ff, input_file):
 
     return nib.load(input_file).get_fdata()
 
-def write_file(model_ff, input_file, output_dir, mask, inmem=False):
+def write_file(model_ff, input_file, output_dir, mask, inmem=False, postfix='pred'):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
         return 0
 
     output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
-    output_file = output_file + '_pred.nii.gz'
+    output_file = output_file + f'_{postfix}.nii.gz'
     output_file = join(output_dir, output_file)
     print('Writing output file: ', output_file)
 
@@ -116,8 +113,6 @@ def write_file(model_ff, input_file, output_dir, mask, inmem=False):
     result = nib.Nifti1Image(mask.astype(np.uint8), affine)
     result.header.set_zooms(zoom)
 
-    #if 'mprage' in model_name:
-    #result = resample_to_img(result, f, interpolation="nearest")
     if not inmem:
         nib.save(result, output_file)
 
