@@ -17,7 +17,8 @@ import sys
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
-model_server = 'https://data.mrilab.org/onnxmodel/releasev1/'
+model_servers = ['https://github.com/htylab/tigerseg/releases/download/modelhub/',
+                    'https://data.mrilab.org/onnxmodel/dev/']
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
@@ -50,7 +51,42 @@ def download(url, file_name):
                                 context=context) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
+
 def get_model(f):
+    from os.path import join, isfile
+    import os
+
+
+    if isfile(f):
+        return f
+
+    if '.onnx' in f:
+        fn = f
+    else:
+        fn = f + '.onnx'
+    
+    model_file = join(model_path, fn)
+    
+    if not os.path.exists(model_file):
+        
+        for server in model_servers:
+            try:
+                print(f'Downloading model files....')
+                model_url = server + fn
+                print(model_url, model_file)
+                download(model_url, model_file)
+                download_ok = True
+                print('Download finished...')
+                break
+            except:
+                download_ok = False
+
+        if not download_ok:
+            raise ValueError('Server error. Please check the model name or internet connection.')
+                
+    return model_file
+
+def get_model_old(f):
 
     if isfile(f):
         return f
