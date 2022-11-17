@@ -4,12 +4,11 @@
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
 
 ![tigerbet](./doc/tigerbet2.png)
-## Tutorial using tigerseg
 
 ### Install stand-alone version
     https://github.com/htylab/tigerseg/releases
 ### Install package
-    
+
     pip install tigerseg
 
 or
