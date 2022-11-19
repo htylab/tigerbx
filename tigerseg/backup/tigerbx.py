@@ -12,6 +12,31 @@ from tigerseg import lib_tool
 from tigerseg import lib_bx
 
 
+def produce_mask(model, f, f_output_dir, args,
+                postfix, brainmask_nib=None, write=True):
+
+    input_nib = nib.load(f)
+    model_ff = lib_tool.get_model(model)
+    input_data = lib_bx.read_file(model_ff, f)
+    mask, _ = lib_bx.run(
+        model_ff, input_data,  GPU=args.gpu)
+    output_file, pred_nib = lib_bx.write_file(model_ff, f, f_output_dir,
+                                              mask, postfix=postfix,
+                                              inmem=True)
+
+    if brainmask_nib is None:
+        output = pred_nib.get_fdata()
+    else:
+        output = pred_nib.get_fdata() * brainmask_nib.get_fdata()
+    output = output.astype(int)
+
+    output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
+    if write:
+        nib.save(output_nib, output_file)
+    print('Writing output file: ', output_file)
+
+    return pred_nib
+
 def main():
       
     parser = argparse.ArgumentParser()
@@ -60,11 +85,10 @@ def main():
     else:
         model_bet = 'mprage_bet_v002_full.onnx'
         #model_aseg = 'mprage_v0006_aseg43_full.onnx'
-        
-        model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
-        #model_aseg = 'mprage_aseg43_v002_WangM1r220.onnx'
-
+        #model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
+        model_aseg = 'mprage_aseg43_v005_crop.onnx'
     model_dkt = 'mprage_dkt_v001_f16r256.onnx'
+    model_dgm = 'mprage_dgm12_v001_wangM1V2.onnx'
 
     #if args.model is None:
 
@@ -77,13 +101,7 @@ def main():
     for f in input_file_list:
 
         print('Processing :', os.path.basename(f))
-        t = time.time()         
-
-        model_bet_ff = lib_tool.get_model(model_bet)
-
-        input_data = lib_bx.read_file(model_bet_ff, f)
-        mask, _ = lib_bx.run(
-            model_bet_ff, input_data, GPU=args.gpu)
+        t = time.time()
 
         f_output_dir = output_dir
 
@@ -91,76 +109,46 @@ def main():
             f_output_dir = os.path.dirname(os.path.abspath(f))
         else:
             os.makedirs(f_output_dir, exist_ok=True)
-
-        mask_file, mask_niimem = lib_bx.write_file(model_bet_ff,
-                                            f, f_output_dir, 
-                                            mask, postfix='tbetmask', inmem=True)
-
-
+        
+        tbetmask_nib = produce_mask(model_bet, f, f_output_dir, args,
+                                    'tbetmask', write=get_m)
         if get_b:
             input_nib = nib.load(f)
-            bet = input_nib.get_fdata() * mask_niimem.get_fdata()
-            bet = bet.astype(
-                input_nib.dataobj.dtype)
+            bet = input_nib.get_fdata() * tbetmask_nib.get_fdata()
+            bet = bet.astype(input_nib.dataobj.dtype)
 
             bet = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
 
-            output_file = basename(f).replace(
-                '.nii', f'_tbet.nii')
+            output_file = basename(f).replace('.nii', f'_tbet.nii')
             output_file = join(f_output_dir, output_file)
             nib.save(bet, output_file)
             print('Writing output file: ', output_file)
             
-        if get_m:
-            nib.save(mask_niimem, mask_file)
-            print('Writing output file: ', mask_file)
+        if get_a:
+            aseg_nib = produce_mask(model_aseg, f, f_output_dir,
+             args, 'aseg', brainmask_nib=tbetmask_nib)
+        #if get_d:
+        #    produce_mask(model_dgm, f, f_output_dir,
+        #                 args, 'dgm', brainmask_nib=tbetmask_nib)
 
-        if get_a or get_d:
-            model_aseg = lib_tool.get_model(model_aseg)
-            input_nib = nib.load(f)
-            input_data = lib_bx.read_file(model_aseg, f)
-            asegmask, _ = lib_bx.run(model_aseg, input_data, GPU=args.gpu)
-            aseg_file, aseg_niimem = lib_bx.write_file(model_aseg, f, f_output_dir,
-                                                                        asegmask, postfix='aseg', inmem=True)
-            aseg = aseg_niimem.get_fdata() * mask_niimem.get_fdata()
-            aseg = aseg.astype(int)
+        if get_d:
+            aseg = aseg_nib.get_fdata()
+            deepgm = aseg * 0
+            count = 0
+            for ii in [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]:
+                count += 1
+                deepgm[aseg==ii] = count
 
-            if get_a:
-                asegnii = nib.Nifti1Image(aseg, input_nib.affine, input_nib.header)
-                nib.save(asegnii, aseg_file)
-                print('Writing output file: ', aseg_file)
+            deepgm = deepgm.astype(int)
 
-            if get_d:
-                deepgm = aseg * 0
-                count = 0
-                for ii in [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]:
-                    count += 1
-                    deepgm[aseg==ii] = count
-
-                deepgm = deepgm.astype(int)
-
-                output_file = basename(f).replace(
-                    '.nii', f'_deegm.nii')
-                output_file = join(f_output_dir, output_file)
-                deepgm = nib.Nifti1Image(
-                    deepgm, input_nib.affine, input_nib.header)
-                nib.save(deepgm, output_file)
-                print('Writing output file: ', output_file)
-
+            output_file = basename(f).replace('.nii', f'_deegm.nii')
+            output_file = join(f_output_dir, output_file)
+            deepgm = nib.Nifti1Image(deepgm, input_nib.affine, input_nib.header)
+            nib.save(deepgm, output_file)
+            print('Writing output file: ', output_file)
         if get_k:
-            input_nib = nib.load(f)
-            model_dkt = lib_tool.get_model(model_dkt)
-            input_data = lib_bx.read_file(model_dkt, f)
-            dktmask, _ = lib_bx.run(
-                model_dkt, input_data,  GPU=args.gpu)
-            dkt_file, dkt_niimem = lib_bx.write_file(model_dkt, f, f_output_dir,
-                                                    dktmask, postfix='dkt', inmem=True)
-            dkt = dkt_niimem.get_fdata() * mask_niimem.get_fdata()
-            dkt = dkt.astype(int)
-
-            dktnii = nib.Nifti1Image(dkt, input_nib.affine, input_nib.header)
-            nib.save(dktnii, dkt_file)
-            print('Writing output file: ', dkt_file)
+            produce_mask(model_dkt, f, f_output_dir,
+                         args, 'dkt', brainmask_nib=tbetmask_nib)
 
         print('Processing time: %d seconds' %  (time.time() - t))
 

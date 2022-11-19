@@ -64,12 +64,12 @@ def get_mat_size(model_ff):
     #print(model_ff, mat_size)
     return mat_size
 
-def run(model_ff, input_data, GPU):
+def run(model_ff, input_nib, GPU):
 
     seg_mode, _ , model_str = get_mode(model_ff)
      
 
-    data = input_data.copy()
+    data = input_nib.get_fdata()
 
     image = data[None, ...][None, ...]
     image = image/np.max(image)
@@ -112,12 +112,15 @@ def run(model_ff, input_data, GPU):
             #print((ii+1), labels[ii])
         mask_pred = mask_pred_relabel
 
-    if seg_mode == 'dkt':
-        return mask_pred.astype(np.int16), prob
-    else:
-        return mask_pred.astype(np.uint8), prob
+
+    mask_pred = mask_pred.astype(int)
 
 
+    output_nib = nib.Nifti1Image(
+        mask_pred, input_nib.affine, input_nib.header)
+    
+    return output_nib, prob
+'''
 def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
@@ -129,7 +132,21 @@ def read_file(model_ff, input_file):
         vol = resample_img(nib.load(input_file),
                            target_affine=affine, target_shape=shape).get_fdata()
 
-    return vol 
+    return vol
+'''
+
+def read_file(model_ff, input_file):
+
+    mat_size = get_mat_size(model_ff)
+
+    if mat_size == -1:
+        vol_nib = reorder_img(nib.load(input_file), resample='linear')
+    else:
+        affine, shape = get_affine(mat_size)
+        vol_nib = resample_img(nib.load(input_file),
+                           target_affine=affine, target_shape=shape)
+
+    return vol_nib
 
 
 
