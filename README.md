@@ -11,17 +11,7 @@
 
 ### Install stand-alone version
     https://github.com/htylab/tigerseg/releases
-### Install package
 
-    pip install tigerseg
-
-or
-
-    pip install https://github.com/htylab/tigerseg/archive/release.zip
-    
-or install the nightly unstable build:
-
-    pip install git+https://github.com/htylab/tigerseg
     
 
 ## Usage
