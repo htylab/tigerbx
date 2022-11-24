@@ -12,33 +12,10 @@
 ### Install stand-alone version
     https://github.com/htylab/tigerseg/releases
 
-    
-
-## Usage
-
-### As a command line tool:
-
-For subcortical segmentation or skull-stripping on 3D T1-weighted images:
+### Usage
 
     tigerbx -bmadf c:\data\*.nii.gz -o c:\output
 
-For cine cardiac MRI segmentation:
-
-    tigerhx c:\data\*.nii.gz -o c:\output
-
-For VDM method on EPI images:
-
-    tigervdm c:\data\*.nii.gz -o c:\output
-
-
-# Label names:
-
-## cine4d
-| Label No. | Structure Name            |
-| --------- | ------------------------- |
-| 1         | Left Ventricle blood      |
-| 2         | Left Ventricle Myocardium |
-| 3         | Right Ventricle blood     |
 
 ## ASEG43
 | Label | Structure              | Label | Structure               |
