@@ -2,6 +2,10 @@
 
 * This package provides deep-learning segmentation models.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
+* If you use this program, you may consider citing the paper describing this method.
+
+1. Weng JS, Huang TY, “Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation” (2022), NMR in Biomedicine
+
 
 ![tigerbet](./doc/tigerbet2.png)
 
