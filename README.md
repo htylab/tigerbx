@@ -1,6 +1,6 @@
 ## Background
 
-* This package provides deep-learning segmentation models.
+* This repo provides deep-learning methods for brain extration.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
 * If you use this program, you may consider citing the paper describing this method.
 
