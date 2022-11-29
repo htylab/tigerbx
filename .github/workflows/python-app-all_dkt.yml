@@ -5,9 +5,9 @@ name: Python All OS DKT
 
 on:
   push:
-    branches: [ "dev3" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "dev3" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read

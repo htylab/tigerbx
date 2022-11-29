@@ -120,20 +120,7 @@ def run(model_ff, input_nib, GPU):
         mask_pred, input_nib.affine, input_nib.header)
     
     return output_nib, prob
-'''
-def read_file(model_ff, input_file):
 
-    mat_size = get_mat_size(model_ff)
-
-    if mat_size == -1:
-        vol = reorder_img(nib.load(input_file), resample='linear').get_fdata()
-    else:
-        affine, shape = get_affine(mat_size)
-        vol = resample_img(nib.load(input_file),
-                           target_affine=affine, target_shape=shape).get_fdata()
-
-    return vol
-'''
 
 def read_file(model_ff, input_file):
 

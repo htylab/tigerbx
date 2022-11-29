@@ -12,21 +12,19 @@ classifiers = [
 
 setup(
      name='tigerseg',
-     version='0.1.8',
+     version='0.1.9',
      description='Processing MRI images based on deep-learning',
      long_description_content_type='text/markdown',
-     url='https://github.com/htylab/tigerseg',
+     url='https://github.com/htylab/tigerbx',
      author='Biomedical Imaging Lab, Taiwan Tech',
      author_email='',
      License='MIT',
      classifiers=classifiers,
-     keywords='MRI segmentation',
+     keywords='MRI brain segmentation',
      packages=find_packages(),
      entry_points={
         'console_scripts': [
-            'tigerhx = tigerseg.tigerhx:main',
             'tigerbx = tigerseg.tigerbx:main',
-            'tigervdm = tigerseg.tigervdm:main',
         ]
     },
      python_requires='>=3.7',
