@@ -64,12 +64,16 @@ def get_mat_size(model_ff):
     #print(model_ff, mat_size)
     return mat_size
 
+
 def run(model_ff, input_nib, GPU):
+
 
     seg_mode, _ , model_str = get_mode(model_ff)
      
 
+
     data = input_nib.get_fdata()
+
 
     image = data[None, ...][None, ...]
     image = image/np.max(image)
@@ -113,6 +117,7 @@ def run(model_ff, input_nib, GPU):
         mask_pred = mask_pred_relabel
 
 
+
     mask_pred = mask_pred.astype(int)
 
 
@@ -122,11 +127,13 @@ def run(model_ff, input_nib, GPU):
     return output_nib, prob
 
 
+
 def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
 
     if mat_size == -1:
+
         vol_nib = reorder_img(nib.load(input_file), resample='linear')
     else:
         affine, shape = get_affine(mat_size)
@@ -134,6 +141,7 @@ def read_file(model_ff, input_file):
                            target_affine=affine, target_shape=shape)
 
     return vol_nib
+
 
 
 
