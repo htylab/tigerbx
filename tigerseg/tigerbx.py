@@ -127,7 +127,7 @@ def main():
         if get_a:
             aseg_nib = produce_mask(model_aseg, f, GPU=args.gpu,
                                     brainmask_nib=tbetmask_nib)
-            save_nib(bet, ftemplate, 'aseg')
+            save_nib(aseg_nib, ftemplate, 'aseg')
 
 
         if get_d:
