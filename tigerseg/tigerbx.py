@@ -10,6 +10,7 @@ import nibabel as nib
 
 from tigerseg import lib_tool
 from tigerseg import lib_bx
+
 from nilearn.image import resample_to_img
 
 def produce_mask(model, f, GPU=False, brainmask_nib=None):
@@ -37,6 +38,7 @@ def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace('@@@@', postfix)
     nib.save(data_nib, output_file)
     print('Writing output file: ', output_file)
+
 
 def main():
       
@@ -92,6 +94,7 @@ def main():
     model_dgm = 'mprage_dgm12_v001_wangM1V2.onnx'
 
 
+
     print('Total nii files:', len(input_file_list))
 
     for f in input_file_list:
@@ -106,6 +109,7 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
+
         ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
         ftemplate = join(f_output_dir, ftemplate)
 
@@ -118,6 +122,7 @@ def main():
             input_nib = nib.load(f)
             bet = input_nib.get_fdata() * tbetmask_nib.get_fdata()
             bet = bet.astype(input_nib.dataobj.dtype)
+
 
             bet = nib.Nifti1Image(bet, input_nib.affine,
                                   input_nib.header)
@@ -138,6 +143,7 @@ def main():
                 count += 1
                 deepgm[aseg==ii] = count
 
+
             dgm_nib = nib.Nifti1Image(deepgm.astype(int),
                                          input_nib.affine, input_nib.header)
 
@@ -150,9 +156,8 @@ def main():
             save_nib(dkt_nib, ftemplate, 'dkt')
 
 
+
         print('Processing time: %d seconds' %  (time.time() - t))
-
-
 
 
 if __name__ == "__main__":
