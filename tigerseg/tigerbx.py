@@ -57,6 +57,28 @@ def main():
     #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
+    run_args(args)
+
+def run(input, output, argstring):
+
+    from argparse import Namespace
+    args = Namespace()
+
+    args.betmask = 'm' in argstring
+    args.aseg = 'a' in argstring
+    args.bet = 'b' in argstring
+    args.deepgm = 'd' in argstring
+    args.dkt = 'k' in argstring
+    args.fast = 'f' in argstring
+    args.gpu = 'g' in argstring
+    if not isinstance(input, list):
+        input = [input]
+    args.input = input
+    args.output = output
+    run_args(args)   
+
+
+def run_args(args):
 
     get_m = args.betmask
     get_a = args.aseg
