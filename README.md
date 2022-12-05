@@ -9,7 +9,7 @@
 
 * If you use this application, you may consider citing the following paper:
 
-1. Weng JS, Huang TY, “Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation” (2022), NMR in Biomedicine
+1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880.
 
 ![tigerbet](./doc/tigerbet2.png)
 
@@ -19,6 +19,18 @@
 ### Usage
 
     tigerbx -bmadf c:\data\*.nii.gz -o c:\output
+
+** Mac and Windows  are supported.**
+** Ubuntu (version >18.04)  are supported.**
+** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
+
+
+```tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f```
+-b: producing extracted brain
+-m: storing the brain mask
+-a: producing the aseg mask
+-d: producing the deep gray mater mask
+-f: faster operation with low-resolution models
 
 
 
