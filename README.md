@@ -3,11 +3,10 @@
 
 * This repo provides deep-learning methods for brain extration.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
-* If you use this program, you may consider citing the paper describing this method.
 
 ## Citation
 
-* If you use this application, you may consider citing the following paper:
+* If you use this application, cite the following paper:
 
 1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880.
 
