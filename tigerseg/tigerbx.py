@@ -57,6 +57,28 @@ def main():
     #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
+    run_args(args)
+
+def run(input, output, argstring):
+
+    from argparse import Namespace
+    args = Namespace()
+
+    args.betmask = 'm' in argstring
+    args.aseg = 'a' in argstring
+    args.bet = 'b' in argstring
+    args.deepgm = 'd' in argstring
+    args.dkt = 'k' in argstring
+    args.fast = 'f' in argstring
+    args.gpu = 'g' in argstring
+    if not isinstance(input, list):
+        input = [input]
+    args.input = input
+    args.output = output
+    run_args(args)   
+
+
+def run_args(args):
 
     get_m = args.betmask
     get_a = args.aseg
@@ -81,17 +103,27 @@ def main():
     #model_name = args.model
     #model_aseg = 'mprage_v0006_aseg43_full.onnx'
 
+    default_model = dict()
+    default_model['bet128'] = 'mprage_bet_v001_kuor128.onnx'
+    default_model['aseg128'] = 'mprage_aseg43_v001_MXRWr128.onnx'
+
+    default_model['bet'] = 'mprage_bet_v002_full.onnx'
+    default_model['aseg'] = 'mprage_aseg43_v005_crop.onnx'
+    default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
+    default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
+
+
     if args.fast:
-        model_bet = 'mprage_bet_v001_kuor128.onnx'
-        model_aseg = 'mprage_aseg43_v001_MXRWr128.onnx'
+        model_bet = default_model['bet128']
+        model_aseg = default_model['aseg128']
         
     else:
-        model_bet = 'mprage_bet_v002_full.onnx'
+        model_bet = default_model['bet']
         #model_aseg = 'mprage_v0006_aseg43_full.onnx'
         #model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
-        model_aseg = 'mprage_aseg43_v005_crop.onnx'
-    model_dkt = 'mprage_dkt_v001_f16r256.onnx'
-    model_dgm = 'mprage_dgm12_v001_wangM1V2.onnx'
+        model_aseg = default_model['aseg']
+    model_dkt = default_model['dkt']
+    model_dgm = default_model['dgm']
 
 
 
