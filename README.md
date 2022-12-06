@@ -20,19 +20,19 @@
     tigerbx -bmadf c:\data\*.nii.gz -o c:\output
 
 ** Mac and Windows  are supported.**
+
 ** Ubuntu (version >18.04)  are supported.**
+
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
-
-```tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f```
+```
+>>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
 -b: producing extracted brain
 -m: storing the brain mask
 -a: producing the aseg mask
 -d: producing the deep gray mater mask
 -f: faster operation with low-resolution models
-
-
-
+```
 ## ASEG43
 | Label | Structure              | Label | Structure               |
 | ----- | ---------------------- | ----- | ----------------------- |
