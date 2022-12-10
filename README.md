@@ -19,6 +19,16 @@
 
     tigerbx -bmadf c:\data\*.nii.gz -o c:\output
 
+### As a python package
+
+    pip install onnxruntime-gpu
+    pip install https://github.com/htylab/tigerbx/archive/release.zip
+
+### As a python package
+
+    import tigerbx
+    tigerbx.run('C:\\T1w_dir', 'C:\\output_dir', 'bmadk')
+
 ** Mac and Windows  are supported.**
 
 ** Ubuntu (version >18.04)  are supported.**

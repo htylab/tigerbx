@@ -197,7 +197,7 @@ def predict(model, data, GPU):
     #will reload model file every time
 
     so = ort.SessionOptions()
-    cpu = max(int(cpu_count()*0.8), 1)
+    cpu = max(int(cpu_count()*0.7), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
     so.log_severity_level = 3
