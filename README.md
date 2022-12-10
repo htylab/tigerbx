@@ -27,8 +27,11 @@ https://github.com/htylab/tigerseg/releases
 ### As a python package
 
     import tigerbx
-    tigerbx.run('C:\\T1w_dir', 'C:\\output_dir', 'bmadk')
-    tigerbx.run('C:\\T1w_dir\**\*.nii.gz', 'C:\\output_dir', 'bmadk')
+    tigerbx.run('bmadk', 'C:\\T1w_dir', 'C:\\output_dir')
+    tigerbx.run('bmadk', 'C:\\T1w_dir\**\*.nii.gz', 'C:\\output_dir')
+    tigerbx.run('bmadk', 'C:\\T1w_dir\**\*.nii.gz') # storing output in the same dir
+    tigerbx.run('dg', 'C:\\T1w_dir') # Producing deep-gray-matter masks with GPU
+
 
 ** Mac and Windows  are supported.**
 

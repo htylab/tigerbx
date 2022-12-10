@@ -59,7 +59,7 @@ def main():
     args = parser.parse_args()
     run_args(args)
 
-def run(input, output=None, argstring):
+def run(argstring, input, output=None):
 
     from argparse import Namespace
     args = Namespace()
