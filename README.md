@@ -13,7 +13,7 @@
 ![tigerbet](./doc/tigerbet2.png)
 
 ### Install stand-alone version
-https://github.com/htylab/tigerseg/releases
+https://github.com/htylab/tigerbx/releases
 
 ### Usage
 
