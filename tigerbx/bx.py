@@ -8,8 +8,9 @@ import glob
 import platform
 import nibabel as nib
 
-from tigerseg import lib_tool
-from tigerseg import lib_bx
+from tigerbx import lib_tool
+from tigerbx import lib_bx
+
 from nilearn.image import resample_to_img
 
 def produce_mask(model, f, GPU=False, brainmask_nib=None):
@@ -38,6 +39,7 @@ def save_nib(data_nib, ftemplate, postfix):
     nib.save(data_nib, output_file)
     print('Writing output file: ', output_file)
 
+
 def main():
       
     parser = argparse.ArgumentParser()
@@ -55,6 +57,28 @@ def main():
     #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
+    run_args(args)
+
+def run(argstring, input, output=None):
+
+    from argparse import Namespace
+    args = Namespace()
+
+    args.betmask = 'm' in argstring
+    args.aseg = 'a' in argstring
+    args.bet = 'b' in argstring
+    args.deepgm = 'd' in argstring
+    args.dkt = 'k' in argstring
+    args.fast = 'f' in argstring
+    args.gpu = 'g' in argstring
+    if not isinstance(input, list):
+        input = [input]
+    args.input = input
+    args.output = output
+    run_args(args)   
+
+
+def run_args(args):
 
     get_m = args.betmask
     get_a = args.aseg
@@ -79,17 +103,31 @@ def main():
     #model_name = args.model
     #model_aseg = 'mprage_v0006_aseg43_full.onnx'
 
+    default_model = dict()
+    default_model['bet128'] = 'mprage_bet_v001_kuor128.onnx'
+    default_model['aseg128'] = 'mprage_aseg43_v001_MXRWr128.onnx'
+
+    default_model['bet'] = 'mprage_bet_v002_full.onnx'
+    default_model['aseg'] = 'mprage_aseg43_v005_crop.onnx'
+    #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
+    default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
+    
+    #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
+    default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
+
+
     if args.fast:
-        model_bet = 'mprage_bet_v001_kuor128.onnx'
-        model_aseg = 'mprage_aseg43_v001_MXRWr128.onnx'
+        model_bet = default_model['bet128']
+        model_aseg = default_model['aseg128']
         
     else:
-        model_bet = 'mprage_bet_v002_full.onnx'
+        model_bet = default_model['bet']
         #model_aseg = 'mprage_v0006_aseg43_full.onnx'
         #model_aseg = 'mprage_aseg43_v002_WangM1r256.onnx'
-        model_aseg = 'mprage_aseg43_v005_crop.onnx'
-    model_dkt = 'mprage_dkt_v001_f16r256.onnx'
-    model_dgm = 'mprage_dgm12_v001_wangM1V2.onnx'
+        model_aseg = default_model['aseg']
+    model_dkt = default_model['dkt']
+    model_dgm = default_model['dgm']
+
 
 
     print('Total nii files:', len(input_file_list))
@@ -106,6 +144,7 @@ def main():
         else:
             os.makedirs(f_output_dir, exist_ok=True)
 
+
         ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
         ftemplate = join(f_output_dir, ftemplate)
 
@@ -119,27 +158,37 @@ def main():
             bet = input_nib.get_fdata() * tbetmask_nib.get_fdata()
             bet = bet.astype(input_nib.dataobj.dtype)
 
+
             bet = nib.Nifti1Image(bet, input_nib.affine,
                                   input_nib.header)
 
             save_nib(bet, ftemplate, 'tbet')
-            
+        
+
         if get_a:
             aseg_nib = produce_mask(model_aseg, f, GPU=args.gpu,
                                     brainmask_nib=tbetmask_nib)
-            save_nib(bet, ftemplate, 'aseg')
+            save_nib(aseg_nib, ftemplate, 'aseg')
 
 
         if get_d:
-            aseg = aseg_nib.get_fdata()
-            deepgm = aseg * 0
-            count = 0
-            for ii in [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]:
-                count += 1
-                deepgm[aseg==ii] = count
 
-            dgm_nib = nib.Nifti1Image(deepgm.astype(int),
-                                         input_nib.affine, input_nib.header)
+            if 'aseg' in model_dgm:
+                aseg = aseg_nib.get_fdata()
+                deepgm = aseg * 0
+                count = 0
+                for ii in [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]:
+                    count += 1
+                    deepgm[aseg==ii] = count
+
+
+                dgm_nib = nib.Nifti1Image(deepgm.astype(int),
+                                            input_nib.affine, input_nib.header)
+            else:
+
+                dgm_nib = produce_mask(model_dgm, f, GPU=args.gpu,
+                        brainmask_nib=tbetmask_nib)
+
 
             save_nib(dgm_nib, ftemplate, 'dgm')
 
@@ -150,9 +199,8 @@ def main():
             save_nib(dkt_nib, ftemplate, 'dkt')
 
 
+
         print('Processing time: %d seconds' %  (time.time() - t))
-
-
 
 
 if __name__ == "__main__":

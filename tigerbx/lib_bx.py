@@ -6,9 +6,7 @@ import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
 
-from tigerseg import lib_tool
-
-
+from tigerbx import lib_tool
 
 label_all = dict()
 label_all['aseg43'] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,
@@ -64,12 +62,16 @@ def get_mat_size(model_ff):
     #print(model_ff, mat_size)
     return mat_size
 
+
 def run(model_ff, input_nib, GPU):
+
 
     seg_mode, _ , model_str = get_mode(model_ff)
      
 
+
     data = input_nib.get_fdata()
+
 
     image = data[None, ...][None, ...]
     image = image/np.max(image)
@@ -113,6 +115,7 @@ def run(model_ff, input_nib, GPU):
         mask_pred = mask_pred_relabel
 
 
+
     mask_pred = mask_pred.astype(int)
 
 
@@ -120,26 +123,15 @@ def run(model_ff, input_nib, GPU):
         mask_pred, input_nib.affine, input_nib.header)
     
     return output_nib, prob
-'''
-def read_file(model_ff, input_file):
 
-    mat_size = get_mat_size(model_ff)
 
-    if mat_size == -1:
-        vol = reorder_img(nib.load(input_file), resample='linear').get_fdata()
-    else:
-        affine, shape = get_affine(mat_size)
-        vol = resample_img(nib.load(input_file),
-                           target_affine=affine, target_shape=shape).get_fdata()
-
-    return vol
-'''
 
 def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
 
     if mat_size == -1:
+
         vol_nib = reorder_img(nib.load(input_file), resample='linear')
     else:
         affine, shape = get_affine(mat_size)
@@ -147,6 +139,7 @@ def read_file(model_ff, input_file):
                            target_affine=affine, target_shape=shape)
 
     return vol_nib
+
 
 
 

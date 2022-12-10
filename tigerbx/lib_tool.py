@@ -17,7 +17,7 @@ import sys
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
-model_servers = ['https://github.com/htylab/tigerseg/releases/download/modelhub/',
+model_servers = ['https://github.com/htylab/tigerbx/releases/download/modelhub/',
                     'https://data.mrilab.org/onnxmodel/dev/']
 
 # determine if application is a script file or frozen exe
@@ -29,15 +29,6 @@ elif __file__:
 model_path = join(application_path, 'models')
 # print(model_path)
 os.makedirs(model_path, exist_ok=True)
-
-
-def download_old(url, file_name):
-    import urllib.request
-    import certifi
-    
-    with urllib.request.urlopen(url,
-         cafile=certifi.where()) as response, open(file_name, 'wb') as out_file:
-        shutil.copyfileobj(response, out_file)
 
 
 def download(url, file_name):
@@ -85,26 +76,6 @@ def get_model(f):
             raise ValueError('Server error. Please check the model name or internet connection.')
                 
     return model_file
-
-def get_model_old(f):
-
-    if isfile(f):
-        return f
-
-    if '.onnx' in f:
-        fn = f
-    else:
-        fn = f + '.onnx'
-    model_url = model_server + fn
-    model_file = join(model_path, fn)
-
-    if not os.path.exists(model_file):
-        print(f'Downloading model files....')
-        print(model_url, model_file)
-        #urllib.request.urlretrieve(model_url, model_file)
-        download(model_url, model_file)
-    return model_file
-
 
 
 
@@ -226,7 +197,7 @@ def predict(model, data, GPU):
     #will reload model file every time
 
     so = ort.SessionOptions()
-    cpu = max(int(cpu_count()*0.8), 1)
+    cpu = max(int(cpu_count()*0.7), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
     so.log_severity_level = 3

@@ -1,50 +1,65 @@
 ## Background
 
-* This package provides deep-learning segmentation models.
+
+* This repo provides deep-learning methods for brain extration.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
+
+## Citation
+
+* If you use this application, cite the following paper:
+
+1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
 
 ![tigerbet](./doc/tigerbet2.png)
 
 ### Install stand-alone version
-    https://github.com/htylab/tigerseg/releases
-### Install package
+https://github.com/htylab/tigerbx/releases
 
-    pip install tigerseg
-
-or
-
-    pip install https://github.com/htylab/tigerseg/archive/release.zip
-    
-or install the nightly unstable build:
-
-    pip install git+https://github.com/htylab/tigerseg
-    
-
-## Usage
-
-### As a command line tool:
-
-For subcortical segmentation or skull-stripping on 3D T1-weighted images:
+### Usage
 
     tigerbx -bmadf c:\data\*.nii.gz -o c:\output
 
-For cine cardiac MRI segmentation:
+### As a python package
 
-    tigerhx c:\data\*.nii.gz -o c:\output
+    pip install onnxruntime #for gpu version: onnxruntime-gpu
+    pip install https://github.com/htylab/tigerbx/archive/release.zip
 
-For VDM method on EPI images:
+### As a python package
 
-    tigervdm c:\data\*.nii.gz -o c:\output
+    import tigerbx
+    tigerbx.run('bmadk', 'C:\\T1w_dir', 'C:\\output_dir')
+    tigerbx.run('bmadk', 'C:\\T1w_dir\**\*.nii.gz', 'C:\\output_dir')
+    tigerbx.run('bmadk', 'C:\\T1w_dir\**\*.nii.gz') # storing output in the same dir
+    tigerbx.run('dg', 'C:\\T1w_dir') # Producing deep-gray-matter masks with GPU
 
 
-# Label names:
+** Mac and Windows  are supported.**
 
-## cine4d
-| Label No. | Structure Name            |
-| --------- | ------------------------- |
-| 1         | Left Ventricle blood      |
-| 2         | Left Ventricle Myocardium |
-| 3         | Right Ventricle blood     |
+** Ubuntu (version >18.04)  are supported.**
+
+** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
+
+```
+>>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
+-b: producing extracted brain
+-m: storing the brain mask
+-a: producing the aseg mask
+-d: producing the deep gray mater mask
+-k, Producing the dkt mask
+-f: faster operation with low-resolution models
+```
+
+
+## DeepGM: Deep gray-matter structures
+| Label No. | Structure Name       | Label No. | Structure Name        |
+| --------- | -------------------- | --------- | --------------------- |
+| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
+| 3         | Left-Caudate         | 4         | Right-Caudate         |
+| 5         | Left-Putamen         | 6         | Right-Putamen         |
+| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
+| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
+| 11        | Left-Amygdala        | 12        | Right-Amygdala        |
+
 
 ## ASEG43
 | Label | Structure              | Label | Structure               |
@@ -72,13 +87,3 @@ For VDM method on EPI images:
 |       |                        | 253   | CC Central              |
 |       |                        | 254   | CC Mid Anterior         |
 |       |                        | 255   | CC Anterior             |
-
-## DeepGM: Deep gray-matter structures
-| Label No. | Structure Name       | Label No. | Structure Name        |
-| --------- | -------------------- | --------- | --------------------- |
-| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
-| 3         | Left-Caudate         | 4         | Right-Caudate         |
-| 5         | Left-Putamen         | 6         | Right-Putamen         |
-| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
-| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
-| 11        | Left-Amygdala        | 12        | Right-Amygdala        |
