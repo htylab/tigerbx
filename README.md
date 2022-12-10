@@ -17,7 +17,7 @@ https://github.com/htylab/tigerbx/releases
 
 ### Usage
 
-    tigerbx -bmadf c:\data\*.nii.gz -o c:\output
+    tigerbx -bmad c:\data\*.nii.gz -o c:\output
 
 ### As a python package
 
