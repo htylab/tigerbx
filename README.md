@@ -13,7 +13,7 @@
 ![tigerbet](./doc/tigerbet2.png)
 
 ### Install stand-alone version
-    https://github.com/htylab/tigerseg/releases
+https://github.com/htylab/tigerseg/releases
 
 ### Usage
 
@@ -42,8 +42,22 @@
 -m: storing the brain mask
 -a: producing the aseg mask
 -d: producing the deep gray mater mask
+-k, Producing the dkt mask
 -f: faster operation with low-resolution models
 ```
+
+
+## DeepGM: Deep gray-matter structures
+| Label No. | Structure Name       | Label No. | Structure Name        |
+| --------- | -------------------- | --------- | --------------------- |
+| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
+| 3         | Left-Caudate         | 4         | Right-Caudate         |
+| 5         | Left-Putamen         | 6         | Right-Putamen         |
+| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
+| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
+| 11        | Left-Amygdala        | 12        | Right-Amygdala        |
+
+
 ## ASEG43
 | Label | Structure              | Label | Structure               |
 | ----- | ---------------------- | ----- | ----------------------- |
@@ -70,13 +84,3 @@
 |       |                        | 253   | CC Central              |
 |       |                        | 254   | CC Mid Anterior         |
 |       |                        | 255   | CC Anterior             |
-
-## DeepGM: Deep gray-matter structures
-| Label No. | Structure Name       | Label No. | Structure Name        |
-| --------- | -------------------- | --------- | --------------------- |
-| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
-| 3         | Left-Caudate         | 4         | Right-Caudate         |
-| 5         | Left-Putamen         | 6         | Right-Putamen         |
-| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
-| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
-| 11        | Left-Amygdala        | 12        | Right-Amygdala        |
