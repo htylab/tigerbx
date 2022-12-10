@@ -1,1 +1,1 @@
-from tigerbx.main import run
+from tigerbx.bx import run
