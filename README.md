@@ -13,11 +13,25 @@
 ![tigerbet](./doc/tigerbet2.png)
 
 ### Install stand-alone version
-    https://github.com/htylab/tigerseg/releases
+https://github.com/htylab/tigerbx/releases
 
 ### Usage
 
     tigerbx -bmadf c:\data\*.nii.gz -o c:\output
+
+### As a python package
+
+    pip install onnxruntime-gpu
+    pip install https://github.com/htylab/tigerbx/archive/release.zip
+
+### As a python package
+
+    import tigerbx
+    tigerbx.run('bmadk', 'C:\\T1w_dir', 'C:\\output_dir')
+    tigerbx.run('bmadk', 'C:\\T1w_dir\**\*.nii.gz', 'C:\\output_dir')
+    tigerbx.run('bmadk', 'C:\\T1w_dir\**\*.nii.gz') # storing output in the same dir
+    tigerbx.run('dg', 'C:\\T1w_dir') # Producing deep-gray-matter masks with GPU
+
 
 ** Mac and Windows  are supported.**
 
@@ -31,8 +45,22 @@
 -m: storing the brain mask
 -a: producing the aseg mask
 -d: producing the deep gray mater mask
+-k, Producing the dkt mask
 -f: faster operation with low-resolution models
 ```
+
+
+## DeepGM: Deep gray-matter structures
+| Label No. | Structure Name       | Label No. | Structure Name        |
+| --------- | -------------------- | --------- | --------------------- |
+| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
+| 3         | Left-Caudate         | 4         | Right-Caudate         |
+| 5         | Left-Putamen         | 6         | Right-Putamen         |
+| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
+| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
+| 11        | Left-Amygdala        | 12        | Right-Amygdala        |
+
+
 ## ASEG43
 | Label | Structure              | Label | Structure               |
 | ----- | ---------------------- | ----- | ----------------------- |
@@ -59,13 +87,3 @@
 |       |                        | 253   | CC Central              |
 |       |                        | 254   | CC Mid Anterior         |
 |       |                        | 255   | CC Anterior             |
-
-## DeepGM: Deep gray-matter structures
-| Label No. | Structure Name       | Label No. | Structure Name        |
-| --------- | -------------------- | --------- | --------------------- |
-| 1         | Left-Thalamus-Proper | 2         | Right-Thalamus-Proper |
-| 3         | Left-Caudate         | 4         | Right-Caudate         |
-| 5         | Left-Putamen         | 6         | Right-Putamen         |
-| 7         | Left-Pallidum        | 8         | Right-Pallidum        |
-| 9         | Left-Hippocampus     | 10        | Right-Hippocampus     |
-| 11        | Left-Amygdala        | 12        | Right-Amygdala        |

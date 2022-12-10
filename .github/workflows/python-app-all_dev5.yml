@@ -1,13 +1,13 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python All OS DKT
+name: Python All OS
 
 on:
   push:
-    branches: [ "dev4" ]
+    branches: [ "dev5" ]
   pull_request:
-    branches: [ "dev4" ]
+    branches: [ "dev5" ]
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
         #os: ['windows-latest', 'ubuntu-18.04', 'macos-latest']
         os: ['windows-latest']
         #py: ['tigerbx', 'tigerhx', 'tigervdm']
-        py: ['tigerbx']
+        py: ['main']
 
     steps:
     - uses: actions/checkout@v3
@@ -39,17 +39,15 @@ jobs:
     - name: Run Pyinstaller 1
       if: matrix.os == 'windows-latest'
       run: |
-
-        #pyinstaller -c –-paths ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
-        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data "./tigerseg/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerseg/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data "./tigerbx/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerbx/${{ matrix.py }}.py
     - name: Run Pyinstaller  2
       if: matrix.os == 'ubuntu-18.04'
       run: |
-        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data ./tigerseg/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerseg/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerbx/${{ matrix.py }}.py
     - name: Run Pyinstaller 3
       if: matrix.os == 'macos-latest'
       run: |
-        pyinstaller -c -p ./tigerseg --icon=./tigerseg/exe/${{ matrix.py }}/ico.ico --add-data ./tigerseg/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerseg/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerbx/${{ matrix.py }}.py
 
         
     - uses: actions/upload-artifact@v3

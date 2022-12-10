@@ -17,7 +17,7 @@ import sys
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
-model_servers = ['https://github.com/htylab/tigerseg/releases/download/modelhub/',
+model_servers = ['https://github.com/htylab/tigerbx/releases/download/modelhub/',
                     'https://data.mrilab.org/onnxmodel/dev/']
 
 # determine if application is a script file or frozen exe
@@ -197,7 +197,7 @@ def predict(model, data, GPU):
     #will reload model file every time
 
     so = ort.SessionOptions()
-    cpu = max(int(cpu_count()*0.8), 1)
+    cpu = max(int(cpu_count()*0.7), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
     so.log_severity_level = 3
