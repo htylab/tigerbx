@@ -28,6 +28,7 @@
 
     import tigerbx
     tigerbx.run('C:\\T1w_dir', 'C:\\output_dir', 'bmadk')
+    tigerbx.run('C:\\T1w_dir\**\*.nii.gz', 'C:\\output_dir', 'bmadk')
 
 ** Mac and Windows  are supported.**
 
