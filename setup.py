@@ -27,7 +27,7 @@ setup(
      packages=find_packages(),
      entry_points={
         'console_scripts': [
-            'tigerbx = tigerbx.main:main',
+            'tigerbx = tigerbx.bx:main',
 
         ]
     },
