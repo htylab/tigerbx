@@ -54,12 +54,12 @@ def main():
     parser.add_argument('-k', '--dkt', action='store_true',
                         help='Producing dkt mask')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
+    parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
     run_args(args)
 
-def run(argstring, input, output=None):
+def run(argstring, input, output=None, model=None):
 
     from argparse import Namespace
     args = Namespace()
@@ -75,6 +75,7 @@ def run(argstring, input, output=None):
         input = [input]
     args.input = input
     args.output = output
+    args.model = model
     run_args(args)   
 
 
@@ -115,6 +116,16 @@ def run_args(args):
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
     default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
 
+
+    # if you want to use other models
+    if isinstance(args.model, dict):
+        for mm in args.model.keys():
+            default_model[mm] = args.model[mm]
+    elif isinstance(args.model, str):
+        import ast
+        model_dict = ast.literal_eval(args.model)
+        for mm in model_dict.keys():
+            default_model[mm] = model_dict[mm]
 
     if args.fast:
         model_bet = default_model['bet128']
