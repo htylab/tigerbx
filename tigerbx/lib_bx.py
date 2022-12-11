@@ -132,7 +132,7 @@ def read_file(model_ff, input_file):
 
     if mat_size == -1:
 
-        vol_nib = reorder_img(nib.load(input_file), resample='linear')
+        vol_nib = reorder_img(nib.load(input_file), resample='continuous')
     else:
         affine, shape = get_affine(mat_size)
         vol_nib = resample_img(nib.load(input_file),
