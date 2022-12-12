@@ -4,12 +4,6 @@
 * This repo provides deep-learning methods for brain extration.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
 
-## Citation
-
-* If you use this application, cite the following paper:
-
-1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
-
 ![tigerbet](./doc/tigerbet2.png)
 
 ### Install stand-alone version
@@ -48,6 +42,11 @@ https://github.com/htylab/tigerbx/releases
 -k, Producing the dkt mask
 -f: faster operation with low-resolution models
 ```
+## Citation
+
+* If you use this application, cite the following paper:
+
+1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
 
 
 ## DeepGM: Deep gray-matter structures
