@@ -85,19 +85,16 @@ def run(model_ff, input_nib, GPU):
     label_num['aseg43'] = 44
     label_num['dkt'] = 63
     label_num['dgm12'] = 13
-
-    if label_num[seg_mode] > logits.shape[0]:
-        #print('sigmoid')
-        #sigmoid mode
+        
+    if seg_mode == 'bet':
+        #sigmoid
         th = 0.5
-        if seg_mode == 'bet':
-            from scipy.special import expit
-            logits = expit(logits)
-            th = 0.5
+        from scipy.special import expit
+        logits = expit(logits)
+        th = 0.5
         mask_pred = np.argmax(logits, axis=0) + 1
         mask_pred[np.max(logits, axis=0) <= th] = 0
-        if seg_mode == 'bet':
-            mask_pred = getLarea(mask_pred)
+        mask_pred = getLarea(mask_pred)
         prob = logits
     else:
         #softmax mode
