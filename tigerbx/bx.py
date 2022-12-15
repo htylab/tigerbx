@@ -183,8 +183,10 @@ def run_args(args):
 
 
         if get_d:
-
             if 'aseg' in model_dgm:
+                if 'aseg_nib' not in locals():
+                    aseg_nib = produce_mask(model_aseg, f, GPU=args.gpu,
+                        brainmask_nib=tbetmask_nib)
                 aseg = aseg_nib.get_fdata()
                 deepgm = aseg * 0
                 count = 0
