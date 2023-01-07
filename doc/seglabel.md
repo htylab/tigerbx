@@ -77,44 +77,44 @@
 
 
 # WMP labels
-| **ID** | **LABEL**                      |        | **ID**    | **LABEL**                      |
-|--------|--------------------------------|--------|-----------|--------------------------------|
-| 251    | CC_Posterior                   |        |           |                                |
-| 252    | CC_Mid_Posterior               |        |           |                                |
-| 253    | CC_Central                     |        |           |                                |
-| 254    | CC_Mid_Anterior                |        |           |                                |
-| 255    | CC_Anterior                    |        |           |                                |
-| 3001   | wm-lh-bankssts                 |        | 4001      | wm-rh-bankssts                 |
-| 3002   | wm-lh-caudalanteriorcingulate  |        | 4002      | wm-rh-caudalanteriorcingulate  |
-| 3003   | wm-lh-caudalmiddlefrontal      |        | 4003      | wm-rh-caudalmiddlefrontal      |
-| 3005   | wm-lh-cuneus                   |        | 4005      | wm-rh-cuneus                   |
-| 3006   | wm-lh-entorhinal               |        | 4006      | wm-rh-entorhinal               |
-| 3007   | wm-lh-fusiform                 |        | 4007      | wm-rh-fusiform                 |
-| 3008   | wm-lh-inferiorparietal         |        | 4008      | wm-rh-inferiorparietal         |
-| 3009   | wm-lh-inferiortemporal         |        | 4009      | wm-rh-inferiortemporal         |
-| 3010   | wm-lh-isthmuscingulate         |        | 4010      | wm-rh-isthmuscingulate         |
-| 3011   | wm-lh-lateraloccipital         |        | 4011      | wm-rh-lateraloccipital         |
-| 3012   | wm-lh-lateralorbitofrontal     |        | 4012      | wm-rh-lateralorbitofrontal     |
-| 3013   | wm-lh-lingual                  |        | 4013      | wm-rh-lingual                  |
-| 3014   | wm-lh-medialorbitofrontal      |        | 4014      | wm-rh-medialorbitofrontal      |
-| 3015   | wm-lh-middletemporal           |        | 4015      | wm-rh-middletemporal           |
-| 3016   | wm-lh-parahippocampal          |        | 4016      | wm-rh-parahippocampal          |
-| 3017   | wm-lh-paracentral              |        | 4017      | wm-rh-paracentral              |
-| 3018   | wm-lh-parsopercularis          |        | 4018      | wm-rh-parsopercularis          |
-| 3019   | wm-lh-parsorbitalis            |        | 4019      | wm-rh-parsorbitalis            |
-| 3020   | wm-lh-parstriangularis         |        | 4020      | wm-rh-parstriangularis         |
-| 3021   | wm-lh-pericalcarine            |        | 4021      | wm-rh-pericalcarine            |
-| 3022   | wm-lh-postcentral              |        | 4022      | wm-rh-postcentral              |
-| 3023   | wm-lh-posteriorcingulate       |        | 4023      | wm-rh-posteriorcingulate       |
-| 3024   | wm-lh-precentral               |        | 4024      | wm-rh-precentral               |
-| 3025   | wm-lh-precuneus                |        | 4025      | wm-rh-precuneus                |
-| 3026   | wm-lh-rostralanteriorcingulate |        | 4026      | wm-rh-rostralanteriorcingulate |
-| 3027   | wm-lh-rostralmiddlefrontal     |        | 4027      | wm-rh-rostralmiddlefrontal     |
-| 3028   | wm-lh-superiorfrontal          |        | 4028      | wm-rh-superiorfrontal          |
-| 3029   | wm-lh-superiorparietal         |        | 4029      | wm-rh-superiorparietal         |
-| 3030   | wm-lh-superiortemporal         |        | 4030      | wm-rh-superiortemporal         |
-| 3031   | wm-lh-supramarginal            |        | 4031      | wm-rh-supramarginal            |
-| 3032   | wm-lh-frontalpole              |        | 4032      | wm-rh-frontalpole              |
-| 3033   | wm-lh-temporalpole             |        | 4033      | wm-rh-temporalpole             |
-| 3034   | wm-lh-transversetemporal       |        | 4034      | wm-rh-transversetemporal       |
-| 3035   | wm-lh-insula                   |        | 4035      | wm-rh-insula                   |
+| ID   | LABEL                          | ID   | LABEL                          |
+|------|--------------------------------|------|--------------------------------|
+| 251  | CC_Posterior                   |      |                                |
+| 252  | CC_Mid_Posterior               |      |                                |
+| 253  | CC_Central                     |      |                                |
+| 254  | CC_Mid_Anterior                |      |                                |
+| 255  | CC_Anterior                    |      |                                |
+| 3001 | wm-lh-bankssts                 | 4001 | wm-rh-bankssts                 |
+| 3002 | wm-lh-caudalanteriorcingulate  | 4002 | wm-rh-caudalanteriorcingulate  |
+| 3003 | wm-lh-caudalmiddlefrontal      | 4003 | wm-rh-caudalmiddlefrontal      |
+| 3005 | wm-lh-cuneus                   | 4005 | wm-rh-cuneus                   |
+| 3006 | wm-lh-entorhinal               | 4006 | wm-rh-entorhinal               |
+| 3007 | wm-lh-fusiform                 | 4007 | wm-rh-fusiform                 |
+| 3008 | wm-lh-inferiorparietal         | 4008 | wm-rh-inferiorparietal         |
+| 3009 | wm-lh-inferiortemporal         | 4009 | wm-rh-inferiortemporal         |
+| 3010 | wm-lh-isthmuscingulate         | 4010 | wm-rh-isthmuscingulate         |
+| 3011 | wm-lh-lateraloccipital         | 4011 | wm-rh-lateraloccipital         |
+| 3012 | wm-lh-lateralorbitofrontal     | 4012 | wm-rh-lateralorbitofrontal     |
+| 3013 | wm-lh-lingual                  | 4013 | wm-rh-lingual                  |
+| 3014 | wm-lh-medialorbitofrontal      | 4014 | wm-rh-medialorbitofrontal      |
+| 3015 | wm-lh-middletemporal           | 4015 | wm-rh-middletemporal           |
+| 3016 | wm-lh-parahippocampal          | 4016 | wm-rh-parahippocampal          |
+| 3017 | wm-lh-paracentral              | 4017 | wm-rh-paracentral              |
+| 3018 | wm-lh-parsopercularis          | 4018 | wm-rh-parsopercularis          |
+| 3019 | wm-lh-parsorbitalis            | 4019 | wm-rh-parsorbitalis            |
+| 3020 | wm-lh-parstriangularis         | 4020 | wm-rh-parstriangularis         |
+| 3021 | wm-lh-pericalcarine            | 4021 | wm-rh-pericalcarine            |
+| 3022 | wm-lh-postcentral              | 4022 | wm-rh-postcentral              |
+| 3023 | wm-lh-posteriorcingulate       | 4023 | wm-rh-posteriorcingulate       |
+| 3024 | wm-lh-precentral               | 4024 | wm-rh-precentral               |
+| 3025 | wm-lh-precuneus                | 4025 | wm-rh-precuneus                |
+| 3026 | wm-lh-rostralanteriorcingulate | 4026 | wm-rh-rostralanteriorcingulate |
+| 3027 | wm-lh-rostralmiddlefrontal     | 4027 | wm-rh-rostralmiddlefrontal     |
+| 3028 | wm-lh-superiorfrontal          | 4028 | wm-rh-superiorfrontal          |
+| 3029 | wm-lh-superiorparietal         | 4029 | wm-rh-superiorparietal         |
+| 3030 | wm-lh-superiortemporal         | 4030 | wm-rh-superiortemporal         |
+| 3031 | wm-lh-supramarginal            | 4031 | wm-rh-supramarginal            |
+| 3032 | wm-lh-frontalpole              | 4032 | wm-rh-frontalpole              |
+| 3033 | wm-lh-temporalpole             | 4033 | wm-rh-temporalpole             |
+| 3034 | wm-lh-transversetemporal       | 4034 | wm-rh-transversetemporal       |
+| 3035 | wm-lh-insula                   | 4035 | wm-rh-insula                   |
