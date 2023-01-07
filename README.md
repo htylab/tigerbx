@@ -4,7 +4,7 @@
 * This repo provides deep-learning methods for brain extration.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
 
-![tigerbet](./doc/tigerbet2.png)
+![tigerbet](./doc/tigerbx.png)
 
 ### Install stand-alone version
 https://github.com/htylab/tigerbx/releases
@@ -39,7 +39,9 @@ https://github.com/htylab/tigerbx/releases
 -m: storing the brain mask
 -a: producing the aseg mask
 -d: producing the deep gray mater mask
--k, Producing the dkt mask
+-k, Producing the dkt mask (work in progress)
+-c, Producing the cortical thickness map (work in progress)
+-w, Producing the white matter parcellation (work in progress)
 -f: faster operation with low-resolution models
 ```
 ## Citation
