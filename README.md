@@ -36,7 +36,7 @@ https://github.com/htylab/tigerbx/releases
 ```
 >>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
 -b: producing extracted brain
--m: storing the brain mask
+-m: producing the brain mask
 -a: producing the aseg mask
 -d: producing the deep gray mater mask
 -k, Producing the dkt mask (work in progress)
