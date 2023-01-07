@@ -18,6 +18,14 @@ label_all['dkt'] = ( 1002, 1003,
                2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017,
                2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028,
                2029, 2030, 2031, 2034, 2035)
+
+label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006, 3007,
+                     3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017, 3018,
+                     3019, 3020, 3021, 3022, 3023, 3024, 3025, 3026, 3027, 3028, 3029,
+                     3030, 3031, 3032, 3033, 3034, 3035, 4001, 4002, 4003, 4005, 4006,
+                     4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 4016, 4017,
+                     4018, 4019, 4020, 4021, 4022, 4023, 4024, 4025, 4026, 4027, 4028,
+                     4029, 4030, 4031, 4032, 4033, 4034, 4035)
 nib.Nifti1Header.quaternion_threshold = -100
 
 
@@ -182,6 +190,25 @@ def write_file(model_ff, input_file, output_dir,
         print('Writing output file: ', output_file)
 
     return output_file, result
+
+
+def resample_voxel(data_nib, voxelsize,
+                     target_shape=None, interpolation='continuous'):
+
+    affine = data_nib.affine
+    target_affine = affine.copy()
+
+    factor = np.zeros(3)
+    for i in range(3):
+        factor[i] = voxelsize[i] / \
+            np.sqrt(affine[0, i]**2 + affine[1, i]**2 + affine[2, i]**2)
+        target_affine[:3, i] = target_affine[:3, i]*factor[i]
+
+    new_nib = resample_img(data_nib, target_affine=target_affine,
+                           target_shape=target_shape, interpolation=interpolation)
+
+    return new_nib
+
 
 
 
