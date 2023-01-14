@@ -126,7 +126,7 @@ def run_args(args):
     
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
     default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
-    default_model['wmp'] = 'mprage_wmp_v001_pre.onnx'
+    default_model['wmp'] = 'mprage_wmp_v002_14k.onnx'
 
 
     # if you want to use other models
