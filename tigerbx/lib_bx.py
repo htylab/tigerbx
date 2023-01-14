@@ -111,7 +111,7 @@ def run(model_ff, input_nib, GPU):
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
 
-    if seg_mode in ['aseg43', 'dkt']:
+    if seg_mode in ['aseg43', 'dkt', 'wmp']:
         labels = label_all[seg_mode]
         mask_pred_relabel = mask_pred * 0
         for ii in range(len(labels)):
@@ -135,13 +135,20 @@ def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
 
+    input_nib = nib.load(input_file)
+
+    zoom = input_nib.header.get_zooms()
+
     if mat_size == -1:
 
-        #vol_nib = reorder_img(nib.load(input_file), resample='linear')
-        vol_nib = reorder_img(nib.load(input_file), resample='continuous')
+        if max(zoom) > 1.2 or min(zoom) < 0.8:
+
+            vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
+        else:
+            vol_nib = reorder_img(input_nib, resample='continuous')
     else:
         affine, shape = get_affine(mat_size)
-        vol_nib = resample_img(nib.load(input_file),
+        vol_nib = resample_img(input_nib,
                            target_affine=affine, target_shape=shape)
 
     return vol_nib
