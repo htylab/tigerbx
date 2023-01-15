@@ -3,6 +3,7 @@ import os
 from os.path import basename, join, isdir
 import argparse
 import time
+import numpy as np
 
 import glob
 import platform
@@ -11,7 +12,7 @@ import nibabel as nib
 from tigerbx import lib_tool
 from tigerbx import lib_bx
 
-from nilearn.image import resample_to_img
+from nilearn.image import resample_to_img, reorder_img
 
 def produce_mask(model, f, GPU=False, brainmask_nib=None):
 
@@ -53,13 +54,17 @@ def main():
                         help='Producing deepgm mask')
     parser.add_argument('-k', '--dkt', action='store_true',
                         help='Producing dkt mask')
+    parser.add_argument('-c', '--ct', action='store_true',
+                        help='Producing cortical thickness map')
+    parser.add_argument('-w', '--wmp', action='store_true',
+                        help='Producing white matter parcellation')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
-    #parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
+    parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
     run_args(args)
 
-def run(argstring, input, output=None):
+def run(argstring, input, output=None, model=None):
 
     from argparse import Namespace
     args = Namespace()
@@ -71,10 +76,14 @@ def run(argstring, input, output=None):
     args.dkt = 'k' in argstring
     args.fast = 'f' in argstring
     args.gpu = 'g' in argstring
+    args.ct = 'c' in argstring
+    args.wmp = 'w' in argstring
+
     if not isinstance(input, list):
         input = [input]
     args.input = input
     args.output = output
+    args.model = model
     run_args(args)   
 
 
@@ -85,8 +94,10 @@ def run_args(args):
     get_b = args.bet
     get_d = args.deepgm
     get_k = args.dkt
+    get_c = args.ct
+    get_w = args.wmp
 
-    if True not in [get_m, get_a, get_b, get_d, get_k]:
+    if True not in [get_m, get_a, get_b, get_d, get_k, get_c, get_w]:
         get_b = True
         # Producing extracted brain by default 
 
@@ -111,10 +122,22 @@ def run_args(args):
     default_model['aseg'] = 'mprage_aseg43_v005_crop.onnx'
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
+    default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
     
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
     default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
+    default_model['wmp'] = 'mprage_wmp_v003_14k8.onnx'
 
+
+    # if you want to use other models
+    if isinstance(args.model, dict):
+        for mm in args.model.keys():
+            default_model[mm] = args.model[mm]
+    elif isinstance(args.model, str):
+        import ast
+        model_dict = ast.literal_eval(args.model)
+        for mm in model_dict.keys():
+            default_model[mm] = model_dict[mm]
 
     if args.fast:
         model_bet = default_model['bet128']
@@ -127,6 +150,8 @@ def run_args(args):
         model_aseg = default_model['aseg']
     model_dkt = default_model['dkt']
     model_dgm = default_model['dgm']
+    model_dktc = default_model['dktc']
+    model_wmp = default_model['wmp']
 
 
 
@@ -151,7 +176,7 @@ def run_args(args):
         
         tbetmask_nib = produce_mask(model_bet, f, GPU=args.gpu)
         if get_m:
-            save_nib(tbetmask_nib, ftemplate,'tbetmask')
+            save_nib(tbetmask_nib, ftemplate, 'tbetmask')
 
         if get_b:
             input_nib = nib.load(f)
@@ -172,8 +197,10 @@ def run_args(args):
 
 
         if get_d:
-
             if 'aseg' in model_dgm:
+                if 'aseg_nib' not in locals():
+                    aseg_nib = produce_mask(model_aseg, f, GPU=args.gpu,
+                        brainmask_nib=tbetmask_nib)
                 aseg = aseg_nib.get_fdata()
                 deepgm = aseg * 0
                 count = 0
@@ -197,8 +224,43 @@ def run_args(args):
                                     brainmask_nib=tbetmask_nib)
  
             save_nib(dkt_nib, ftemplate, 'dkt')
+        
+        if get_w:
+            wmp_nib = produce_mask(model_wmp, f, GPU=args.gpu,
+                                    brainmask_nib=tbetmask_nib)
+ 
+            save_nib(wmp_nib, ftemplate, 'wmp')
 
+        if get_c:
 
+            brain_mask = tbetmask_nib.get_fdata()
+            input_nib = nib.load(f)
+            
+            model_ff = lib_tool.get_model(model_dktc)
+            vol_nib = lib_bx.resample_voxel(input_nib, (1, 1, 1))
+            vol_nib = reorder_img(vol_nib, resample='continuous')
+
+            data = vol_nib.get_fdata()
+            image = data[None, ...][None, ...]
+            image = image/np.max(image)
+
+            logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
+
+            #mask_dkt = np.argmax(logits[:-1, ...], axis=0)
+            ct = logits[-1, ...]
+            
+
+            ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
+            ct_nib = resample_to_img(
+                ct_nib, input_nib, interpolation="continuous")
+
+            ct = ct_nib.get_fdata() * brain_mask
+            ct[ct < 0] = 0
+
+            ct_nib = nib.Nifti1Image(ct,
+                                     ct_nib.affine, ct_nib.header)
+            
+            save_nib(ct_nib, ftemplate, 'ct')
 
         print('Processing time: %d seconds' %  (time.time() - t))
 

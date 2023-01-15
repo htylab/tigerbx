@@ -18,6 +18,14 @@ label_all['dkt'] = ( 1002, 1003,
                2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017,
                2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028,
                2029, 2030, 2031, 2034, 2035)
+
+label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006, 3007,
+                     3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017, 3018,
+                     3019, 3020, 3021, 3022, 3023, 3024, 3025, 3026, 3027, 3028, 3029,
+                     3030, 3031, 3032, 3033, 3034, 3035, 4001, 4002, 4003, 4005, 4006,
+                     4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 4016, 4017,
+                     4018, 4019, 4020, 4021, 4022, 4023, 4024, 4025, 4026, 4027, 4028,
+                     4029, 4030, 4031, 4032, 4033, 4034, 4035)
 nib.Nifti1Header.quaternion_threshold = -100
 
 
@@ -85,19 +93,16 @@ def run(model_ff, input_nib, GPU):
     label_num['aseg43'] = 44
     label_num['dkt'] = 63
     label_num['dgm12'] = 13
-
-    if label_num[seg_mode] > logits.shape[0]:
-        #print('sigmoid')
-        #sigmoid mode
+        
+    if seg_mode == 'bet':
+        #sigmoid
         th = 0.5
-        if seg_mode == 'bet':
-            from scipy.special import expit
-            logits = expit(logits)
-            th = 0.5
+        from scipy.special import expit
+        logits = expit(logits)
+        th = 0.5
         mask_pred = np.argmax(logits, axis=0) + 1
         mask_pred[np.max(logits, axis=0) <= th] = 0
-        if seg_mode == 'bet':
-            mask_pred = getLarea(mask_pred)
+        mask_pred = getLarea(mask_pred)
         prob = logits
     else:
         #softmax mode
@@ -106,7 +111,7 @@ def run(model_ff, input_nib, GPU):
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
 
-    if seg_mode in ['aseg43', 'dkt']:
+    if seg_mode in ['aseg43', 'dkt', 'wmp']:
         labels = label_all[seg_mode]
         mask_pred_relabel = mask_pred * 0
         for ii in range(len(labels)):
@@ -130,12 +135,20 @@ def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
 
+    input_nib = nib.load(input_file)
+
+    zoom = input_nib.header.get_zooms()
+
     if mat_size == -1:
 
-        vol_nib = reorder_img(nib.load(input_file), resample='linear')
+        if max(zoom) > 1.2 or min(zoom) < 0.8:
+
+            vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
+        else:
+            vol_nib = reorder_img(input_nib, resample='continuous')
     else:
         affine, shape = get_affine(mat_size)
-        vol_nib = resample_img(nib.load(input_file),
+        vol_nib = resample_img(input_nib,
                            target_affine=affine, target_shape=shape)
 
     return vol_nib
@@ -184,6 +197,25 @@ def write_file(model_ff, input_file, output_dir,
         print('Writing output file: ', output_file)
 
     return output_file, result
+
+
+def resample_voxel(data_nib, voxelsize,
+                     target_shape=None, interpolation='continuous'):
+
+    affine = data_nib.affine
+    target_affine = affine.copy()
+
+    factor = np.zeros(3)
+    for i in range(3):
+        factor[i] = voxelsize[i] / \
+            np.sqrt(affine[0, i]**2 + affine[1, i]**2 + affine[2, i]**2)
+        target_affine[:3, i] = target_affine[:3, i]*factor[i]
+
+    new_nib = resample_img(data_nib, target_affine=target_affine,
+                           target_shape=target_shape, interpolation=interpolation)
+
+    return new_nib
+
 
 
 
