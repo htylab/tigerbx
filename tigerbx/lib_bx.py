@@ -94,7 +94,8 @@ def run(model_ff, input_nib, GPU):
     label_num['dkt'] = 63
     label_num['dgm12'] = 13
         
-    if seg_mode == 'bet':
+    if label_num[seg_mode] > logits.shape[0]:
+        
         #sigmoid
         th = 0.5
         from scipy.special import expit
