@@ -95,7 +95,7 @@ def run(model_ff, input_nib, GPU):
     label_num['dgm12'] = 13
         
     if label_num[seg_mode] > logits.shape[0]:
-        
+        print('sigmoid')
         #sigmoid
         th = 0.5
         from scipy.special import expit
@@ -107,8 +107,9 @@ def run(model_ff, input_nib, GPU):
         prob = logits
     else:
         #softmax mode
-        #print('softmax')
+        print('softmax')
         #print(logits.shape)
+
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
 
