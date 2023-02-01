@@ -160,10 +160,11 @@ def run_args(args):
 
 
     print('Total nii files:', len(input_file_list))
-
+    count = 0
     for f in input_file_list:
+        count += 1
 
-        print('Processing :', os.path.basename(f))
+        print(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
         f_output_dir = output_dir
