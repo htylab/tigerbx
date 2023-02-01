@@ -263,6 +263,7 @@ def run_args(args):
 
             ct = ct_nib.get_fdata() * brain_mask
             ct[ct < 0] = 0
+            ct[ct > 5] = 5
 
             ct_nib = nib.Nifti1Image(ct,
                                      ct_nib.affine, ct_nib.header)
