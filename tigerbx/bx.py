@@ -122,7 +122,10 @@ def run_args(args):
     default_model['aseg'] = 'mprage_aseg43_v005_crop.onnx'
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
-    default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
+    #default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
+    default_model['ct'] = 'mprage_ct_v002_14k2.onnx'
+
+    
     
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
     default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
@@ -150,7 +153,8 @@ def run_args(args):
         model_aseg = default_model['aseg']
     model_dkt = default_model['dkt']
     model_dgm = default_model['dgm']
-    model_dktc = default_model['dktc']
+    #model_dktc = default_model['dktc']
+    model_ct = default_model['ct']
     model_wmp = default_model['wmp']
 
 
@@ -236,7 +240,7 @@ def run_args(args):
             brain_mask = tbetmask_nib.get_fdata()
             input_nib = nib.load(f)
             
-            model_ff = lib_tool.get_model(model_dktc)
+            model_ff = lib_tool.get_model(model_ct)
             vol_nib = lib_bx.resample_voxel(input_nib, (1, 1, 1))
             vol_nib = reorder_img(vol_nib, resample='continuous')
 
@@ -244,10 +248,13 @@ def run_args(args):
             image = data[None, ...][None, ...]
             image = image/np.max(image)
 
-            logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
+            #logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
+            #ct = logits[-1, ...]
+
+            ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
 
             #mask_dkt = np.argmax(logits[:-1, ...], axis=0)
-            ct = logits[-1, ...]
+            
             
 
             ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
