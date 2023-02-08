@@ -12,6 +12,7 @@ https://github.com/htylab/tigerbx/releases
 ### Usage
 
     tigerbx -bmad c:\data\*.nii.gz -o c:\output
+    tigerbx -c c:\data\*.nii.gz -o c:\output
 
 ### As a python package
 
