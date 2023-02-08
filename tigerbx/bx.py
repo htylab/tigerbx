@@ -118,11 +118,15 @@ def run_args(args):
     default_model['bet128'] = 'mprage_bet_v001_kuor128.onnx'
     default_model['aseg128'] = 'mprage_aseg43_v001_MXRWr128.onnx'
 
-    default_model['bet'] = 'mprage_bet_v002_full.onnx'
+    #default_model['bet'] = 'mprage_bet_v002_full.onnx'
+    default_model['bet'] = 'mprage_bet_v004_anisofocal.onnx'
     default_model['aseg'] = 'mprage_aseg43_v005_crop.onnx'
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
-    default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
+    #default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
+    default_model['ct'] = 'mprage_ct_v003_14k.onnx'
+
+    
     
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
     default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
@@ -150,16 +154,18 @@ def run_args(args):
         model_aseg = default_model['aseg']
     model_dkt = default_model['dkt']
     model_dgm = default_model['dgm']
-    model_dktc = default_model['dktc']
+    #model_dktc = default_model['dktc']
+    model_ct = default_model['ct']
     model_wmp = default_model['wmp']
 
 
 
     print('Total nii files:', len(input_file_list))
-
+    count = 0
     for f in input_file_list:
+        count += 1
 
-        print('Processing :', os.path.basename(f))
+        print(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
         f_output_dir = output_dir
@@ -236,7 +242,7 @@ def run_args(args):
             brain_mask = tbetmask_nib.get_fdata()
             input_nib = nib.load(f)
             
-            model_ff = lib_tool.get_model(model_dktc)
+            model_ff = lib_tool.get_model(model_ct)
             vol_nib = lib_bx.resample_voxel(input_nib, (1, 1, 1))
             vol_nib = reorder_img(vol_nib, resample='continuous')
 
@@ -244,10 +250,13 @@ def run_args(args):
             image = data[None, ...][None, ...]
             image = image/np.max(image)
 
-            logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
+            #logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
+            #ct = logits[-1, ...]
+
+            ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
 
             #mask_dkt = np.argmax(logits[:-1, ...], axis=0)
-            ct = logits[-1, ...]
+            
             
 
             ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
@@ -256,6 +265,7 @@ def run_args(args):
 
             ct = ct_nib.get_fdata() * brain_mask
             ct[ct < 0] = 0
+            ct[ct > 5] = 5
 
             ct_nib = nib.Nifti1Image(ct,
                                      ct_nib.affine, ct_nib.header)
