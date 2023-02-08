@@ -93,6 +93,7 @@ def run(model_ff, input_nib, GPU):
     label_num['aseg43'] = 44
     label_num['dkt'] = 63
     label_num['dgm12'] = 13
+    label_num['wmp'] = 74
         
     if label_num[seg_mode] > logits.shape[0]:
         #sigmoid
