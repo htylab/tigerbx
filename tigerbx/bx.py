@@ -123,7 +123,7 @@ def run_args(args):
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
     #default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
-    default_model['ct'] = 'mprage_ct_v002_14k2.onnx'
+    default_model['ct'] = 'mprage_ct_v003_14k.onnx'
 
     
     
