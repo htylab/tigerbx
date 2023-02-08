@@ -118,7 +118,8 @@ def run_args(args):
     default_model['bet128'] = 'mprage_bet_v001_kuor128.onnx'
     default_model['aseg128'] = 'mprage_aseg43_v001_MXRWr128.onnx'
 
-    default_model['bet'] = 'mprage_bet_v002_full.onnx'
+    #default_model['bet'] = 'mprage_bet_v002_full.onnx'
+    default_model['bet'] = 'mprage_bet_v004_anisofocal.onnx'
     default_model['aseg'] = 'mprage_aseg43_v005_crop.onnx'
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
