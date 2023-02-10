@@ -85,7 +85,7 @@ def run(argstring, input, output=None, model=None):
     args.input = input
     args.output = output
     args.model = model
-    run_args(args)   
+    return run_args(args)   
 
 
 def run_args(args):
@@ -299,7 +299,6 @@ def run_args(args):
             result_all.append(result_dict)
         else:
             result_all.append(result_filedict) #storing output filenames
-
     return result_all
 
 
