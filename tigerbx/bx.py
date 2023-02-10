@@ -39,6 +39,7 @@ def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace('@@@@', postfix)
     nib.save(data_nib, output_file)
     print('Writing output file: ', output_file)
+    return output_file
 
 
 def main():
@@ -162,8 +163,13 @@ def run_args(args):
 
     print('Total nii files:', len(input_file_list))
     count = 0
+    result_all = []
+    result_filedict = dict()
     for f in input_file_list:
         count += 1
+
+        result_dict = dict()
+        result_filedict = dict()
 
         print(f'{count} Processing :', os.path.basename(f))
         t = time.time()
@@ -182,7 +188,9 @@ def run_args(args):
         
         tbetmask_nib = produce_mask(model_bet, f, GPU=args.gpu)
         if get_m:
-            save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+            fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+            result_dict['tbetmask'] = tbetmask_nib
+            result_filedict['tbetmask'] = fn
 
         if get_b:
             input_nib = nib.load(f)
@@ -193,13 +201,17 @@ def run_args(args):
             bet = nib.Nifti1Image(bet, input_nib.affine,
                                   input_nib.header)
 
-            save_nib(bet, ftemplate, 'tbet')
+            fn = save_nib(bet, ftemplate, 'tbet')
+            result_dict['tbet'] = bet
+            result_filedict['tbet'] = fn
         
 
         if get_a:
             aseg_nib = produce_mask(model_aseg, f, GPU=args.gpu,
                                     brainmask_nib=tbetmask_nib)
-            save_nib(aseg_nib, ftemplate, 'aseg')
+            fn = save_nib(aseg_nib, ftemplate, 'aseg')
+            result_dict['aseg'] = aseg_nib
+            result_filedict['aseg'] = fn
 
 
         if get_d:
@@ -223,19 +235,25 @@ def run_args(args):
                         brainmask_nib=tbetmask_nib)
 
 
-            save_nib(dgm_nib, ftemplate, 'dgm')
+            fn = save_nib(dgm_nib, ftemplate, 'dgm')
+            result_dict['dgm'] = dgm_nib
+            result_filedict['dgm'] = fn
 
         if get_k:
             dkt_nib = produce_mask(model_dkt, f, GPU=args.gpu,
                                     brainmask_nib=tbetmask_nib)
  
-            save_nib(dkt_nib, ftemplate, 'dkt')
+            fn = save_nib(dkt_nib, ftemplate, 'dkt')
+            result_dict['dkt'] = dkt_nib
+            result_filedict['dkt'] = fn
         
         if get_w:
             wmp_nib = produce_mask(model_wmp, f, GPU=args.gpu,
                                     brainmask_nib=tbetmask_nib)
  
-            save_nib(wmp_nib, ftemplate, 'wmp')
+            fn = save_nib(wmp_nib, ftemplate, 'wmp')
+            result_dict['wmp'] = wmp_nib
+            result_filedict['wmp'] = fn
 
         if get_c:
 
@@ -270,9 +288,19 @@ def run_args(args):
             ct_nib = nib.Nifti1Image(ct,
                                      ct_nib.affine, ct_nib.header)
             
-            save_nib(ct_nib, ftemplate, 'ct')
+            fn = save_nib(ct_nib, ftemplate, 'ct')
+            result_dict['ct'] = ct_nib
+            result_filedict['ct'] = fn
 
         print('Processing time: %d seconds' %  (time.time() - t))
+        if len(input_file_list) == 1:
+            result_all = result_dict
+        elif len(input_file_list) < 50: #maximum length of result_all set to 50 to avoid OOM
+            result_all.append(result_dict)
+        else:
+            result_all.append(result_filedict) #storing output filenames
+
+    return result_all
 
 
 if __name__ == "__main__":
