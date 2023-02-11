@@ -59,6 +59,8 @@ def main():
                         help='Producing cortical thickness map')
     parser.add_argument('-w', '--wmp', action='store_true',
                         help='Producing white matter parcellation')
+    parser.add_argument('-s', '--seg3', action='store_true',
+                        help='Producing GM, WM, CSF segmentation')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
     parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
@@ -79,6 +81,7 @@ def run(argstring, input, output=None, model=None):
     args.gpu = 'g' in argstring
     args.ct = 'c' in argstring
     args.wmp = 'w' in argstring
+    args.seg3 = 's' in argstring
 
     if not isinstance(input, list):
         input = [input]
@@ -97,8 +100,9 @@ def run_args(args):
     get_k = args.dkt
     get_c = args.ct
     get_w = args.wmp
+    get_s = args.seg3
 
-    if True not in [get_m, get_a, get_b, get_d, get_k, get_c, get_w]:
+    if True not in [get_m, get_a, get_b, get_d, get_k, get_c, get_w, get_s]:
         get_b = True
         # Producing extracted brain by default 
 
@@ -127,11 +131,11 @@ def run_args(args):
     #default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
     default_model['ct'] = 'mprage_ct_v003_14k.onnx'
 
-    
-    
+       
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
     default_model['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     default_model['wmp'] = 'mprage_wmp_v003_14k8.onnx'
+    default_model['seg3'] = 'mprage_seg3_v001_qc2r128.onnx'
 
 
     # if you want to use other models
@@ -158,6 +162,7 @@ def run_args(args):
     #model_dktc = default_model['dktc']
     model_ct = default_model['ct']
     model_wmp = default_model['wmp']
+    model_seg3 = default_model['seg3']
 
 
 
@@ -254,6 +259,14 @@ def run_args(args):
             fn = save_nib(wmp_nib, ftemplate, 'wmp')
             result_dict['wmp'] = wmp_nib
             result_filedict['wmp'] = fn
+
+        if get_s:
+            seg3_nib = produce_mask(model_seg3, f, GPU=args.gpu,
+                                   brainmask_nib=tbetmask_nib)
+
+            fn = save_nib(seg3_nib, ftemplate, 'seg3')
+            result_dict['seg3'] = seg3_nib
+            result_filedict['seg3'] = fn
 
         if get_c:
 
