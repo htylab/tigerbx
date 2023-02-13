@@ -106,12 +106,18 @@ def run(model_ff, input_nib, GPU):
         mask_pred[np.max(logits, axis=0) <= th] = 0
         mask_pred = getLarea(mask_pred)
         prob = logits
+
     else:
         #softmax mode
         #print(logits.shape)
 
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
+    
+    #qc1 = np.mean(probmax[mask_pred > 0])
+    #qc2 = np.mean(probmax[(mask_pred > 0) & (probmax < 0.95)] ** 2)
+    #sum1 = np.sum(mask_pred>0)
+    #sum2 = sum1 - np.sum((probmax[mask_pred > 0] ** 10)< 0.99)
 
     if seg_mode in ['aseg43', 'dkt', 'wmp']:
         labels = label_all[seg_mode]

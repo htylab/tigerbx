@@ -14,7 +14,7 @@ from tigerbx import lib_bx
 
 from nilearn.image import resample_to_img, reorder_img
 
-def produce_mask(model, f, GPU=False, brainmask_nib=None):
+def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
 
     model_ff = lib_tool.get_model(model)
     input_nib = nib.load(f)
@@ -32,8 +32,18 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None):
     output = output.astype(int)
 
     output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
+    output_nib.header.set_data_dtype(int)
 
-    return output_nib
+    if QC:
+        probmax = np.max(prob_resp, axis=0)
+        qc_score = np.percentile(
+            probmax[mask_nib_resp.get_fdata() > 0], 1) - 0.5
+        #qc = np.percentile(probmax, 1) - 0.5
+        qc_score = int(qc_score * 1000)
+        return output_nib, qc_score
+    else:
+
+        return output_nib
 
 def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace('@@@@', postfix)
@@ -60,7 +70,9 @@ def main():
     parser.add_argument('-w', '--wmp', action='store_true',
                         help='Producing white matter parcellation')
     parser.add_argument('-s', '--seg3', action='store_true',
-                        help='Producing GM, WM, CSF segmentation')
+                        help='Producing GM, WM, CSF segmentation (working in progress)')
+    parser.add_argument('-q', '--qc', action='store_true',
+                        help='Save QC score. Pay attention to the results with QC scores less than 50.')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
     parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
@@ -82,6 +94,7 @@ def run(argstring, input, output=None, model=None):
     args.ct = 'c' in argstring
     args.wmp = 'w' in argstring
     args.seg3 = 's' in argstring
+    args.qc = 'q' in argstring
 
     if not isinstance(input, list):
         input = [input]
@@ -101,8 +114,10 @@ def run_args(args):
     get_c = args.ct
     get_w = args.wmp
     get_s = args.seg3
+    get_q = args.qc
 
-    if True not in [get_m, get_a, get_b, get_d, get_k, get_c, get_w, get_s]:
+    if True not in [get_m, get_a, get_b, get_d,
+                    get_k, get_c, get_w, get_s, get_q]:
         get_b = True
         # Producing extracted brain by default 
 
@@ -191,7 +206,19 @@ def run_args(args):
         ftemplate = join(f_output_dir, ftemplate)
 
         
-        tbetmask_nib = produce_mask(model_bet, f, GPU=args.gpu)
+        tbetmask_nib, qc_score = produce_mask(model_bet, f, GPU=args.gpu, QC=True)
+        print('QC score:', qc_score)
+
+        result_dict['QC'] = qc_score
+        result_filedict['QC'] = qc_score
+        if qc_score < 50:
+            print('Pay attention to the result with QC < 50. ')
+        if get_q or qc_score < 50:
+            qcfile = basename(f).replace('.nii','').replace('.gz', '') + f'-qc-{qc_score}.log'
+            qcfile = join(f_output_dir, qcfile)
+            with open(qcfile, 'a') as the_file:
+                the_file.write(f'QC: {qc_score} \n')
+
         if get_m:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
             result_dict['tbetmask'] = tbetmask_nib
@@ -300,6 +327,7 @@ def run_args(args):
 
             ct_nib = nib.Nifti1Image(ct,
                                      ct_nib.affine, ct_nib.header)
+            ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
             result_dict['ct'] = ct_nib
@@ -308,7 +336,9 @@ def run_args(args):
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
-        elif len(input_file_list) < 50: #maximum length of result_all set to 50 to avoid OOM
+        elif len(input_file_list) < 20: 
+            #maximum length of result_all set to 20 to reduce memory consumption
+
             result_all.append(result_dict)
         else:
             result_all.append(result_filedict) #storing output filenames
