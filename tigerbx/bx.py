@@ -33,7 +33,7 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
     output = output.astype(int)
 
     output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
-    output_nib.header.set_data_dtype(int)
+    output_nib.header.set_data_dtype(output.dtype)
 
     if QC:
         probmax = np.max(prob_resp, axis=0)
