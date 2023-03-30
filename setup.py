@@ -31,9 +31,9 @@ setup(
 
         ]
     },
-     python_requires='>=3.8',
+     python_requires='==3.8.8',
      install_requires=[
-             'numpy>=1.16.0',
-             'nilearn>=0.9.1',
+             'numpy==1.22.4',
+             'nilearn==0.9.4',
          ]
 )
