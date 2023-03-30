@@ -70,6 +70,11 @@ def get_mat_size(model_ff):
     #print(model_ff, mat_size)
     return mat_size
 
+def read_nib(input_nib):
+
+    # in adni dataset, the 3D mprage is stored as a 4D array
+
+    return np.squeeze(input_nib.get_fdata())
 
 def run(model_ff, input_nib, GPU):
 
@@ -78,7 +83,8 @@ def run(model_ff, input_nib, GPU):
      
 
 
-    data = input_nib.get_fdata()
+    #data = input_nib.get_fdata()
+    data = read_nib(input_nib)
 
 
     image = data[None, ...][None, ...]
@@ -94,6 +100,7 @@ def run(model_ff, input_nib, GPU):
     label_num['dkt'] = 63
     label_num['dgm12'] = 13
     label_num['wmp'] = 74
+    label_num['seg3'] = 4
         
     if label_num[seg_mode] > logits.shape[0]:
         #sigmoid
@@ -105,12 +112,18 @@ def run(model_ff, input_nib, GPU):
         mask_pred[np.max(logits, axis=0) <= th] = 0
         mask_pred = getLarea(mask_pred)
         prob = logits
+
     else:
         #softmax mode
         #print(logits.shape)
 
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
+    
+    #qc1 = np.mean(probmax[mask_pred > 0])
+    #qc2 = np.mean(probmax[(mask_pred > 0) & (probmax < 0.95)] ** 2)
+    #sum1 = np.sum(mask_pred>0)
+    #sum2 = sum1 - np.sum((probmax[mask_pred > 0] ** 10)< 0.99)
 
     if seg_mode in ['aseg43', 'dkt', 'wmp']:
         labels = label_all[seg_mode]
