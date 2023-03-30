@@ -30,10 +30,16 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
         output = lib_bx.read_nib(mask_nib)
     else:
         output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
-    output = output.astype(int)
+
+    if np.max(output) <=255:
+        dtype = np.uint8
+    else:
+        dtype = np.int16
+
+    output = output.astype(dtype)
 
     output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
-    output_nib.header.set_data_dtype(output.dtype)
+    output_nib.header.set_data_dtype(dtype)
 
     if QC:
         probmax = np.max(prob_resp, axis=0)
