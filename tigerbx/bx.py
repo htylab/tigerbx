@@ -26,9 +26,10 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
         mask_nib_resp, input_nib, interpolation="nearest")
 
     if brainmask_nib is None:
-        output = mask_nib.get_fdata()
+
+        output = lib_bx.read_nib(mask_nib)
     else:
-        output = mask_nib.get_fdata() * brainmask_nib.get_fdata()
+        output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
     output = output.astype(int)
 
     output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
@@ -37,7 +38,7 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
     if QC:
         probmax = np.max(prob_resp, axis=0)
         qc_score = np.percentile(
-            probmax[mask_nib_resp.get_fdata() > 0], 1) - 0.5
+            probmax[lib_bx.read_nib(mask_nib_resp) > 0], 1) - 0.5
         #qc = np.percentile(probmax, 1) - 0.5
         qc_score = int(qc_score * 1000)
         return output_nib, qc_score
@@ -226,7 +227,8 @@ def run_args(args):
 
         if get_b:
             input_nib = nib.load(f)
-            bet = input_nib.get_fdata() * tbetmask_nib.get_fdata()
+
+            bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
 
 
@@ -251,7 +253,7 @@ def run_args(args):
                 if 'aseg_nib' not in locals():
                     aseg_nib = produce_mask(model_aseg, f, GPU=args.gpu,
                         brainmask_nib=tbetmask_nib)
-                aseg = aseg_nib.get_fdata()
+                aseg = lib_bx.read_nib(aseg_nib)
                 deepgm = aseg * 0
                 count = 0
                 for ii in [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]:
@@ -297,14 +299,14 @@ def run_args(args):
 
         if get_c:
 
-            brain_mask = tbetmask_nib.get_fdata()
+            brain_mask = lib_bx.read_nib(tbetmask_nib)
             input_nib = nib.load(f)
             
             model_ff = lib_tool.get_model(model_ct)
             vol_nib = lib_bx.resample_voxel(input_nib, (1, 1, 1))
             vol_nib = reorder_img(vol_nib, resample='continuous')
 
-            data = vol_nib.get_fdata()
+            data = lib_bx.read_nib(vol_nib)
             image = data[None, ...][None, ...]
             image = image/np.max(image)
 
@@ -321,7 +323,7 @@ def run_args(args):
             ct_nib = resample_to_img(
                 ct_nib, input_nib, interpolation="continuous")
 
-            ct = ct_nib.get_fdata() * brain_mask
+            ct = lib_bx.read_nib(ct_nib) * brain_mask
             ct[ct < 0] = 0
             ct[ct > 5] = 5
 
