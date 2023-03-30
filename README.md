@@ -45,6 +45,7 @@ https://github.com/htylab/tigerbx/releases
 -w, Producing the white matter parcellation (work in progress)
 -f: faster operation with low-resolution models
 -q: Save QC score. Pay attention to QC scores less than 50.
+-z: Force storing nii.gz format
 ```
 ## Citation
 

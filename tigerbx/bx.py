@@ -81,6 +81,8 @@ def main():
     parser.add_argument('-q', '--qc', action='store_true',
                         help='Save QC score. Pay attention to the results with QC scores less than 50.')
     parser.add_argument('-f', '--fast', action='store_true', help='Fast processing with low-resolution model')
+    parser.add_argument('-z', '--gz', action='store_true', help='Force storing nii.gz format')
+
     parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
@@ -102,6 +104,7 @@ def run(argstring, input, output=None, model=None):
     args.wmp = 'w' in argstring
     args.seg3 = 's' in argstring
     args.qc = 'q' in argstring
+    args.gz = 'z' in argstring
 
     if not isinstance(input, list):
         input = [input]
@@ -122,6 +125,7 @@ def run_args(args):
     get_w = args.wmp
     get_s = args.seg3
     get_q = args.qc
+    get_z = args.gz
 
     if True not in [get_m, get_a, get_b, get_d,
                     get_k, get_c, get_w, get_s, get_q]:
@@ -210,6 +214,8 @@ def run_args(args):
 
 
         ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
+        if get_z and '.gz' not in ftemplate:
+            ftemplate += '.gz'
         ftemplate = join(f_output_dir, ftemplate)
 
         
