@@ -70,6 +70,11 @@ def get_mat_size(model_ff):
     #print(model_ff, mat_size)
     return mat_size
 
+def read_nib(input_nib):
+
+    # in adni dataset, the 3D mprage is stored as a 4D array
+
+    return np.squeeze(input_nib.get_fdata())
 
 def run(model_ff, input_nib, GPU):
 
@@ -78,7 +83,8 @@ def run(model_ff, input_nib, GPU):
      
 
 
-    data = input_nib.get_fdata()
+    #data = input_nib.get_fdata()
+    data = read_nib(input_nib)
 
 
     image = data[None, ...][None, ...]
