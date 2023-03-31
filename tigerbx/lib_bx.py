@@ -158,6 +158,7 @@ def read_file(model_ff, input_file):
         if max(zoom) > 1.2 or min(zoom) < 0.8:
 
             vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
+            vol_nib = reorder_img(vol_nib, resample='continuous')
         else:
             vol_nib = reorder_img(input_nib, resample='continuous')
     else:
