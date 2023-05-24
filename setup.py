@@ -13,7 +13,7 @@ classifiers = [
 setup(
      name='tigerbx',
 
-     version='0.1.12',
+     version='0.1.12a',
      description='Processing MRI images based on deep-learning',
      long_description_content_type='text/markdown',
      url='https://github.com/htylab/tigerbx',
@@ -31,9 +31,9 @@ setup(
 
         ]
     },
-     python_requires='>=3.8',
+     python_requires='>=3.7',
      install_requires=[
-             'numpy==1.22.4',
+             'numpy==1.21',
              'nilearn==0.9.2',
          ]
 )
