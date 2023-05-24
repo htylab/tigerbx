@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 classifiers = [
     'Intended Audience :: Developers',
-    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.7',
     'License :: OSI Approved :: MIT License',
     "Operating System :: OS Independent"
 ]
@@ -33,7 +33,7 @@ setup(
     },
      python_requires='>=3.7',
      install_requires=[
-             'numpy==1.21',
+             'numpy==1.21.6',
              'nilearn==0.9.2',
          ]
 )
