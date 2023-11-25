@@ -9,8 +9,11 @@ import glob
 import platform
 import nibabel as nib
 
-from tigerbx import lib_tool
-from tigerbx import lib_bx
+# from tigerbx import lib_tool
+# from tigerbx import lib_bx
+
+import lib_tool
+import lib_bx
 
 from nilearn.image import resample_to_img, reorder_img
 
@@ -60,7 +63,7 @@ def save_nib(data_nib, ftemplate, postfix):
 
 
 def main():
-      
+    print('start-------')
     parser = argparse.ArgumentParser()
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
@@ -87,6 +90,7 @@ def main():
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
     run_args(args)
+
 
 def run(argstring, input, output=None, model=None):
 
@@ -155,7 +159,7 @@ def run_args(args):
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
     #default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
-    default_model['ct'] = 'mprage_ct_v003_14k.onnx'
+    default_model['ct'] = 'mprage_mix_ct.onnx'
 
        
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
@@ -333,7 +337,7 @@ def run_args(args):
 
             ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
             ct_nib = resample_to_img(
-                ct_nib, input_nib, interpolation="continuous")
+                ct_nib, input_nib, interpolation="nearest")
 
             ct = lib_bx.read_nib(ct_nib) * brain_mask
             ct[ct < 0] = 0
