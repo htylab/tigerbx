@@ -9,11 +9,9 @@ import glob
 import platform
 import nibabel as nib
 
-# from tigerbx import lib_tool
-# from tigerbx import lib_bx
+from tigerbx import lib_tool
+from tigerbx import lib_bx
 
-import lib_tool
-import lib_bx
 
 from nilearn.image import resample_to_img, reorder_img
 

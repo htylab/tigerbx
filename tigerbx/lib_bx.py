@@ -6,8 +6,8 @@ import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
 
-# from tigerbx import lib_tool
-import lib_tool
+from tigerbx import lib_tool
+
 
 label_all = dict()
 label_all['aseg43'] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,
