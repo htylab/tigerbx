@@ -319,8 +319,9 @@ def run_args(args):
             input_nib = nib.load(f)
             
             model_ff = lib_tool.get_model(model_ct)
-            vol_nib = lib_bx.resample_voxel(input_nib, (1, 1, 1))
-            vol_nib = reorder_img(vol_nib, resample='continuous')
+            vol_nib = reorder_img(input_nib, resample='continuous')
+            vol_nib = lib_bx.resample_voxel(vol_nib, (1, 1, 1),interpolation='continuous')
+            
 
             data = lib_bx.read_nib(vol_nib)
             image = data[None, ...][None, ...]
@@ -333,16 +334,15 @@ def run_args(args):
 
             #mask_dkt = np.argmax(logits[:-1, ...], axis=0)
             
-            
+            ct[ct < 0.01] = 0
+            ct[ct > 5] = 5
+
 
             ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
             ct_nib = resample_to_img(
                 ct_nib, input_nib, interpolation="nearest")
 
             ct = lib_bx.read_nib(ct_nib) * brain_mask
-            ct[ct < 0] = 0
-            ct[ct > 5] = 5
-
             ct_nib = nib.Nifti1Image(ct,
                                      ct_nib.affine, ct_nib.header)
             ct_nib.header.set_data_dtype(float)
