@@ -61,7 +61,6 @@ def save_nib(data_nib, ftemplate, postfix):
 
 
 def main():
-    print('start-------')
     parser = argparse.ArgumentParser()
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
