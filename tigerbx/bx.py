@@ -12,7 +12,6 @@ import nibabel as nib
 from tigerbx import lib_tool
 from tigerbx import lib_bx
 
-
 from nilearn.image import resample_to_img, reorder_img
 
 def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
@@ -312,36 +311,31 @@ def run_args(args):
 
         if get_c:
 
-            brain_mask = lib_bx.read_nib(tbetmask_nib)
-            input_nib = nib.load(f)
-            
             model_ff = lib_tool.get_model(model_ct)
+            input_nib = nib.load(f)
             vol_nib = reorder_img(input_nib, resample='continuous')
             vol_nib = lib_bx.resample_voxel(vol_nib, (1, 1, 1),interpolation='continuous')
-            
-
             data = lib_bx.read_nib(vol_nib)
-            image = data[None, ...][None, ...]
+
+            tbetmask_nib = reorder_img(tbetmask_nib, resample='nearest')
+            shape=vol_nib.shape
+            tbetmask_nib =lib_bx.resample_voxel(tbetmask_nib, (1,1,1),target_shape=shape,interpolation='nearest')
+            brain_mask = lib_bx.read_nib(tbetmask_nib)
+            bet_img=brain_mask*data
+            
+            image = bet_img[None, ...][None, ...]
             image = image/np.max(image)
 
-            #logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
-            #ct = logits[-1, ...]
-
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
-
-            #mask_dkt = np.argmax(logits[:-1, ...], axis=0)
             
-            ct[ct < 0.01] = 0
+            ct[ct < 0.2] = 0
             ct[ct > 5] = 5
-
+            ct=ct*brain_mask
 
             ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
             ct_nib = resample_to_img(
                 ct_nib, input_nib, interpolation="nearest")
 
-            ct = lib_bx.read_nib(ct_nib) * brain_mask
-            ct_nib = nib.Nifti1Image(ct,
-                                     ct_nib.affine, ct_nib.header)
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
