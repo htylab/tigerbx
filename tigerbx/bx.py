@@ -60,7 +60,6 @@ def save_nib(data_nib, ftemplate, postfix):
 
 
 def main():
-      
     parser = argparse.ArgumentParser()
     parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
@@ -87,6 +86,7 @@ def main():
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
     run_args(args)
+
 
 def run(argstring, input, output=None, model=None):
 
@@ -155,7 +155,7 @@ def run_args(args):
     #default_model['dkt'] = 'mprage_dkt_v001_f16r256.onnx'
     default_model['dkt'] = 'mprage_dkt_v002_train.onnx'
     #default_model['dktc'] = 'mprage_dktc_v004_3k.onnx'
-    default_model['ct'] = 'mprage_ct_v003_14k.onnx'
+    default_model['ct'] = 'mprage_mix_ct.onnx'
 
        
     #default_model['dgm'] = 'mprage_aseg43_v005_crop.onnx'
@@ -311,36 +311,31 @@ def run_args(args):
 
         if get_c:
 
-            brain_mask = lib_bx.read_nib(tbetmask_nib)
-            input_nib = nib.load(f)
-            
             model_ff = lib_tool.get_model(model_ct)
-            vol_nib = lib_bx.resample_voxel(input_nib, (1, 1, 1))
-            vol_nib = reorder_img(vol_nib, resample='continuous')
-
+            input_nib = nib.load(f)
+            vol_nib = reorder_img(input_nib, resample='continuous')
+            vol_nib = lib_bx.resample_voxel(vol_nib, (1, 1, 1),interpolation='continuous')
             data = lib_bx.read_nib(vol_nib)
-            image = data[None, ...][None, ...]
+
+            tbetmask_nib = reorder_img(tbetmask_nib, resample='nearest')
+            shape=vol_nib.shape
+            tbetmask_nib =lib_bx.resample_voxel(tbetmask_nib, (1,1,1),target_shape=shape,interpolation='nearest')
+            brain_mask = lib_bx.read_nib(tbetmask_nib)
+            bet_img=brain_mask*data
+            
+            image = bet_img[None, ...][None, ...]
             image = image/np.max(image)
 
-            #logits = lib_tool.predict(model_ff, image, args.gpu)[0, ...]
-            #ct = logits[-1, ...]
-
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
-
-            #mask_dkt = np.argmax(logits[:-1, ...], axis=0)
             
-            
+            ct[ct < 0.2] = 0
+            ct[ct > 5] = 5
+            ct=ct*brain_mask
 
             ct_nib = nib.Nifti1Image(ct, vol_nib.affine, vol_nib.header)
             ct_nib = resample_to_img(
-                ct_nib, input_nib, interpolation="continuous")
+                ct_nib, input_nib, interpolation="nearest")
 
-            ct = lib_bx.read_nib(ct_nib) * brain_mask
-            ct[ct < 0] = 0
-            ct[ct > 5] = 5
-
-            ct_nib = nib.Nifti1Image(ct,
-                                     ct_nib.affine, ct_nib.header)
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
