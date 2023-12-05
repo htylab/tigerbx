@@ -32,7 +32,7 @@ https://github.com/htylab/tigerbx/releases
 
 ** Mac and Windows  are supported.**
 
-** Ubuntu (version >18.04)  are supported.**
+** Ubuntu (version >20.04)  are supported.**
 
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
