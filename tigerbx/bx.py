@@ -131,7 +131,7 @@ def run_args(args):
 
     run = vars(args) #store all arg in dict
     if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
-                    run['dkt'], run['ct'], run['wmp'], run['qc']]:
+                    run['dkt'], run['ct'], run['wmp'], run['qc'], run['wmh']]:
         run['bet'] = True
         # Producing extracted brain by default 
 
@@ -151,7 +151,7 @@ def run_args(args):
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
-    omodel['wmh'] = 'mprage_wmh_v001_T1.onnx'
+    omodel['wmh'] = 'mprage_wmh_v001_T1r111.onnx'
 
     # if you want to use other models
     if isinstance(args.model, dict):

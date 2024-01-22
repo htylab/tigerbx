@@ -153,9 +153,11 @@ def read_file(model_ff, input_file):
 
     zoom = input_nib.header.get_zooms()
 
-    if mat_size == -1:
+    if mat_size == -1 or mat_size == 111:
 
-        if max(zoom) > 1.2 or min(zoom) < 0.8:
+        print(mat_size)
+
+        if max(zoom) > 1.2 or min(zoom) < 0.8 or mat_size == 111:
 
             vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
