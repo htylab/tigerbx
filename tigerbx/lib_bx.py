@@ -148,14 +148,10 @@ def run(model_ff, input_nib, GPU):
 def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
-
     input_nib = nib.load(input_file)
-
     zoom = input_nib.header.get_zooms()
 
     if mat_size == -1 or mat_size == 111:
-
-        print(mat_size)
 
         if max(zoom) > 1.2 or min(zoom) < 0.8 or mat_size == 111:
 
