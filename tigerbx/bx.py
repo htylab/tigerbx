@@ -81,16 +81,17 @@ def main():
     parser.add_argument('-m', '--betmask', action='store_true', help='Producing bet mask')
     parser.add_argument('-a', '--aseg', action='store_true', help='Producing aseg mask')
     parser.add_argument('-b', '--bet', action='store_true', help='Producing bet images')
-    parser.add_argument('-d', '--dgm', action='store_true',
-                        help='Producing deepgm mask')
-    parser.add_argument('-k', '--dkt', action='store_true',
-                        help='Producing dkt mask')
-    parser.add_argument('-c', '--ct', action='store_true',
-                        help='Producing cortical thickness map')
-    parser.add_argument('-w', '--wmp', action='store_true',
-                        help='Producing white matter parcellation')
-    parser.add_argument('-l', '--wmh', action='store_true',
-                        help='Producing WMH lesion mask')
+    parser.add_argument('-B', '--bam', action='store_true', help='Producing brain age mapping')
+    parser.add_argument('-c', '--ct', action='store_true',  help='Producing cortical thickness map')
+    parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
+    parser.add_argument('-d', '--dgm', action='store_true', help='Producing deepgm mask')    
+    parser.add_argument('-k', '--dkt', action='store_true', help='Producing dkt mask')
+
+    parser.add_argument('-w', '--wmp', action='store_true', help='Producing white matter parcellation')
+    parser.add_argument('-W', '--wmh', action='store_true', help='Producing WMH lesion mask')
+
+    parser.add_argument('-t', '--tumor', action='store_true',
+                        help='Producing tumor mask')
     parser.add_argument('-q', '--qc', action='store_true',
                         help='Save QC score. Pay attention to the results with QC scores less than 50.')
     parser.add_argument('-z', '--gz', action='store_true', help='Force storing nii.gz format')
@@ -109,13 +110,16 @@ def run(argstring, input, output=None, model=None):
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
-    args.dgm = 'd' in argstring
-    args.dkt = 'k' in argstring
-    args.wmh = 'h' in argstring
-    args.gpu = 'g' in argstring
+    args.bam = 'B' in argstring
     args.ct = 'c' in argstring
+    args.cgw = 'C' in argstring
+    args.dgm = 'd' in argstring
+    args.gpu = 'g' in argstring
+    args.dkt = 'k' in argstring
+    args.wmh = 'W' in argstring    
     args.wmp = 'w' in argstring
     args.seg3 = 's' in argstring
+    args.tumor = 't' in argstring
     args.qc = 'q' in argstring
     args.gz = 'z' in argstring
 
@@ -131,7 +135,8 @@ def run_args(args):
 
     run = vars(args) #store all arg in dict
     if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
-                    run['dkt'], run['ct'], run['wmp'], run['qc'], run['wmh']]:
+                    run['dkt'], run['ct'], run['wmp'], run['qc'], 
+                    run['wmh'], run['bam'], run['tumor'], run['cgw']]:
         run['bet'] = True
         # Producing extracted brain by default 
 
@@ -152,6 +157,10 @@ def run_args(args):
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
     omodel['wmh'] = 'mprage_wmh_v001_T1r111.onnx'
+    omodel['bam'] = 'mprage_bam_v002_betr111.onnx'
+    omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
+    omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
+    
 
     # if you want to use other models
     if isinstance(args.model, dict):
@@ -207,13 +216,67 @@ def run_args(args):
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
-        for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh']:
+        for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor']:
             if run[seg_str]:
-                result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
+                if qc_score < 50:
+                    result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                         brainmask_nib=tbetmask_nib)
+                else:
+                    result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu)
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn
+        if run['bam']:
+            model_ff = lib_tool.get_model(omodel['bam'])
+            input_nib = nib.load(f)
+            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            bet_img = lib_bx.read_nib(tbet_nib111)
+            
+            image = bet_img[None, ...][None, ...]
+            image = image/np.max(image)
+            bam = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
+            bam[bam < 0.5] = 0
+
+            bam = bam * (bet_img>0)
+
+            bam_nib = nib.Nifti1Image(bam, tbet_nib111.affine, tbet_nib111.header)
+            bam_nib = resample_to_img(
+                bam_nib, input_nib, interpolation="nearest")
+
+            bam_nib.header.set_data_dtype(float)
+            
+            fn = save_nib(bam_nib, ftemplate, 'bam')
+            result_dict['bam'] = bam_nib
+            result_filedict['bam'] = fn
+
+        if run['cgw']: # FSL style segmentation of CSF, GM, WM
+            model_ff = lib_tool.get_model(omodel['cgw'])
+            input_nib = nib.load(f)
+            normalize_factor = np.max(input_nib.get_fdata())
+            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            bet_img = lib_bx.read_nib(tbet_nib111)
+            
+            image = bet_img[None, ...][None, ...]
+            image = image/normalize_factor
+            cgw = lib_tool.predict(model_ff, image, args.gpu)[0]
+
+            result_dict['cgw'] = []
+            result_filedict['cgw'] = []
+            for kk in [1, 2, 3]:
+                pve = cgw[kk]
+                pve = pve* (bet_img>0)
+
+                pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
+                pve_nib = resample_to_img(
+                    pve_nib, input_nib, interpolation="linear")
+
+                pve_nib.header.set_data_dtype(float)
+                
+                fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                result_dict['cgw'].append(pve_nib)
+                result_filedict['cgw'].append(fn)
+
+        
 
         if run['ct']:
 

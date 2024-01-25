@@ -102,6 +102,7 @@ def run(model_ff, input_nib, GPU):
     label_num['wmp'] = 74
     label_num['seg3'] = 4
     label_num['wmh'] = 2
+    label_num['tumor'] = 2
     #so far we only use sigmoid in tBET
     if label_num[seg_mode] > logits.shape[0]:
         #sigmoid
