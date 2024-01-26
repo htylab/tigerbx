@@ -101,7 +101,9 @@ def run(model_ff, input_nib, GPU):
     label_num['dgm12'] = 13
     label_num['wmp'] = 74
     label_num['seg3'] = 4
-        
+    label_num['wmh'] = 2
+    label_num['tumor'] = 2
+    #so far we only use sigmoid in tBET
     if label_num[seg_mode] > logits.shape[0]:
         #sigmoid
         th = 0.5
@@ -116,7 +118,6 @@ def run(model_ff, input_nib, GPU):
     else:
         #softmax mode
         #print(logits.shape)
-
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
     
@@ -148,14 +149,12 @@ def run(model_ff, input_nib, GPU):
 def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
-
     input_nib = nib.load(input_file)
-
     zoom = input_nib.header.get_zooms()
 
-    if mat_size == -1:
+    if mat_size == -1 or mat_size == 111:
 
-        if max(zoom) > 1.2 or min(zoom) < 0.8:
+        if max(zoom) > 1.2 or min(zoom) < 0.8 or mat_size == 111:
 
             vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
