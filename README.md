@@ -40,9 +40,10 @@ https://github.com/htylab/tigerbx/releases
 
 ```
 >>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
--b: Producing the extracted brain.
 -m: Producing the brain mask.
 -a: Producing the aseg mask. (WIP)
+-b: Producing the extracted brain.
+-B: Producing brain age mapping
 -d: Producing the deep gray matter mask.
 -k: Producing the DKT mask. (WIP)
 -c: Producing the cortical thickness map. 
