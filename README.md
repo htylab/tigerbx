@@ -5,8 +5,8 @@
 
 * This repo provides deep learning methods with pretrained models for brain extraction.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
-* The software has been exclusively designed for research purposes. 
-* It is not recommended nor advised for clinical applications.
+* The software has been exclusively designed for research purposes and is not intended for any commercial application.
+* The software should not be used in clinical applications.
 
 ![tigerbet](./doc/tigerbx.png)
 
@@ -44,11 +44,11 @@ https://github.com/htylab/tigerbx/releases
 -m: Producing the brain mask.
 -a: Producing the aseg mask.
 -d: Producing the deep gray matter mask.
--k: Producing the DKT mask (work in progress).
+-k: Producing the DKT mask.
 -c: Producing the cortical thickness map.
 -C: Producing the FSL-style PVEs of CSF, GM, WM.
--w: Producing the white matter parcellation (work in progress).
--l: Producing the white-matter hyperintensity mask (WMH) (WIP).
+-w: Producing the white matter parcellation.
+-W: Producing the white-matter hyperintensity mask (WMH) (WIP).
 -q: Save the QC score. Pay attention to QC scores less than 50.
 -z: Force storing in nii.gz format.
 ```
