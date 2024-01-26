@@ -43,7 +43,7 @@ https://github.com/htylab/tigerbx/releases
 -m: Producing the brain mask.
 -a: Producing the aseg mask. (WIP)
 -b: Producing the extracted brain.
--B: Producing brain age mapping
+-B: Producing brain age mapping (WIP)
 -d: Producing the deep gray matter mask.
 -k: Producing the DKT mask. (WIP)
 -c: Producing the cortical thickness map. 
