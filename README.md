@@ -42,13 +42,14 @@ https://github.com/htylab/tigerbx/releases
 >>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
 -b: Producing the extracted brain.
 -m: Producing the brain mask.
--a: Producing the aseg mask.
+-a: Producing the aseg mask. (WIP)
 -d: Producing the deep gray matter mask.
--k: Producing the DKT mask.
--c: Producing the cortical thickness map.
--C: Producing the FSL-style PVEs of CSF, GM, WM.
--w: Producing the white matter parcellation.
--W: Producing the white-matter hyperintensity mask (WMH) (WIP).
+-k: Producing the DKT mask. (WIP)
+-c: Producing the cortical thickness map. (WIP)
+-C: Producing the FSL-style PVEs of CSF, GM, WM. (WIP)
+-t: Production the tumor mask. (T1 and T1c) (WIP)
+-w: Producing the white matter parcellation. (WIP)
+-W: Producing the white-matter hyperintensity mask (T1 and FLAIR) (WIP).
 -q: Save the QC score. Pay attention to QC scores less than 50.
 -z: Force storing in nii.gz format.
 ```
