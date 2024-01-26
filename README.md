@@ -45,7 +45,7 @@ https://github.com/htylab/tigerbx/releases
 -a: Producing the aseg mask. (WIP)
 -d: Producing the deep gray matter mask.
 -k: Producing the DKT mask. (WIP)
--c: Producing the cortical thickness map. (WIP)
+-c: Producing the cortical thickness map. 
 -C: Producing the FSL-style PVEs of CSF, GM, WM. (WIP)
 -t: Production the tumor mask. (T1 and T1c) (WIP)
 -w: Producing the white matter parcellation. (WIP)
@@ -58,7 +58,7 @@ https://github.com/htylab/tigerbx/releases
 * If you use this application, cite the following paper:
 
 1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
-
+2. Chen CS, Huang TY "Accelerated Cortical Thickness Mapping Using Deep Learning", ISMRM 2024
 
 ## Label definitions
 
