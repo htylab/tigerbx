@@ -87,6 +87,8 @@ def main():
     parser.add_argument('-d', '--dgm', action='store_true', help='Producing deepgm mask')    
     parser.add_argument('-k', '--dkt', action='store_true', help='Producing dkt mask')
 
+    parser.add_argument('-S', '--syn', action='store_true', help='Producing SynthSeg mask (working in progress)')
+
     parser.add_argument('-w', '--wmp', action='store_true', help='Producing white matter parcellation')
     parser.add_argument('-W', '--wmh', action='store_true', help='Producing WMH lesion mask')
 
@@ -119,6 +121,7 @@ def run(argstring, input, output=None, model=None):
     args.wmh = 'W' in argstring    
     args.wmp = 'w' in argstring
     args.seg3 = 's' in argstring
+    args.syn = 'S' in argstring
     args.tumor = 't' in argstring
     args.qc = 'q' in argstring
     args.gz = 'z' in argstring
@@ -136,7 +139,7 @@ def run_args(args):
     run = vars(args) #store all arg in dict
     if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
                     run['dkt'], run['ct'], run['wmp'], run['qc'], 
-                    run['wmh'], run['bam'], run['tumor'], run['cgw']]:
+                    run['wmh'], run['bam'], run['tumor'], run['cgw'], run['syn']]:
         run['bet'] = True
         # Producing extracted brain by default 
 
@@ -160,6 +163,7 @@ def run_args(args):
     omodel['bam'] = 'mprage_bam_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
+    omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     
 
     # if you want to use other models
@@ -216,7 +220,7 @@ def run_args(args):
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
-        for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor']:
+        for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
             if run[seg_str]:
                 if qc_score < 50:
                     result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
