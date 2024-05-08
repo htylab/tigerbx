@@ -26,6 +26,9 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
                      4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 4016, 4017,
                      4018, 4019, 4020, 4021, 4022, 4023, 4024, 4025, 4026, 4027, 4028,
                      4029, 4030, 4031, 4032, 4033, 4034, 4035)
+
+label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
+                         26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
 nib.Nifti1Header.quaternion_threshold = -100
 
 
@@ -88,7 +91,10 @@ def run(model_ff, input_nib, GPU):
 
 
     image = data[None, ...][None, ...]
-    image = image/np.max(image)
+    if seg_mode == 'synthseg':
+        image = (image - np.min(image)) / (np.max(image) - np.min(image))
+    else:
+        image = image/np.max(image)
 
 
     logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
@@ -101,7 +107,10 @@ def run(model_ff, input_nib, GPU):
     label_num['dgm12'] = 13
     label_num['wmp'] = 74
     label_num['seg3'] = 4
-        
+    label_num['wmh'] = 2
+    label_num['tumor'] = 2
+    label_num['synthseg'] = 33
+    #so far we only use sigmoid in tBET
     if label_num[seg_mode] > logits.shape[0]:
         #sigmoid
         th = 0.5
@@ -116,7 +125,6 @@ def run(model_ff, input_nib, GPU):
     else:
         #softmax mode
         #print(logits.shape)
-
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
     
@@ -148,14 +156,12 @@ def run(model_ff, input_nib, GPU):
 def read_file(model_ff, input_file):
 
     mat_size = get_mat_size(model_ff)
-
     input_nib = nib.load(input_file)
-
     zoom = input_nib.header.get_zooms()
 
-    if mat_size == -1:
+    if mat_size == -1 or mat_size == 111:
 
-        if max(zoom) > 1.2 or min(zoom) < 0.8:
+        if max(zoom) > 1.2 or min(zoom) < 0.8 or mat_size == 111:
 
             vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
