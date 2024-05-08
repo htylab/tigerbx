@@ -1,6 +1,6 @@
 import sys
 import os
-from os.path import basename, join, isdir
+from os.path import basename, join, isdir, dirname
 import argparse
 import time
 import numpy as np
@@ -58,15 +58,24 @@ def save_nib(data_nib, ftemplate, postfix):
     print('Writing output file: ', output_file)
     return output_file
 
-def get_template(f, output_dir, get_z):
+def get_template(f, output_dir, get_z, basename_duplicate):
     f_output_dir = output_dir
+    ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
 
-    if f_output_dir is None:
+    if f_output_dir is None: #save the results in the same dir of T1_raw.nii.gz
         f_output_dir = os.path.dirname(os.path.abspath(f))
+        
     else:
         os.makedirs(f_output_dir, exist_ok=True)
-
-    ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
+        #ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
+        # When we save results in the same directory, sometimes the result
+        # filenames will all be the same, e.g., aseg.nii.gz, aseg.nii.gz.
+        # In this case, the program tries to add a header to it.
+        # For example, IXI001_aseg.nii.gz.
+        if basename_duplicate:
+            header = basename(dirname(f))
+            ftemplate = header + ftemplate
+    
     if get_z and '.gz' not in ftemplate:
         ftemplate += '.gz'
     ftemplate = join(f_output_dir, ftemplate)
@@ -87,7 +96,7 @@ def main():
     parser.add_argument('-d', '--dgm', action='store_true', help='Producing deepgm mask')    
     parser.add_argument('-k', '--dkt', action='store_true', help='Producing dkt mask')
 
-    parser.add_argument('-S', '--syn', action='store_true', help='Producing SynthSeg mask (working in progress)')
+    parser.add_argument('-S', '--syn', action='store_true', help='Producing aseg mask using SynthSeg-like method')
 
     parser.add_argument('-w', '--wmp', action='store_true', help='Producing white matter parcellation')
     parser.add_argument('-W', '--wmh', action='store_true', help='Producing WMH lesion mask')
@@ -120,7 +129,7 @@ def run(argstring, input, output=None, model=None):
     args.dkt = 'k' in argstring
     args.wmh = 'W' in argstring    
     args.wmp = 'w' in argstring
-    args.seg3 = 's' in argstring
+    #args.seg3 = 's' in argstring
     args.syn = 'S' in argstring
     args.tumor = 't' in argstring
     args.qc = 'q' in argstring
@@ -178,6 +187,12 @@ def run_args(args):
 
 
     print('Total nii files:', len(input_file_list))
+
+    #check duplicate basename
+    base_ffs = [basename(f) for f in input_file_list]
+    basename_duplicate = False
+    if len(base_ffs) != len(set(base_ffs)):
+        basename_duplicate = True
     count = 0
     result_all = []
     result_filedict = dict()
@@ -189,7 +204,7 @@ def run_args(args):
         print(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
-        ftemplate, f_output_dir = get_template(f, output_dir, args.gz)
+        ftemplate, f_output_dir = get_template(f, output_dir, args.gz, basename_duplicate)
         
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
