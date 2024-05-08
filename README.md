@@ -39,7 +39,7 @@ https://github.com/htylab/tigerbx/releases
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
 ```
->>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
+>>tigerbx  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
 -m: Producing the brain mask.
 -a: Producing the aseg mask.
 -b: Producing the extracted brain.
