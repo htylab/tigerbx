@@ -1,6 +1,6 @@
 import sys
 import os
-from os.path import basename, join, isdir, dirname
+from os.path import basename, join, isdir, dirname, commonpath, relpath
 import argparse
 import time
 import numpy as np
@@ -58,7 +58,7 @@ def save_nib(data_nib, ftemplate, postfix):
     print('Writing output file: ', output_file)
     return output_file
 
-def get_template(f, output_dir, get_z, basename_duplicate):
+def get_template(f, output_dir, get_z, common_folder=None):
     f_output_dir = output_dir
     ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
 
@@ -72,9 +72,9 @@ def get_template(f, output_dir, get_z, basename_duplicate):
         # filenames will all be the same, e.g., aseg.nii.gz, aseg.nii.gz.
         # In this case, the program tries to add a header to it.
         # For example, IXI001_aseg.nii.gz.
-        if basename_duplicate:
-            header = basename(dirname(f))
-            ftemplate = header + ftemplate
+        if common_folder is not None:
+            header = relpath(dirname(f), common_folder).replace(os.sep, '_')
+            ftemplate = header + '_' + ftemplate
     
     if get_z and '.gz' not in ftemplate:
         ftemplate += '.gz'
@@ -189,11 +189,12 @@ def run_args(args):
     print('Total nii files:', len(input_file_list))
 
     #check duplicate basename
+    #for detail, check get_template
     base_ffs = [basename(f) for f in input_file_list]
-    basename_duplicate = False
+    common_folder = None
     if len(base_ffs) != len(set(base_ffs)):
-        basename_duplicate = True
-        print('basename_duplicate')
+        common_folder = commonpath(input_file_list)
+        
     count = 0
     result_all = []
     result_filedict = dict()
@@ -205,7 +206,7 @@ def run_args(args):
         print(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
-        ftemplate, f_output_dir = get_template(f, output_dir, args.gz, basename_duplicate)
+        ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
         
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
