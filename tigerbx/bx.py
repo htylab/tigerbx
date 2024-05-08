@@ -193,6 +193,7 @@ def run_args(args):
     basename_duplicate = False
     if len(base_ffs) != len(set(base_ffs)):
         basename_duplicate = True
+        print('basename_duplicate')
     count = 0
     result_all = []
     result_filedict = dict()
