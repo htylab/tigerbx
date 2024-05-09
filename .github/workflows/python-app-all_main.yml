@@ -32,7 +32,7 @@ jobs:
         python-version: "3.9"
     - name: Install dependencies
       run: |
-        python3.9 -m pip install --upgrade pip        
+        python -m pip install --upgrade pip        
         pip install .
         pip install pyinstaller onnxruntime
     - name: Run Pyinstaller 1
