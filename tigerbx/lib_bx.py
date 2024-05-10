@@ -133,7 +133,7 @@ def run(model_ff, input_nib, GPU):
     #sum1 = np.sum(mask_pred>0)
     #sum2 = sum1 - np.sum((probmax[mask_pred > 0] ** 10)< 0.99)
 
-    if seg_mode in ['aseg43', 'dkt', 'wmp']:
+    if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
         labels = label_all[seg_mode]
         mask_pred_relabel = mask_pred * 0
         for ii in range(len(labels)):
