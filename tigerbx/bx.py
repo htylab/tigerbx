@@ -222,8 +222,8 @@ def run_args(args):
         if qc_score < 50:
             print('Pay attention to the result with QC < 50. ')
         if run['qc'] or qc_score < 50:
-            qcfile = basename(f).replace('.nii','').replace('.gz', '') + f'-qc-{qc_score}.log'
-            qcfile = join(f_output_dir, qcfile)
+            qcfile = ftemplate.replace('.nii','').replace('.gz', '')
+            qcfile = qcfile.replace('@@@@', f'-qc-{qc_score}.log')
             with open(qcfile, 'a') as the_file:
                 the_file.write(f'QC: {qc_score} \n')
 
