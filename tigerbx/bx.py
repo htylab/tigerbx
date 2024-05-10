@@ -223,9 +223,10 @@ def run_args(args):
             print('Pay attention to the result with QC < 50. ')
         if run['qc'] or qc_score < 50:
             qcfile = ftemplate.replace('.nii','').replace('.gz', '')
-            qcfile = qcfile.replace('@@@@', f'-qc-{qc_score}.log')
+            qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
             with open(qcfile, 'a') as the_file:
                 the_file.write(f'QC: {qc_score} \n')
+            print('Writing output file: ', qcfile)
 
         if run['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
