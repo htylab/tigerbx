@@ -106,7 +106,11 @@ def main():
     parser.add_argument('-q', '--qc', action='store_true',
                         help='Save QC score. Pay attention to the results with QC scores less than 50.')
     parser.add_argument('-z', '--gz', action='store_true', help='Force storing nii.gz format')
-
+    parser.add_argument('-A', '--affine', action='store_true',
+                    help='Affine images to MNI152')
+    parser.add_argument('-r', '--registration', action='store_true',
+                    help='Registration images to MNI152')
+                    
     parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
     #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
     args = parser.parse_args()
@@ -134,6 +138,8 @@ def run(argstring, input, output=None, model=None):
     args.tumor = 't' in argstring
     args.qc = 'q' in argstring
     args.gz = 'z' in argstring
+    args.affine = 'A' in argstring
+    args.registration = 'r' in argstring
 
     if not isinstance(input, list):
         input = [input]
@@ -148,7 +154,8 @@ def run_args(args):
     run = vars(args) #store all arg in dict
     if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
                     run['dkt'], run['ct'], run['wmp'], run['qc'], 
-                    run['wmh'], run['bam'], run['tumor'], run['cgw'], run['syn']]:
+                    run['wmh'], run['bam'], run['tumor'], run['cgw'], 
+                    run['syn'], run['affine'], run['registration']]:
         run['bet'] = True
         # Producing extracted brain by default 
 
@@ -173,6 +180,7 @@ def run_args(args):
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
+    omodel['reg'] = 'mprage_reg_v001_train.onnx'
     
 
     # if you want to use other models
@@ -324,6 +332,83 @@ def run_args(args):
             fn = save_nib(ct_nib, ftemplate, 'ct')
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
+            
+        if run['affine'] or run['registration']:
+            input_nib = nib.load(f)
+            
+            bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+            bet = bet.astype(input_nib.dataobj.dtype)
+            bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
+            bet_nib = reorder_img(bet_nib, resample='continuous')
+            bet = bet_nib.get_fdata()
+            
+            #mni152_nib = nib.load('tigerbx/MNI152_T1_1mm_brain.nii.gz')
+            mni152_nib = nib.load(os.path.join('tigerbx', 'MNI152_T1_1mm_brain.nii.gz'))
+            mni152_nib = lib_bx.resample_voxel(mni152_nib, (1, 1, 1), (160, 224, 192))
+            mni152_data = mni152_nib.get_fdata()
+            #mni152_data = mni152_data/np.max(mni152_data)
+            
+            import SimpleITK as sitk
+            fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
+            moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
+
+            initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+                                                              moving_image,
+                                                              sitk.AffineTransform(3),
+                                                              sitk.CenteredTransformInitializerFilter.GEOMETRY)
+            # Set up the registration framework
+            registration_method = sitk.ImageRegistrationMethod()
+            # Similarity metric setting
+            registration_method.SetMetricAsCorrelation()
+            registration_method.SetMetricSamplingStrategy(registration_method.NONE)
+            # Interpolator
+            registration_method.SetInterpolator(sitk.sitkLinear)
+            # Optimizer settings
+            #registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+            registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+            registration_method.SetOptimizerScalesFromPhysicalShift()
+            # Optionally, set up the multi-resolution framework
+            registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
+            registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2,1,0])
+            registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+            registration_method.SetInitialTransform(initial_transform)
+            # Execute the registration
+            final_transform = registration_method.Execute(fixed_image, moving_image)
+            
+            # Apply the final transform to the moving image
+            resampled = sitk.Resample(moving_image, fixed_image, final_transform, sitk.sitkLinear, 0.0, moving_image.GetPixelID())
+            
+            Af_data = sitk.GetArrayFromImage(resampled)
+
+            Af_nib = nib.Nifti1Image(Af_data,
+                                     mni152_nib.affine, mni152_nib.header)
+            Af_nib.header.set_data_dtype(float)
+            if run['affine']:
+                fn = save_nib(Af_nib, ftemplate, 'Af')
+                result_dict['Af'] = Af_nib
+                result_filedict['Af'] = fn
+            if run['registration']:
+                moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
+                moving_image = moving_image/np.max(moving_image)
+                fixed_image = mni152_data.astype(np.float32)[None, ...][None, ...]
+                fixed_image = fixed_image/np.max(fixed_image)
+                model_ff = lib_tool.get_model(omodel['reg'])
+                
+                output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
+                moved = np.squeeze(output[0])
+                warp = np.squeeze(output[1])
+                moved_nib = nib.Nifti1Image(moved,
+                                         mni152_nib.affine, mni152_nib.header)
+                # warp_nib = nib.Nifti1Image(warp[0],
+                #                          mni152_nib.affine, mni152_nib.header)
+                
+                fn = save_nib(moved_nib, ftemplate, 'reg')
+                result_dict['reg'] = moved_nib
+                result_filedict['reg'] = fn           
+                
+                # fn = save_nib(warp_nib, ftemplate, 'warp')
+                # result_dict['warp'] = warp_nib
+                # result_filedict['warp'] = fn 
 
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:

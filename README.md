@@ -53,6 +53,8 @@ https://github.com/htylab/tigerbx/releases
 -W: Producing the white-matter hyperintensity mask (T1 and FLAIR) (WIP).
 -q: Save the QC score. Pay attention to QC scores less than 50.
 -z: Force storing in nii.gz format.
+-A: Affine images to MNI152
+-r: Registration images to MNI152
 ```
 ## Citation
 
