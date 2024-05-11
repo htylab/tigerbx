@@ -42,6 +42,9 @@ def download(url, file_name):
                                 context=context) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
+def get_mni152():
+
+    return join(application_path, 'MNI152_T1_1mm_brain.nii.gz')
 
 def get_model(f):
     from os.path import join, isfile
