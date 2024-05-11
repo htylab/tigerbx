@@ -38,15 +38,16 @@ https://github.com/htylab/tigerbx/releases
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
 ```
->>tigerbet  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
+>>tigerbx  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
 -m: Producing the brain mask.
--a: Producing the aseg mask. (WIP)
+-a: Producing the aseg mask.
 -b: Producing the extracted brain.
 -B: Producing brain age mapping (WIP)
 -d: Producing the deep gray matter mask.
 -k: Producing the DKT mask. (WIP)
 -c: Producing the cortical thickness map. 
 -C: Producing the FSL-style PVEs of CSF, GM, WM. (WIP)
+-S: Producing aseg mask using SynthSeg-like method (WIP)
 -t: Production the tumor mask. (T1 and T1c) (WIP)
 -w: Producing the white matter parcellation. (WIP)
 -W: Producing the white-matter hyperintensity mask (T1 and FLAIR) (WIP).
@@ -59,6 +60,7 @@ https://github.com/htylab/tigerbx/releases
 
 1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
 2. Chen CS, Huang TY "Accelerated Cortical Thickness Mapping Using Deep Learning", ISMRM 2024
+3. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
 
 ## Label definitions
 
