@@ -41,6 +41,5 @@ setup(
              'numpy>=1.21.6',
              'nilearn>=0.9.2',
 	     'SimpleITK==2.3.1',
-	     'onnxruntime>=1.17.3',
          ]
 )
