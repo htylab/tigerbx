@@ -192,7 +192,7 @@ def cpu_count():
     raise Exception('Can not determine number of CPUs on this system')
 
 
-def predict(model, data, GPU):
+def predict(model, data, GPU, mode=None):
     #from .tool import cpu_count
     #will reload model file every time
 
@@ -215,6 +215,10 @@ def predict(model, data, GPU):
     data_type = 'float64'
     if session.get_inputs()[0].type == 'tensor(float)':
         data_type = 'float32'
+    if mode == 'reg':
+        input_names = [input.name for input in session.get_inputs()]
+        inputs = {input_names[0]: data[0], input_names[1]: data[1]}
+        return session.run(None, inputs)
 
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
 

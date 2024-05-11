@@ -2,7 +2,6 @@
 
 ## Background
 
-
 * This repo provides deep learning methods with pretrained models for brain extraction.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
 * The software has been exclusively designed for research purposes and is not intended for any commercial application.
@@ -54,6 +53,8 @@ https://github.com/htylab/tigerbx/releases
 -W: Producing the white-matter hyperintensity mask (T1 and FLAIR) (WIP).
 -q: Save the QC score. Pay attention to QC scores less than 50.
 -z: Force storing in nii.gz format.
+-A: Affine images to MNI152
+-r: Registration images to MNI152
 ```
 ## Citation
 
