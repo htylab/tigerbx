@@ -25,6 +25,11 @@ setup(
 
      keywords='MRI brain segmentation',
      packages=find_packages(),
+     package_data={
+        '': ['*.nii.gz'],  # 包含所有.nii.gz文件
+     },
+     include_package_data=True,
+
      entry_points={
         'console_scripts': [
             'tigerbx = tigerbx.bx:main',
