@@ -248,11 +248,8 @@ def run_args(args):
         
         for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
             if run[seg_str]:
-                if qc_score < 50:
-                    result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
+                result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                         brainmask_nib=tbetmask_nib)
-                else:
-                    result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu)
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn

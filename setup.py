@@ -13,7 +13,7 @@ classifiers = [
 setup(
      name='tigerbx',
 
-     version='0.1.15',
+     version='0.1.16',
      description='Processing MRI images based on deep-learning',
      long_description_content_type='text/markdown',
      url='https://github.com/htylab/tigerbx',
@@ -26,7 +26,7 @@ setup(
      keywords='MRI brain segmentation',
      packages=find_packages(),
      package_data={
-        '': ['*.nii.gz'],  # 包含所有.nii.gz文件
+        '': ['*.nii.gz'],  # include the MNI152 template
      },
      include_package_data=True,
 
@@ -40,6 +40,6 @@ setup(
      install_requires=[
              'numpy>=1.21.6',
              'nilearn>=0.9.2',
-	     'SimpleITK==2.3.1',
+	     'SimpleITK>=2.0.0',
          ]
 )

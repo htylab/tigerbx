@@ -38,23 +38,23 @@ https://github.com/htylab/tigerbx/releases
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
 ```
->>tigerbx  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
--m: Producing the brain mask.
--a: Producing the aseg mask.
--b: Producing the extracted brain.
--B: Producing brain age mapping (WIP)
--d: Producing the deep gray matter mask.
--k: Producing the DKT mask. (WIP)
--c: Producing the cortical thickness map. 
--C: Producing the FSL-style PVEs of CSF, GM, WM. (WIP)
--S: Producing aseg mask using SynthSeg-like method (WIP)
--t: Production the tumor mask. (T1 and T1c) (WIP)
--w: Producing the white matter parcellation. (WIP)
--W: Producing the white-matter hyperintensity mask (T1 and FLAIR) (WIP).
--q: Save the QC score. Pay attention to QC scores less than 50.
--z: Force storing in nii.gz format.
--A: Affine images to MNI152
--r: Registration images to MNI152
+tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
+-m: Produces the brain mask.
+-a: Produces the aseg mask.
+-b: Produces the extracted brain.
+-B: Produces brain age mapping (WIP).
+-d: Produces the deep gray matter mask.
+-k: Produces the DKT mask (WIP).
+-c: Produces the cortical thickness map.
+-C: Produces the FSL-style PVEs of CSF, GM, and WM (WIP).
+-S: Produces the aseg mask using the SynthSeg-like method (WIP).
+-t: Produces the tumor mask (T1 and T1c) (WIP).
+-w: Produces the white matter parcellation (WIP).
+-W: Produces the white matter hyperintensity mask (T1 and FLAIR) (WIP).
+-q: Saves the QC score. Pay attention to QC scores below 50.
+-z: Forces storing in nii.gz format.
+-A: Affines images to MNI152.
+-r: Registers images to MNI152.
 ```
 ## Citation
 
