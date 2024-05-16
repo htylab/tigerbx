@@ -128,10 +128,6 @@ def run(model_ff, input_nib, GPU):
         mask_pred = np.argmax(logits, axis=0)
         prob = softmax(logits, axis=0)
     
-    #qc1 = np.mean(probmax[mask_pred > 0])
-    #qc2 = np.mean(probmax[(mask_pred > 0) & (probmax < 0.95)] ** 2)
-    #sum1 = np.sum(mask_pred>0)
-    #sum2 = sum1 - np.sum((probmax[mask_pred > 0] ** 10)< 0.99)
 
     if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
         labels = label_all[seg_mode]
@@ -161,7 +157,7 @@ def read_file(model_ff, input_file):
 
     if mat_size == -1 or mat_size == 111:
 
-        if max(zoom) > 1.2 or min(zoom) < 0.8 or mat_size == 111:
+        if max(zoom) > 1.1 or min(zoom) < 0.9 or mat_size == 111:
 
             vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
@@ -239,5 +235,37 @@ def resample_voxel(data_nib, voxelsize,
 
 
 
+def affine_reg(mni152_data, bet):
+    import SimpleITK as sitk
+    fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
+    moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
 
+    initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+                                                        moving_image,
+                                                        sitk.AffineTransform(3),
+                                                        sitk.CenteredTransformInitializerFilter.GEOMETRY)
+    # Set up the registration framework
+    registration_method = sitk.ImageRegistrationMethod()
+    # Similarity metric setting
+    registration_method.SetMetricAsCorrelation()
+    registration_method.SetMetricSamplingStrategy(registration_method.NONE)
+    # Interpolator
+    registration_method.SetInterpolator(sitk.sitkLinear)
+    # Optimizer settings
+    #registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    registration_method.SetOptimizerScalesFromPhysicalShift()
+    # Optionally, set up the multi-resolution framework
+    registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
+    registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2,1,0])
+    registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+    registration_method.SetInitialTransform(initial_transform)
+    # Execute the registration
+    final_transform = registration_method.Execute(fixed_image, moving_image)
+    
+    # Apply the final transform to the moving image
+    resampled = sitk.Resample(moving_image, fixed_image, final_transform, sitk.sitkLinear, 0.0, moving_image.GetPixelID())
+    
+    Af_data = sitk.GetArrayFromImage(resampled)
 
+    return Af_data
