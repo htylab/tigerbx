@@ -84,35 +84,26 @@ def get_template(f, output_dir, get_z, common_folder=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
+    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
+    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('-m', '--betmask', action='store_true', help='Producing bet mask')
-    parser.add_argument('-a', '--aseg', action='store_true', help='Producing aseg mask')
-    parser.add_argument('-b', '--bet', action='store_true', help='Producing bet images')
+    parser.add_argument('-m', '--betmask', action='store_true', help='Producing BET mask')
+    parser.add_argument('-a', '--aseg', action='store_true', help='Producing ASEG mask')
+    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
     parser.add_argument('-B', '--bam', action='store_true', help='Producing brain age mapping')
-    parser.add_argument('-c', '--ct', action='store_true',  help='Producing cortical thickness map')
+    parser.add_argument('-c', '--ct', action='store_true', help='Producing cortical thickness map')
     parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
-    parser.add_argument('-d', '--dgm', action='store_true', help='Producing deepgm mask')    
-    parser.add_argument('-k', '--dkt', action='store_true', help='Producing dkt mask')
-
-    parser.add_argument('-S', '--syn', action='store_true', help='Producing aseg mask using SynthSeg-like method')
-
+    parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
+    parser.add_argument('-k', '--dkt', action='store_true', help='Producing DKT mask')
+    parser.add_argument('-S', '--syn', action='store_true', help='Producing ASEG mask using SynthSeg-like method')
     parser.add_argument('-w', '--wmp', action='store_true', help='Producing white matter parcellation')
-    parser.add_argument('-W', '--wmh', action='store_true', help='Producing WMH lesion mask')
-
-    parser.add_argument('-t', '--tumor', action='store_true',
-                        help='Producing tumor mask')
-    parser.add_argument('-q', '--qc', action='store_true',
-                        help='Save QC score. Pay attention to the results with QC scores less than 50.')
-    parser.add_argument('-z', '--gz', action='store_true', help='Force storing nii.gz format')
-    parser.add_argument('-A', '--affine', action='store_true',
-                    help='Affine images to MNI152')
-    parser.add_argument('-r', '--registration', action='store_true',
-                    help='Registration images to MNI152')
-                    
-    parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
-    #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
+    parser.add_argument('-W', '--wmh', action='store_true', help='Producing white matter hypo-intensity mask')
+    parser.add_argument('-t', '--tumor', action='store_true', help='Producing tumor mask')
+    parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
+    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
+    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to MNI152')
+    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to MNI152')
+    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     args = parser.parse_args()
     run_args(args)
 
@@ -175,7 +166,7 @@ def run_args(args):
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
-    omodel['wmh'] = 'mprage_wmh_v001_T1r111.onnx'
+    omodel['wmh'] = 'mprage_wmh_v002_betr111.onnx'
     omodel['bam'] = 'mprage_bam_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
