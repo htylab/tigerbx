@@ -322,12 +322,9 @@ def run_args(args):
             bet_nib = reorder_img(bet_nib, resample='continuous')
             bet = bet_nib.get_fdata()
             
-            #mni152_nib = nib.load('tigerbx/MNI152_T1_1mm_brain.nii.gz')
             mni152_nib = nib.load(lib_tool.get_mni152())
             
-            mni152_nib = lib_bx.resample_voxel(mni152_nib, (1, 1, 1), (160, 224, 192))
             mni152_data = mni152_nib.get_fdata()
-            #mni152_data = mni152_data/np.max(mni152_data)
 
             Af_data = lib_bx.affine_reg(mni152_data, bet)
 
@@ -342,7 +339,7 @@ def run_args(args):
                 moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
                 moving_image = moving_image/np.max(moving_image)
                 fixed_image = mni152_data.astype(np.float32)[None, ...][None, ...]
-                fixed_image = fixed_image/np.max(fixed_image)
+                #fixed_image = fixed_image/np.max(fixed_image)
                 model_ff = lib_tool.get_model(omodel['reg'])
                 
                 output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
