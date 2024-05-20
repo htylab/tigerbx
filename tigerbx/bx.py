@@ -84,35 +84,26 @@ def get_template(f, output_dir, get_z, common_folder=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation, default: the directory of input files')
+    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
+    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('-m', '--betmask', action='store_true', help='Producing bet mask')
-    parser.add_argument('-a', '--aseg', action='store_true', help='Producing aseg mask')
-    parser.add_argument('-b', '--bet', action='store_true', help='Producing bet images')
+    parser.add_argument('-m', '--betmask', action='store_true', help='Producing BET mask')
+    parser.add_argument('-a', '--aseg', action='store_true', help='Producing ASEG mask')
+    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
     parser.add_argument('-B', '--bam', action='store_true', help='Producing brain age mapping')
-    parser.add_argument('-c', '--ct', action='store_true',  help='Producing cortical thickness map')
+    parser.add_argument('-c', '--ct', action='store_true', help='Producing cortical thickness map')
     parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
-    parser.add_argument('-d', '--dgm', action='store_true', help='Producing deepgm mask')    
-    parser.add_argument('-k', '--dkt', action='store_true', help='Producing dkt mask')
-
-    parser.add_argument('-S', '--syn', action='store_true', help='Producing aseg mask using SynthSeg-like method')
-
+    parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
+    parser.add_argument('-k', '--dkt', action='store_true', help='Producing DKT mask')
+    parser.add_argument('-S', '--syn', action='store_true', help='Producing ASEG mask using SynthSeg-like method')
     parser.add_argument('-w', '--wmp', action='store_true', help='Producing white matter parcellation')
-    parser.add_argument('-W', '--wmh', action='store_true', help='Producing WMH lesion mask')
-
-    parser.add_argument('-t', '--tumor', action='store_true',
-                        help='Producing tumor mask')
-    parser.add_argument('-q', '--qc', action='store_true',
-                        help='Save QC score. Pay attention to the results with QC scores less than 50.')
-    parser.add_argument('-z', '--gz', action='store_true', help='Force storing nii.gz format')
-    parser.add_argument('-A', '--affine', action='store_true',
-                    help='Affine images to MNI152')
-    parser.add_argument('-r', '--registration', action='store_true',
-                    help='Registration images to MNI152')
-                    
-    parser.add_argument('--model', default=None, type=str, help='Specifies the modelname')
-    #parser.add_argument('--report',default='True',type = strtobool, help='Produce additional reports')
+    parser.add_argument('-W', '--wmh', action='store_true', help='Producing white matter hypo-intensity mask')
+    parser.add_argument('-t', '--tumor', action='store_true', help='Producing tumor mask')
+    parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
+    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
+    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to MNI152')
+    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to MNI152')
+    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     args = parser.parse_args()
     run_args(args)
 
@@ -175,7 +166,7 @@ def run_args(args):
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
-    omodel['wmh'] = 'mprage_wmh_v001_T1r111.onnx'
+    omodel['wmh'] = 'mprage_wmh_v002_betr111.onnx'
     omodel['bam'] = 'mprage_bam_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
@@ -222,6 +213,7 @@ def run_args(args):
         tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
                         input_nib.header)
+        tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
         
         print('QC score:', qc_score)
 
@@ -255,8 +247,8 @@ def run_args(args):
                 result_filedict[seg_str] = fn
         if run['bam']:
             model_ff = lib_tool.get_model(omodel['bam'])
-            input_nib = nib.load(f)
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            #input_nib = nib.load(f)
+            
             bet_img = lib_bx.read_nib(tbet_nib111)
             
             image = bet_img[None, ...][None, ...]
@@ -278,7 +270,6 @@ def run_args(args):
 
         if run['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
-            input_nib = nib.load(f)
             normalize_factor = np.max(input_nib.get_fdata())
             tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
             bet_img = lib_bx.read_nib(tbet_nib111)
@@ -301,17 +292,11 @@ def run_args(args):
                 
                 fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
                 result_dict['cgw'].append(pve_nib)
-                result_filedict['cgw'].append(fn)
-
-        
+                result_filedict['cgw'].append(fn)        
 
         if run['ct']:
-
             model_ff = lib_tool.get_model(omodel['ct'])
-            input_nib = nib.load(f)
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
-            bet_img = lib_bx.read_nib(tbet_nib111)
-            
+            bet_img = lib_bx.read_nib(tbet_nib111)            
             image = bet_img[None, ...][None, ...]
             image = image/np.max(image)
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
@@ -330,9 +315,7 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
-        if run['affine'] or run['registration']:
-            input_nib = nib.load(f)
-            
+        if run['affine'] or run['registration']:            
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
@@ -345,38 +328,8 @@ def run_args(args):
             mni152_nib = lib_bx.resample_voxel(mni152_nib, (1, 1, 1), (160, 224, 192))
             mni152_data = mni152_nib.get_fdata()
             #mni152_data = mni152_data/np.max(mni152_data)
-            
-            import SimpleITK as sitk
-            fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
-            moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
 
-            initial_transform = sitk.CenteredTransformInitializer(fixed_image,
-                                                              moving_image,
-                                                              sitk.AffineTransform(3),
-                                                              sitk.CenteredTransformInitializerFilter.GEOMETRY)
-            # Set up the registration framework
-            registration_method = sitk.ImageRegistrationMethod()
-            # Similarity metric setting
-            registration_method.SetMetricAsCorrelation()
-            registration_method.SetMetricSamplingStrategy(registration_method.NONE)
-            # Interpolator
-            registration_method.SetInterpolator(sitk.sitkLinear)
-            # Optimizer settings
-            #registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
-            registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
-            registration_method.SetOptimizerScalesFromPhysicalShift()
-            # Optionally, set up the multi-resolution framework
-            registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
-            registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2,1,0])
-            registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
-            registration_method.SetInitialTransform(initial_transform)
-            # Execute the registration
-            final_transform = registration_method.Execute(fixed_image, moving_image)
-            
-            # Apply the final transform to the moving image
-            resampled = sitk.Resample(moving_image, fixed_image, final_transform, sitk.sitkLinear, 0.0, moving_image.GetPixelID())
-            
-            Af_data = sitk.GetArrayFromImage(resampled)
+            Af_data = lib_bx.affine_reg(mni152_data, bet)
 
             Af_nib = nib.Nifti1Image(Af_data,
                                      mni152_nib.affine, mni152_nib.header)

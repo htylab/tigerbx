@@ -50,7 +50,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -S: Produces the aseg mask using the SynthSeg-like method (WIP).
 -t: Produces the tumor mask (T1 and T1c) (WIP).
 -w: Produces the white matter parcellation (WIP).
--W: Produces the white matter hyperintensity mask (T1 and FLAIR) (WIP).
+-W: Produces the white matter hypointensity mask (WIP).
 -q: Saves the QC score. Pay attention to QC scores below 50.
 -z: Forces storing in nii.gz format.
 -A: Affines images to MNI152.
