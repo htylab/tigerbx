@@ -161,7 +161,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v005_crop.onnx'
+    omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
     omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
@@ -173,6 +173,7 @@ def run_args(args):
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v001_train.onnx'
     
+
 
     # if you want to use other models
     if isinstance(args.model, dict):

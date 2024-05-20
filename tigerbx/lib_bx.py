@@ -29,7 +29,7 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
 
 label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
                          26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
-nib.Nifti1Header.quaternion_threshold = -100
+#nib.Nifti1Header.quaternion_threshold = -100
 
 
 def get_mode(model_ff):
