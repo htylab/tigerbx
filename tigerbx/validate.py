@@ -3,12 +3,16 @@ import numpy as np
 import glob
 import nibabel as nib
 import tigerbx
+import pandas as pd
 
 
 def getdice(mask1, mask2):
     return 2*np.sum(mask1 & mask2)/(np.sum(mask1) + np.sum(mask2) + 1e-6)
 
-def val(argstring, input_dir, output=None, model=None):
+def val(argstring, input_dir, output_dir=None, model=None):
+
+    if output_dir is None:
+        output_dir = join(input_dir, 'temp')
     if argstring == 'bet_synstripv1.4':
 
         #/work/tyhuang0908/Dataset/synthstrip_data_v1.4     
@@ -27,9 +31,9 @@ def val(argstring, input_dir, output=None, model=None):
             tt_list.append(tt)
             cat_list.append(cat)
             if model is None:
-                result = tigerbx.run('m', f, model="{'bet':'%s'}" % model)
+                result = tigerbx.run('m', f, output_dir, model="{'bet':'%s'}" % model)
             else:
-                result = tigerbx.run('m', f)
+                result = tigerbx.run('m', f, output_dir)
             mask_pred = result['tbetmask'].get_fdata()
             
             mask_gt = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
@@ -50,13 +54,21 @@ def val(argstring, input_dir, output=None, model=None):
             }
 
             # Write the data to a CSV file
-            with open('output_betv006_ep22_v16.csv', 'w', encoding='utf-8') as file:
+            with open(join(output_dir, 'val_bet_synstripv1.4.csv', 'w', encoding='utf-8') as file:
                 # Write the header
                 file.write('Filename,type,category,DICE\n')
                 # Write the data rows
                 for i in range(len(f_list)):
                     file.write(f'{f_list[i]},{tt_list[i]},{cat_list[i]},{dsc_list[i]}\n')
 
+            df = pd.DataFrame(result)
+            df.to_csv(join(output_dir, 'val_bet_synstripv1.4.csv'), index=False)
 
-            return result
+            average_dice_per_category = data.groupby('category')['DICE'].mean()
+
+            # 顯示結果
+            print(average_dice_per_category)
+            print('mean Dice of all data:', data['DICE'].mean())
+
+            return df
 
