@@ -14,16 +14,24 @@ from tigerbx import lib_bx
 
 from nilearn.image import resample_to_img, reorder_img
 
-def produce_mask(model, f, GPU=False, QC=False, tbet111=None):
+def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None):
 
     model_ff = lib_tool.get_model(model)
     input_nib = nib.load(f)
+
     if tbet111 is None:
         input_nib_resp = lib_bx.read_file(model_ff, f)
     else:
-        input_nib_resp = lib_bx.reorient(tbet111)
+        input_nib_resp = reorder_img(tbet111, resample='continuous')
+        
     mask_nib_resp, prob_resp = lib_bx.run(
         model_ff, input_nib_resp,  GPU=GPU)
+    
+    if brainmask_nib is None:
+
+        output = lib_bx.read_nib(mask_nib)
+    else:
+        output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
 
     mask_nib = resample_to_img(
         mask_nib_resp, input_nib, interpolation="nearest")
@@ -240,8 +248,9 @@ def run_args(args):
         
         for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
             if run[seg_str]:
+
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
-                                         tbet111=tbet_nib111)
+                                         brainmask_nib=tbetmask_nib, tbet111=tbet_nib111)
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn
