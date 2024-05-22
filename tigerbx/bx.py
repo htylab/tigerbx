@@ -27,14 +27,15 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
     mask_nib_resp, prob_resp = lib_bx.run(
         model_ff, input_nib_resp,  GPU=GPU)
     
+    mask_nib = resample_to_img(
+        mask_nib_resp, input_nib, interpolation="nearest")
     if brainmask_nib is None:
 
         output = lib_bx.read_nib(mask_nib)
     else:
         output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
 
-    mask_nib = resample_to_img(
-        mask_nib_resp, input_nib, interpolation="nearest")
+
 
     output = lib_bx.read_nib(mask_nib)
 
