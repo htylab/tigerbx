@@ -123,14 +123,18 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         return df
     
 
-    elif argstring == 'aseg_123' or argstring== 'dgm_123':
+    elif argstring == 'aseg_123' or argstring== 'dgm_123' or argstring== 'syn_123':
 
         if argstring == 'aseg_123':
             model_str = 'aseg'
             tigerrun_option = 'a'
-        else:
+        elif argstring== 'dgm_123':
             model_str = 'dgm'
             tigerrun_option = 'd'
+        else:
+            model_str = 'syn'
+            tigerrun_option = 'S'
+            
         ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
         if debug: ffs = ffs[:5]
 

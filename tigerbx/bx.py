@@ -11,7 +11,7 @@ import nibabel as nib
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
-
+import copy
 from nilearn.image import resample_to_img, reorder_img
 
 def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None):
@@ -22,7 +22,10 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
     if tbet111 is None:
         input_nib_resp = lib_bx.read_file(model_ff, f)
     else:
-        input_nib_resp = reorder_img(tbet111, resample='continuous')
+        #input_nib_resp = lib_bx.reorient(tbet111)
+        input_nib_resp = copy.deepcopy(tbet111) #using the copy to avoid modifying it.
+        
+        
         
     mask_nib_resp, prob_resp = lib_bx.run(
         model_ff, input_nib_resp,  GPU=GPU)
@@ -54,7 +57,7 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
         qc_score = np.percentile(
             probmax[lib_bx.read_nib(mask_nib_resp) > 0], 1) - 0.5
         #qc = np.percentile(probmax, 1) - 0.5
-        qc_score = int(qc_score * 1000)
+        qc_score = min(int(qc_score * 1500), 100)
         return output_nib, qc_score
     else:
 
@@ -112,11 +115,12 @@ def main():
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to MNI152')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to MNI152')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
+    parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     args = parser.parse_args()
     run_args(args)
 
 
-def run(argstring, input, output=None, model=None):
+def run(argstring, input=None, output=None, model=None):
 
     from argparse import Namespace
     args = Namespace()
@@ -145,6 +149,7 @@ def run(argstring, input, output=None, model=None):
     args.input = input
     args.output = output
     args.model = model
+    args.clean_onnx = 'clean_onnx' in argstring
     return run_args(args)   
 
 
@@ -156,7 +161,13 @@ def run_args(args):
                     run['wmh'], run['bam'], run['tumor'], run['cgw'], 
                     run['syn'], run['affine'], run['registration']]:
         run['bet'] = True
-        # Producing extracted brain by default 
+        # Producing extracted brain by default
+
+    if run['clean_onnx']:
+        lib_tool.clean_onnx()
+        print('Exiting...')
+        return 1
+
 
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
@@ -169,7 +180,10 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynth.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
+    #omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
+    #omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
+    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
+    
     omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
@@ -223,14 +237,15 @@ def run_args(args):
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
                         input_nib.header)
         tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
         
         print('QC score:', qc_score)
 
         result_dict['QC'] = qc_score
         result_filedict['QC'] = qc_score
-        if qc_score < 50:
-            print('Pay attention to the result with QC < 50. ')
-        if run['qc'] or qc_score < 50:
+        if qc_score < 30:
+            print('Pay attention to the result with QC < 30. ')
+        if run['qc'] or qc_score < 30:
             qcfile = ftemplate.replace('.nii','').replace('.gz', '')
             qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
             with open(qcfile, 'a') as the_file:
