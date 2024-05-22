@@ -160,7 +160,7 @@ def run_args(args):
 
     output_dir = args.output
     omodel = dict()
-    omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
+    omodel['bet'] = 'mprage_bet_v005_mixsynth.onnx'
     omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
     omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
@@ -272,7 +272,7 @@ def run_args(args):
         if run['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
             bet_img = lib_bx.read_nib(tbet_nib111)
             
             image = bet_img[None, ...][None, ...]
