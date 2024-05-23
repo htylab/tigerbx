@@ -71,6 +71,10 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 
 For label definitions, please check here. [Label definitions](doc/seglabel.md)
 
+## Validation methods
+
+For validation methods, please check here. [Validation](doc/validation.md)
+
 ## Disclaimer
 
 The software has been exclusively designed for research purposes and has not undergone review or approval by the Food and Drug Administration or any other agency. By using this software, you acknowledge and agree that it is not recommended nor advised for clinical applications.  You also agree to use, reproduce, create derivative works of, display, and distribute the software in compliance with all applicable governmental laws, regulations, and orders, including but not limited to those related to export and import control.
