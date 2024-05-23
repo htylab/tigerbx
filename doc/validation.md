@@ -46,13 +46,6 @@
     bet_NFBS: 0.969
     bet_synstrip: 0.971
 
-    | image type | Dice  | image type | Dice  | image type | Dice  |
-    |------------|-------|------------|-------|------------|-------|
-    | asl_epi    | 0.952 | asl_t1     | 0.984 | fsm_pd     | 0.976 |
-    | fsm_qt1    | 0.978 | fsm_t1     | 0.981 | fsm_t2     | 0.979 |
-    | infant_t1  | 0.957 | ixi_dwi    | 0.964 | ixi_mra    | 0.980 |
-    | ixi_pd     | 0.973 | ixi_t1     | 0.973 | ixi_t2     | 0.973 |
-    | qin_flair  | 0.967 | qin_t1     | 0.968 | qin_t2     | 0.953 |
 
 
 
