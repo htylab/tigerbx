@@ -79,6 +79,13 @@ def read_nib(input_nib):
 
     return np.squeeze(input_nib.get_fdata())
 
+def reorient(nii, orientation="RAS"):
+    orig_ornt = nib.orientations.io_orientation(nii.affine)
+    targ_ornt = nib.orientations.axcodes2ornt(orientation)
+    transform = nib.orientations.ornt_transform(orig_ornt, targ_ornt)
+    reoriented_nii = nii.as_reoriented(transform)
+    return reoriented_nii
+
 def run(model_ff, input_nib, GPU):
 
 
