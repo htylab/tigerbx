@@ -71,9 +71,9 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 
 For label definitions, please check here. [Label definitions](doc/seglabel.md)
 
-## Validation methods
+## Performance evaluation
 
-For validation methods, please check here. [Validation](doc/validation.md)
+For performance of this package, please check here. [Validation](doc/validation.md)
 
 ## Disclaimer
 
