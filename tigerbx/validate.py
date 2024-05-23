@@ -80,9 +80,10 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
         # 顯示結果
         print(average_dice_per_category)
+        metric = df['DICE'].mean()
         print('mean Dice of all data:', df['DICE'].mean())
 
-        return df
+        return df, metric
     
     elif argstring == 'bet_NFBS':
 
@@ -118,9 +119,11 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
         df = pd.DataFrame(result)
         df.to_csv(join(output_dir, 'val_bet_NFBS.csv'), index=False)
+
+        metric = df['DICE'].mean()
         print('mean Dice of all data:', df['DICE'].mean())
 
-        return df
+        return df, metric
     
 
     elif argstring == 'aseg_123' or argstring== 'dgm_123' or argstring== 'syn_123':
@@ -134,7 +137,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         else:
             model_str = 'syn'
             tigerrun_option = 'S'
-            
+
         ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
         if debug: ffs = ffs[:5]
 
@@ -180,7 +183,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         print(mean_per_column)
 
 
-        return df
+        return df, mean_per_column
 
 
 
