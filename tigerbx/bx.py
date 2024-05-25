@@ -238,6 +238,13 @@ def run_args(args):
                         input_nib.header)
         tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
         tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+
+        zoom = tbet_nib.header.get_zooms() 
+
+        if max(zoom) > 1.1 or min(zoom) < 0.9:
+            tbet_seg = tbet_nib111
+        else:
+            tbet_seg = reorder_img(tbet_nib, resample='continuous')
         
         print('QC score:', qc_score)
 
@@ -266,7 +273,7 @@ def run_args(args):
             if run[seg_str]:
 
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
-                                         brainmask_nib=tbetmask_nib, tbet111=tbet_nib111)
+                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg)
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn
