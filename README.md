@@ -22,6 +22,9 @@ https://github.com/htylab/tigerbx/releases
     pip install onnxruntime #for gpu version: onnxruntime-gpu
     pip install https://github.com/htylab/tigerbx/archive/release.zip
 
+### For archived versions
+    pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.15.tar.gz
+
 ### As a python package
 
     import tigerbx
@@ -51,7 +54,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -t: Produces the tumor mask (T1 and T1c) (WIP).
 -w: Produces the white matter parcellation (WIP).
 -W: Produces the white matter hypointensity mask (WIP).
--q: Saves the QC score. Pay attention to QC scores below 50.
+-q: Saves the QC score. Pay attention to QC scores below 30.
 -z: Forces storing in nii.gz format.
 -A: Affines images to MNI152.
 -r: Registers images to MNI152.
@@ -67,6 +70,10 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 ## Label definitions
 
 For label definitions, please check here. [Label definitions](doc/seglabel.md)
+
+## Performance evaluation
+
+For performance of this package, please check here. [Validation](doc/validation.md)
 
 ## Disclaimer
 

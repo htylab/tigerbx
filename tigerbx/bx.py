@@ -11,25 +11,36 @@ import nibabel as nib
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
-
+import copy
 from nilearn.image import resample_to_img, reorder_img
 
-def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
+def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None):
 
     model_ff = lib_tool.get_model(model)
     input_nib = nib.load(f)
-    input_nib_resp = lib_bx.read_file(model_ff, f)
+
+    if tbet111 is None:
+        input_nib_resp = lib_bx.read_file(model_ff, f)
+    else:
+        #input_nib_resp = lib_bx.reorient(tbet111)
+        input_nib_resp = copy.deepcopy(tbet111) #using the copy to avoid modifying it.
+        
+        
+        
     mask_nib_resp, prob_resp = lib_bx.run(
         model_ff, input_nib_resp,  GPU=GPU)
-
+    
     mask_nib = resample_to_img(
         mask_nib_resp, input_nib, interpolation="nearest")
-
     if brainmask_nib is None:
 
         output = lib_bx.read_nib(mask_nib)
     else:
         output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
+
+
+
+    output = lib_bx.read_nib(mask_nib)
 
     if np.max(output) <=255:
         dtype = np.uint8
@@ -46,7 +57,7 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, QC=False):
         qc_score = np.percentile(
             probmax[lib_bx.read_nib(mask_nib_resp) > 0], 1) - 0.5
         #qc = np.percentile(probmax, 1) - 0.5
-        qc_score = int(qc_score * 1000)
+        qc_score = min(int(qc_score * 1500), 100)
         return output_nib, qc_score
     else:
 
@@ -104,11 +115,12 @@ def main():
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to MNI152')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to MNI152')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
+    parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     args = parser.parse_args()
     run_args(args)
 
 
-def run(argstring, input, output=None, model=None):
+def run(argstring, input=None, output=None, model=None):
 
     from argparse import Namespace
     args = Namespace()
@@ -137,6 +149,7 @@ def run(argstring, input, output=None, model=None):
     args.input = input
     args.output = output
     args.model = model
+    args.clean_onnx = 'clean_onnx' in argstring
     return run_args(args)   
 
 
@@ -148,7 +161,13 @@ def run_args(args):
                     run['wmh'], run['bam'], run['tumor'], run['cgw'], 
                     run['syn'], run['affine'], run['registration']]:
         run['bet'] = True
-        # Producing extracted brain by default 
+        # Producing extracted brain by default
+
+    if run['clean_onnx']:
+        lib_tool.clean_onnx()
+        print('Exiting...')
+        return 1
+
 
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
@@ -160,8 +179,11 @@ def run_args(args):
 
     output_dir = args.output
     omodel = dict()
-    omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v005_crop.onnx'
+    omodel['bet'] = 'mprage_bet_v005_mixsynth.onnx'
+    #omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
+    #omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
+    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
+    
     omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
@@ -173,6 +195,7 @@ def run_args(args):
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v001_train.onnx'
     
+
 
     # if you want to use other models
     if isinstance(args.model, dict):
@@ -214,14 +237,15 @@ def run_args(args):
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
                         input_nib.header)
         tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
         
         print('QC score:', qc_score)
 
         result_dict['QC'] = qc_score
         result_filedict['QC'] = qc_score
-        if qc_score < 50:
-            print('Pay attention to the result with QC < 50. ')
-        if run['qc'] or qc_score < 50:
+        if qc_score < 30:
+            print('Pay attention to the result with QC < 30. ')
+        if run['qc'] or qc_score < 30:
             qcfile = ftemplate.replace('.nii','').replace('.gz', '')
             qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
             with open(qcfile, 'a') as the_file:
@@ -240,8 +264,9 @@ def run_args(args):
         
         for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
             if run[seg_str]:
+
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
-                                        brainmask_nib=tbetmask_nib)
+                                         brainmask_nib=tbetmask_nib, tbet111=tbet_nib111)
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn
@@ -271,7 +296,7 @@ def run_args(args):
         if run['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
             bet_img = lib_bx.read_nib(tbet_nib111)
             
             image = bet_img[None, ...][None, ...]

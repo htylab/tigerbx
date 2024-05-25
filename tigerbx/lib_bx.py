@@ -29,7 +29,7 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
 
 label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
                          26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
-nib.Nifti1Header.quaternion_threshold = -100
+#nib.Nifti1Header.quaternion_threshold = -100
 
 
 def get_mode(model_ff):
@@ -78,6 +78,13 @@ def read_nib(input_nib):
     # in adni dataset, the 3D mprage is stored as a 4D array
 
     return np.squeeze(input_nib.get_fdata())
+
+def reorient(nii, orientation="RAS"):
+    orig_ornt = nib.orientations.io_orientation(nii.affine)
+    targ_ornt = nib.orientations.axcodes2ornt(orientation)
+    transform = nib.orientations.ornt_transform(orig_ornt, targ_ornt)
+    reoriented_nii = nii.as_reoriented(transform)
+    return reoriented_nii
 
 def run(model_ff, input_nib, GPU):
 
