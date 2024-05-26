@@ -179,7 +179,7 @@ def run_args(args):
 
     output_dir = args.output
     omodel = dict()
-    omodel['bet'] = 'mprage_bet_v005_mixsynth.onnx'
+    omodel['bet'] = 'mprage_bet_v005_mixsynthv2.onnx'
     #omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
     #omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
     omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
