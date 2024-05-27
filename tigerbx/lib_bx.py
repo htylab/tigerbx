@@ -242,10 +242,12 @@ def resample_voxel(data_nib, voxelsize,
 
 
 
-def affine_reg(mni152_data, bet):
+def affine_reg(mni152_sitk, bet_sitk):
     import SimpleITK as sitk
-    fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
-    moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
+    #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
+    #moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
+    fixed_image = mni152_sitk
+    moving_image = bet_sitk
 
     initial_transform = sitk.CenteredTransformInitializer(fixed_image,
                                                         moving_image,
@@ -272,7 +274,19 @@ def affine_reg(mni152_data, bet):
     
     # Apply the final transform to the moving image
     resampled = sitk.Resample(moving_image, fixed_image, final_transform, sitk.sitkLinear, 0.0, moving_image.GetPixelID())
-    
-    Af_data = sitk.GetArrayFromImage(resampled)
+    #sitk.WriteImage(resampled, '/NFS/PeiMao/tigerbx-main/output/test.nii.gz')
+    #Af_data = sitk.GetArrayFromImage(resampled)
 
-    return Af_data
+    return resampled, final_transform
+
+
+def affine_transform(mni152_sitk, moving_seg_sitk, final_transform):
+    import SimpleITK as sitk
+    #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
+    #moving_seg = sitk.GetImageFromArray(seg_bet.astype(np.float32))
+
+    resampled_segmentation = sitk.Resample(moving_seg_sitk, mni152_sitk, final_transform, sitk.sitkNearestNeighbor, 0.0, moving_seg_sitk.GetPixelID())
+    #sitk.WriteImage(resampled_segmentation, '/NFS/PeiMao/tigerbx-main/output/sitk.nii.gz')
+    #Af_seg_data = sitk.GetArrayFromImage(resampled_segmentation)
+    
+    return resampled_segmentation

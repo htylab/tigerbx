@@ -46,6 +46,10 @@ def get_mni152():
 
     return join(application_path, 'MNI152_cropped_norm.nii.gz')
 
+def get_mni152_seg():
+
+    return join(application_path, 'MNI152_cropped_norm_aseg.nii.gz')
+
 def get_model(f):
     from os.path import join, isfile
     import os
