@@ -14,6 +14,12 @@ from tigerbx import lib_bx
 import copy
 from nilearn.image import resample_to_img, reorder_img
 
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(os.path.abspath(__file__))
+    
 def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None):
 
     model_ff = lib_tool.get_model(model)
@@ -143,6 +149,7 @@ def run(argstring, input=None, output=None, model=None):
     args.gz = 'z' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
+    args.Evaluate_registration = 'E' in argstring
 
     if not isinstance(input, list):
         input = [input]
@@ -159,7 +166,8 @@ def run_args(args):
     if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
                     run['dkt'], run['ct'], run['wmp'], run['qc'], 
                     run['wmh'], run['bam'], run['tumor'], run['cgw'], 
-                    run['syn'], run['affine'], run['registration']]:
+                    run['syn'], run['affine'], run['registration'], 
+                    run['Evaluate_registration']]:
         run['bet'] = True
         # Producing extracted brain by default
 
@@ -194,6 +202,7 @@ def run_args(args):
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v001_train.onnx'
+    omodel['ER'] = 'mprage_transform.onnx'
     
 
 
@@ -345,22 +354,29 @@ def run_args(args):
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
             bet_nib = reorder_img(bet_nib, resample='continuous')
-            bet = bet_nib.get_fdata()
+            #bet = bet_nib.get_fdata()
+            nib.save(bet_nib, join(application_path, 'bet_temp.nii.gz'))
+            
+            
+            import SimpleITK as sitk
+            bet_sitk = sitk.ReadImage(join(application_path, 'bet_temp.nii.gz'), sitk.sitkFloat32)  # 模板影像
+            mni152_sitk = sitk.ReadImage(lib_tool.get_mni152(), sitk.sitkFloat32)  # 模板影像
             
             mni152_nib = nib.load(lib_tool.get_mni152())
-            
+            #mni152_nib = reorder_img(mni152_nib, resample='continuous')
             mni152_data = mni152_nib.get_fdata()
 
-            Af_data = lib_bx.affine_reg(mni152_data, bet)
+            Af_sitk, final_transform = lib_bx.affine_reg(mni152_sitk, bet_sitk)
+            sitk.WriteImage(Af_sitk, join(application_path, 'affine_temp.nii.gz'))
 
-            Af_nib = nib.Nifti1Image(Af_data,
-                                     mni152_nib.affine, mni152_nib.header)
-            Af_nib.header.set_data_dtype(float)
+            Af_nib = nib.load(join(application_path, 'affine_temp.nii.gz'))
+
             if run['affine']:
                 fn = save_nib(Af_nib, ftemplate, 'Af')
                 result_dict['Af'] = Af_nib
                 result_filedict['Af'] = fn
             if run['registration']:
+                Af_data = Af_nib.get_fdata()
                 moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
                 moving_image = moving_image/np.max(moving_image)
                 fixed_image = mni152_data.astype(np.float32)[None, ...][None, ...]
@@ -372,8 +388,8 @@ def run_args(args):
                 warp = np.squeeze(output[1])
                 moved_nib = nib.Nifti1Image(moved,
                                          mni152_nib.affine, mni152_nib.header)
-                # warp_nib = nib.Nifti1Image(warp[0],
-                #                          mni152_nib.affine, mni152_nib.header)
+                warp_nib = nib.Nifti1Image(warp,
+                                         mni152_nib.affine, mni152_nib.header)
                 
                 fn = save_nib(moved_nib, ftemplate, 'reg')
                 result_dict['reg'] = moved_nib
@@ -382,6 +398,33 @@ def run_args(args):
                 # fn = save_nib(warp_nib, ftemplate, 'warp')
                 # result_dict['warp'] = warp_nib
                 # result_filedict['warp'] = fn 
+                if run['Evaluate_registration']:
+                    model_ff = lib_tool.get_model(omodel['ER'])
+                    warp = np.expand_dims(warp, axis=0)
+                    moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
+                                    
+                    #moving_seg_bet = lib_bx.read_nib(moving_seg_nib) * lib_bx.read_nib(tbetmask_nib)
+                    #moving_seg_bet = moving_seg_bet.astype(int)
+
+                    Af_seg_sitk = lib_bx.affine_transform(mni152_sitk, moving_seg_sitk, final_transform)
+                    sitk.WriteImage(Af_seg_sitk, join(application_path, 'seg_affine_temp.nii.gz'))
+                    
+                    Af_seg_nib = nib.load(join(application_path, 'seg_affine_temp.nii.gz'))
+                    Af_seg_data = Af_seg_nib.get_fdata().astype(np.float32)
+                    Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
+                    Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
+                    
+                    output = lib_tool.predict(model_ff, [Af_seg_data, warp], GPU=args.gpu, mode='reg')
+                    moved_seg = np.squeeze(output[0])
+                    moved_seg_nib = nib.Nifti1Image(moved_seg,
+                                             mni152_nib.affine, mni152_nib.header)
+
+                    fn = save_nib(moved_seg_nib, ftemplate, 'ER')
+                    result_dict['ER'] = moved_seg_nib
+                    #result_filedict['ER'] = fn 
+                    os.remove(join(application_path, 'seg_affine_temp.nii.gz'))
+            os.remove(join(application_path, 'bet_temp.nii.gz'))
+            os.remove(join(application_path, 'affine_temp.nii.gz'))
 
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:

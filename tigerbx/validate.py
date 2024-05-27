@@ -4,6 +4,8 @@ import glob
 import nibabel as nib
 import tigerbx
 import pandas as pd
+from tigerbx import lib_tool
+from nilearn.image import reorder_img
 
 
 def getdice(mask1, mask2):
@@ -16,11 +18,18 @@ def get_dice12(gt, pd, model_str):
     else:
         #aseg
         iipd = [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]
-
     d12 = []
     for ii in range(12):
         d12.append(getdice(gt==iigt[ii], pd==iipd[ii]))
     return np.array(d12)
+
+#labels used by Synthmorph
+def get_dice26(gt, pd):
+    iigt = [2, 41, 3, 42, 4, 43, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 28, 60, 16, 24]
+    d26 = []
+    for ii in range(26):
+        d26.append(getdice(gt==iigt[ii], pd==iigt[ii]))
+    return np.array(d26)
 
 def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=False):
     if model is not None:
@@ -184,9 +193,54 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
 
         return df, mean_per_column
+    elif argstring == 'reg_123':
+        #ffs = sorted(glob.glob(join(input_dir, '*', '*T1w_raw.nii.gz')))
+        ffs = sorted(glob.glob(join(input_dir, '*T1w_raw.nii.gz')))
+        if debug: ffs = ffs[:5]
+        print(f'Total files: {len(ffs)}')        
 
+        dsc_list = []
+        f_list = []
+        count = 0
+        for f in ffs:
+            count += 1
+            f_list.append(f)
+            if model is not None:
+                result = tigerbx.run(gpu_str + 'rE', f,
+                                      output_dir, model="{'reg':'%s'}" % model)
+            else:
+                result = tigerbx.run(gpu_str + 'rE', f, output_dir)
+            mask_pred = reorder_img(result['ER'], resample='nearest').get_fdata().astype(int)
+            mask_gt = reorder_img(nib.load(lib_tool.get_mni152_seg()), resample='continous').get_fdata().astype(int)
+            
+            
+            dice26 = get_dice26(mask_gt, mask_pred)
+            dsc_list.append(dice26)
 
+            print(count, len(ffs), f, f'Dice: {np.mean(dice26):.3f}')
+                # Create a DataFrame
+        result = {
+            'Filename': f_list,
+            'DICE': dsc_list
+        }
 
+        column_names = ['Left-Cerebral WM', 'Right-Cerebral WM', 'Left-Cerebral Cortex', 'Right-Cerebral Cortex', 'Left-Lateral Ventricle', 
+                        'Right-Lateral Ventricle', 'Left-Cerebellum WM', 'Right-Cerebellum WM', 'Left-Cerebellum Cortex', 'Right-Cerebellum Cortex', 
+                        'Left-Thalamus', 'Right-Thalamus', 'Left-Caudate', 'Right-Caudate', 'Left-Putamen', 'Right-Putamen',
+                        'Left-Pallidum', 'Right-Pallidum', 'Left-Hippocampus', 'Right-Hippocampus', 'Left-Amygdala', 'Right-Amygdala', 
+                        'Left-VentralDC', 'Right-VentralDC', 'Brain Stem', 'CSF']
+
+        # Convert dsc_list to a DataFrame
+        df = pd.DataFrame(dsc_list, columns=column_names)
+
+        # Add the IDs as the first column
+        df.insert(0, 'Filename', f_list)
+        df.to_csv(join(output_dir, f'val_reg_123.csv'), index=False)
+        print('mean Dice of all data:', np.mean(np.array(dsc_list).flatten()))
+        mean_per_column = df.mean(numeric_only=True)
+        print(mean_per_column)
+        
+        return df, mean_per_column
 
 
 

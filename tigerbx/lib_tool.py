@@ -46,13 +46,9 @@ def get_mni152():
 
     return join(application_path, 'MNI152_cropped_norm.nii.gz')
 
-def clean_onnx():
-    import glob
-    ffs = glob.glob(join(model_path, '*.onnx'))
-    for f in ffs:
-        print('Removing ', f)
-        os.remove(f)
+def get_mni152_seg():
 
+    return join(application_path, 'MNI152_cropped_norm_aseg.nii.gz')
 
 def get_model(f):
     from os.path import join, isfile
