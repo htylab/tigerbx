@@ -149,7 +149,6 @@ def run(argstring, input=None, output=None, model=None):
     args.gz = 'z' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
-    args.Evaluate_registration = 'E' in argstring
 
     if not isinstance(input, list):
         input = [input]
@@ -166,8 +165,8 @@ def run_args(args):
     if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
                     run['dkt'], run['ct'], run['wmp'], run['qc'], 
                     run['wmh'], run['bam'], run['tumor'], run['cgw'], 
-                    run['syn'], run['affine'], run['registration'], 
-                    run['Evaluate_registration']]:
+                    run['syn'], run['affine'], run['registration']]: 
+                    #run['Evaluate_registration']]:
         run['bet'] = True
         # Producing extracted brain by default
 
@@ -202,7 +201,6 @@ def run_args(args):
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v001_train.onnx'
-    omodel['ER'] = 'mprage_transform.onnx'
     
 
 
@@ -370,7 +368,8 @@ def run_args(args):
             sitk.WriteImage(Af_sitk, join(application_path, 'affine_temp.nii.gz'))
 
             Af_nib = nib.load(join(application_path, 'affine_temp.nii.gz'))
-
+            
+            result_dict['Affine_matrix'] = final_transform
             if run['affine']:
                 fn = save_nib(Af_nib, ftemplate, 'Af')
                 result_dict['Af'] = Af_nib
@@ -395,34 +394,10 @@ def run_args(args):
                 result_dict['reg'] = moved_nib
                 result_filedict['reg'] = fn           
                 
-                # fn = save_nib(warp_nib, ftemplate, 'warp')
-                # result_dict['warp'] = warp_nib
-                # result_filedict['warp'] = fn 
-                if run['Evaluate_registration']:
-                    model_ff = lib_tool.get_model(omodel['ER'])
-                    warp = np.expand_dims(warp, axis=0)
-                    moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
-                                    
-                    #moving_seg_bet = lib_bx.read_nib(moving_seg_nib) * lib_bx.read_nib(tbetmask_nib)
-                    #moving_seg_bet = moving_seg_bet.astype(int)
-
-                    Af_seg_sitk = lib_bx.affine_transform(mni152_sitk, moving_seg_sitk, final_transform)
-                    sitk.WriteImage(Af_seg_sitk, join(application_path, 'seg_affine_temp.nii.gz'))
-                    
-                    Af_seg_nib = nib.load(join(application_path, 'seg_affine_temp.nii.gz'))
-                    Af_seg_data = Af_seg_nib.get_fdata().astype(np.float32)
-                    Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
-                    Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
-                    
-                    output = lib_tool.predict(model_ff, [Af_seg_data, warp], GPU=args.gpu, mode='reg')
-                    moved_seg = np.squeeze(output[0])
-                    moved_seg_nib = nib.Nifti1Image(moved_seg,
-                                             mni152_nib.affine, mni152_nib.header)
-
-                    fn = save_nib(moved_seg_nib, ftemplate, 'ER')
-                    result_dict['ER'] = moved_seg_nib
-                    #result_filedict['ER'] = fn 
-                    os.remove(join(application_path, 'seg_affine_temp.nii.gz'))
+                #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
+                result_dict['dense_warp'] = warp_nib
+                #result_filedict['dense_warp'] = fn 
+                
             os.remove(join(application_path, 'bet_temp.nii.gz'))
             os.remove(join(application_path, 'affine_temp.nii.gz'))
 

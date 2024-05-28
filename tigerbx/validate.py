@@ -5,8 +5,16 @@ import nibabel as nib
 import tigerbx
 import pandas as pd
 from tigerbx import lib_tool
+from tigerbx import lib_bx
 from nilearn.image import reorder_img
+import sys
+import os
 
+# determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+elif __file__:
+    application_path = os.path.dirname(os.path.abspath(__file__))
 
 def getdice(mask1, mask2):
     return 2*np.sum(mask1 & mask2)/(np.sum(mask1) + np.sum(mask2) + 1e-6)
@@ -193,7 +201,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
 
         return df, mean_per_column
-    elif argstring == 'reg_123':
+    elif argstring == 'reg_50':
         #ffs = sorted(glob.glob(join(input_dir, '*', '*T1w_raw.nii.gz')))
         ffs = sorted(glob.glob(join(input_dir, '*T1w_raw.nii.gz')))
         if debug: ffs = ffs[:5]
@@ -206,11 +214,34 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             count += 1
             f_list.append(f)
             if model is not None:
-                result = tigerbx.run(gpu_str + 'rE', f,
+                result = tigerbx.run(gpu_str + 'r', f,
                                       output_dir, model="{'reg':'%s'}" % model)
             else:
-                result = tigerbx.run(gpu_str + 'rE', f, output_dir)
-            mask_pred = reorder_img(result['ER'], resample='nearest').get_fdata().astype(int)
+                result = tigerbx.run(gpu_str + 'r', f, output_dir)
+                
+            model_transform = lib_tool.get_model('mprage_transform.onnx')
+            import SimpleITK as sitk
+            mni152_sitk = sitk.ReadImage(lib_tool.get_mni152(), sitk.sitkFloat32)  # 模板影像
+            mni152_nib = nib.load(lib_tool.get_mni152())
+            moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
+            Af_seg_sitk = lib_bx.affine_transform(mni152_sitk, moving_seg_sitk, result['Affine_matrix'])
+            sitk.WriteImage(Af_seg_sitk, join(application_path, 'seg_affine_temp.nii.gz'))
+
+            Af_seg_nib = nib.load(join(application_path, 'seg_affine_temp.nii.gz'))
+            Af_seg_data = Af_seg_nib.get_fdata().astype(np.float32)
+            Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
+            Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
+            warp = result['dense_warp'].get_fdata().astype(np.float32)
+            warp = np.expand_dims(warp, axis=0)
+            output = lib_tool.predict(model_transform, [Af_seg_data, warp], GPU=None, mode='reg')
+            moved_seg = np.squeeze(output[0])
+            moved_seg_nib = nib.Nifti1Image(moved_seg,
+                                      mni152_nib.affine, mni152_nib.header)
+            
+            #fn = save_nib(moved_seg_nib, ftemplate, 'ER')
+            os.remove(join(application_path, 'seg_affine_temp.nii.gz'))
+            
+            mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
             mask_gt = reorder_img(nib.load(lib_tool.get_mni152_seg()), resample='continous').get_fdata().astype(int)
             
             
@@ -235,7 +266,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
         # Add the IDs as the first column
         df.insert(0, 'Filename', f_list)
-        df.to_csv(join(output_dir, f'val_reg_123.csv'), index=False)
+        df.to_csv(join(output_dir, f'val_reg_50.csv'), index=False)
         print('mean Dice of all data:', np.mean(np.array(dsc_list).flatten()))
         mean_per_column = df.mean(numeric_only=True)
         print(mean_per_column)

@@ -19,7 +19,7 @@
     print('aseg_123', metric3)
     print('dgm_123', metric4)
     print('syn_123', metric5)
-    print('reg_123', metric6)
+    print('reg_50', metric6)
     print('Time', time.time() - t)
 
 ### Validation Datasets
