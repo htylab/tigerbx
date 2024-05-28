@@ -291,10 +291,5 @@ def affine_transform(mni152_sitk, moving_seg_sitk, final_transform):
     
     return resampled_segmentation
 
-def clean_onnx():
-    import glob
-    ffs = glob.glob(join(model_path, '*.onnx'))
-    for f in ffs:
-        print('Removing ', f)
-        os.remove(f)
+
 
