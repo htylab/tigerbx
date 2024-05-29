@@ -229,3 +229,10 @@ def predict(model, data, GPU, mode=None):
 
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
 
+
+def clean_onnx():
+    import glob
+    ffs = glob.glob(join(model_path, '*.onnx'))
+    for f in ffs:
+        print('Removing ', f)
+        os.remove(f)

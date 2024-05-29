@@ -290,3 +290,6 @@ def affine_transform(mni152_sitk, moving_seg_sitk, final_transform):
     #Af_seg_data = sitk.GetArrayFromImage(resampled_segmentation)
     
     return resampled_segmentation
+
+
+
