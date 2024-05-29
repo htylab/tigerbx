@@ -40,8 +40,8 @@ def get_dice26(gt, pd):
     return np.array(d26)
 
 def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=False):
-    if model is not None:
-        model = model.replace('\\','/')
+    #if model is not None:
+    #    model = model.replace('\\','/')
     gpu_str = ''
     if GPU: gpu_str = 'g'
 
