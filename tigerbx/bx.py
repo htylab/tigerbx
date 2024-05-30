@@ -21,29 +21,35 @@ elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
     
 def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None):
+    if not isinstance(model, list):
+        model = [model]
+    # for multi-model ensemble
+    model_ff_list = []
+    for mm in model:
+        model_ff_list.append(lib_tool.get_model(mm))
 
-    model_ff = lib_tool.get_model(model)
     input_nib = nib.load(f)
 
     if tbet111 is None:
-        input_nib_resp = lib_bx.read_file(model_ff, f)
+        input_nib_resp = lib_bx.read_file(model_ff_list[0], f)
     else:
         #input_nib_resp = lib_bx.reorient(tbet111)
         input_nib_resp = copy.deepcopy(tbet111) #using the copy to avoid modifying it.
         
         
-        
     mask_nib_resp, prob_resp = lib_bx.run(
-        model_ff, input_nib_resp,  GPU=GPU)
-    
+        model_ff_list, input_nib_resp,  GPU=GPU)
+        
     mask_nib = resample_to_img(
         mask_nib_resp, input_nib, interpolation="nearest")
+
+
     if brainmask_nib is None:
 
         output = lib_bx.read_nib(mask_nib)
+
     else:
         output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
-
 
 
     output = lib_bx.read_nib(mask_nib)
@@ -161,16 +167,16 @@ def run(argstring, input=None, output=None, model=None):
 
 def run_args(args):
 
-    run = vars(args) #store all arg in dict
-    if True not in [run['betmask'], run['aseg'], run['bet'], run['dgm'],
-                    run['dkt'], run['ct'], run['wmp'], run['qc'], 
-                    run['wmh'], run['bam'], run['tumor'], run['cgw'], 
-                    run['syn'], run['affine'], run['registration']]: 
-                    #run['Evaluate_registration']]:
-        run['bet'] = True
+    run_d = vars(args) #store all arg in dict
+    if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
+                    run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
+                    run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
+                    run_d['syn'], run_d['affine'], run_d['registration']]: 
+                    #run_d['Evaluate_registration']]:
+        run_d['bet'] = True
         # Producing extracted brain by default
 
-    if run['clean_onnx']:
+    if run_d['clean_onnx']:
         lib_tool.clean_onnx()
         print('Exiting...')
         return 1
@@ -259,32 +265,31 @@ def run_args(args):
         result_filedict['QC'] = qc_score
         if qc_score < 30:
             print('Pay attention to the result with QC < 30. ')
-        if run['qc'] or qc_score < 30:
+        if run_d['qc'] or qc_score < 30:
             qcfile = ftemplate.replace('.nii','').replace('.gz', '')
             qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
             with open(qcfile, 'a') as the_file:
                 the_file.write(f'QC: {qc_score} \n')
             print('Writing output file: ', qcfile)
 
-        if run['betmask']:
+        if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
 
-        if run['bet']:
+        if run_d['bet']:
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
         for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
-            if run[seg_str]:
-
+            if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg)
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn
-        if run['bam']:
+        if run_d['bam']:
             model_ff = lib_tool.get_model(omodel['bam'])
             #input_nib = nib.load(f)
             
@@ -307,7 +312,7 @@ def run_args(args):
             result_dict['bam'] = bam_nib
             result_filedict['bam'] = fn
 
-        if run['cgw']: # FSL style segmentation of CSF, GM, WM
+        if run_d['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
             #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
@@ -333,7 +338,7 @@ def run_args(args):
                 result_dict['cgw'].append(pve_nib)
                 result_filedict['cgw'].append(fn)        
 
-        if run['ct']:
+        if run_d['ct']:
             model_ff = lib_tool.get_model(omodel['ct'])
             bet_img = lib_bx.read_nib(tbet_nib111)            
             image = bet_img[None, ...][None, ...]
@@ -354,7 +359,7 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
-        if run['affine'] or run['registration']:            
+        if run_d['affine'] or run_d['registration']:            
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
@@ -377,11 +382,11 @@ def run_args(args):
             Af_nib = nib.load(join(application_path, 'affine_temp.nii.gz'))
             
             result_dict['Affine_matrix'] = final_transform
-            if run['affine']:
+            if run_d['affine']:
                 fn = save_nib(Af_nib, ftemplate, 'Af')
                 result_dict['Af'] = Af_nib
                 result_filedict['Af'] = fn
-            if run['registration']:
+            if run_d['registration']:
                 Af_data = Af_nib.get_fdata()
                 moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
                 moving_image = moving_image/np.max(moving_image)

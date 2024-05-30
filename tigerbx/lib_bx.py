@@ -86,27 +86,7 @@ def reorient(nii, orientation="RAS"):
     reoriented_nii = nii.as_reoriented(transform)
     return reoriented_nii
 
-def run(model_ff, input_nib, GPU):
-
-
-    seg_mode, _ , model_str = get_mode(model_ff)
-     
-
-
-    #data = input_nib.get_fdata()
-    data = read_nib(input_nib)
-
-
-    image = data[None, ...][None, ...]
-    if seg_mode == 'synthseg':
-        image = (image - np.min(image)) / (np.max(image) - np.min(image))
-    else:
-        image = image/np.max(image)
-
-
-    logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
-
-
+def logit_to_prob(logits, seg_mode):
     label_num = dict()
     label_num['bet'] = 2
     label_num['aseg43'] = 44
@@ -122,18 +102,45 @@ def run(model_ff, input_nib, GPU):
         #sigmoid
         th = 0.5
         from scipy.special import expit
-        logits = expit(logits)
-        th = 0.5
-        mask_pred = np.argmax(logits, axis=0) + 1
-        mask_pred[np.max(logits, axis=0) <= th] = 0
-        mask_pred = getLarea(mask_pred)
-        prob = logits
-
+        prob = expit(logits)
     else:
         #softmax mode
-        #print(logits.shape)
-        mask_pred = np.argmax(logits, axis=0)
+        #print(logits.shape)        
         prob = softmax(logits, axis=0)
+    return prob
+
+def run(model_ff_list, input_nib, GPU):
+
+    if not isinstance(model_ff_list, list):
+        model_ff_list = [model_ff_list]
+
+
+    seg_mode, _ , model_str = get_mode(model_ff_list[0]) 
+
+    #data = input_nib.get_fdata()
+    data = read_nib(input_nib)
+
+    image = data[None, ...][None, ...]
+    if seg_mode == 'synthseg':
+        image = (image - np.min(image)) / (np.max(image) - np.min(image))
+    else:
+        image = image/np.max(image)
+
+    prob = 0
+    count = 0
+    for model_ff in model_ff_list:
+        count += 1
+        logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
+        prob += logit_to_prob(logits, seg_mode)
+    prob = prob/count # average the prob
+
+    if seg_mode =='bet': #sigmoid 1 channel
+        th = 0.5
+        mask_pred = np.ones(prob[0, ...].shape)
+        mask_pred[prob[0, ...] < th] = 0
+        mask_pred = getLarea(mask_pred)
+    else:    
+        mask_pred = np.argmax(prob, axis=0)
     
 
     if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
