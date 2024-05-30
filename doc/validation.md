@@ -49,32 +49,32 @@
 
     | Structure                | Dice    |
     |--------------------------|---------|
-    | Left-Cerebral WM         | 0.857104|
-    | Right-Cerebral WM        | 0.858439|
-    | Left-Cerebral Cortex     | 0.728526|
-    | Right-Cerebral Cortex    | 0.736365|
-    | Left-Lateral Ventricle   | 0.803578|
-    | Right-Lateral Ventricle  | 0.793350|
-    | Left-Cerebellum WM       | 0.807485|
-    | Right-Cerebellum WM      | 0.809267|
-    | Left-Cerebellum Cortex   | 0.869220|
-    | Right-Cerebellum Cortex  | 0.879554|
-    | Left-Thalamus            | 0.851638|
-    | Right-Thalamus           | 0.887088|
-    | Left-Caudate             | 0.813050|
-    | Right-Caudate            | 0.830947|
-    | Left-Putamen             | 0.849082|
-    | Right-Putamen            | 0.853028|
-    | Left-Pallidum            | 0.786699|
-    | Right-Pallidum           | 0.775344|
-    | Left-Hippocampus         | 0.804197|
-    | Right-Hippocampus        | 0.822381|
-    | Left-Amygdala            | 0.773281|
-    | Right-Amygdala           | 0.792968|
-    | Left-VentralDC           | 0.805002|
-    | Right-VentralDC          | 0.815977|
-    | Brain Stem               | 0.886675|
-    | CSF                      | 0.666240|
+    | Left-Cerebral WM         | 0.824035|
+    | Right-Cerebral WM        | 0.828217|
+    | Left-Cerebral Cortex     | 0.707702|
+    | Right-Cerebral Cortex    | 0.717348|
+    | Left-Lateral Ventricle   | 0.786622|
+    | Right-Lateral Ventricle  | 0.769482|
+    | Left-Cerebellum WM       | 0.812269|
+    | Right-Cerebellum WM      | 0.813486|
+    | Left-Cerebellum Cortex   | 0.880312|
+    | Right-Cerebellum Cortex  | 0.885760|
+    | Left-Thalamus            | 0.877530|
+    | Right-Thalamus           | 0.894954|
+    | Left-Caudate             | 0.829615|
+    | Right-Caudate            | 0.819476|
+    | Left-Putamen             | 0.864166|
+    | Right-Putamen            | 0.865252|
+    | Left-Pallidum            | 0.828596|
+    | Right-Pallidum           | 0.806082|
+    | Left-Hippocampus         | 0.827217|
+    | Right-Hippocampus        | 0.833771|
+    | Left-Amygdala            | 0.799048|
+    | Right-Amygdala           | 0.810998|
+    | Left-VentralDC           | 0.834296|
+    | Right-VentralDC          | 0.844643|
+    | Brain Stem               | 0.894280|
+    | CSF                      | 0.700577|
 #### Skull Stripping
     bet_NFBS: 0.969
     bet_synstrip: 0.971
