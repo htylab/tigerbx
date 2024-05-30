@@ -40,8 +40,8 @@ def get_dice26(gt, pd):
     return np.array(d26)
 
 def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=False):
-    if model is not None:
-        model = model.replace('\\','/')
+    #if model is not None:
+    #    model = model.replace('\\','/')
     gpu_str = ''
     if GPU: gpu_str = 'g'
 
@@ -67,10 +67,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             f_list.append(f)
             tt_list.append(tt)
             cat_list.append(cat)
-            if model is not None:
-                result = tigerbx.run(gpu_str + 'm', f, output_dir, model="{'bet':'%s'}" % model)
-            else:
-                result = tigerbx.run(gpu_str +'m', f, output_dir)
+            result = tigerbx.run(gpu_str + 'm', f, output_dir, model=model)
             mask_pred = result['tbetmask'].get_fdata()
             
             mask_gt = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
@@ -113,10 +110,8 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         for f in ffs:
             count += 1
             f_list.append(f)
-            if model is not None:
-                result = tigerbx.run(gpu_str + 'm', f, output_dir, model="{'bet':'%s'}" % model)
-            else:
-                result = tigerbx.run(gpu_str + 'm', f, output_dir)
+            result = tigerbx.run(gpu_str + 'm', f, output_dir, model=model)
+
             mask_pred = result['tbetmask'].get_fdata()
             
             mask_gt = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
@@ -165,11 +160,9 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         for f in ffs:
             count += 1
             f_list.append(f)
-            if model is not None:
-                result = tigerbx.run(gpu_str + tigerrun_option, f,
-                                      output_dir, model="{'%s':'%s'}" % (model_str,model))
-            else:
-                result = tigerbx.run(gpu_str + tigerrun_option, f, output_dir)
+            result = tigerbx.run(gpu_str + tigerrun_option, f,
+                                      output_dir, model=model)
+
             mask_pred = result[ model_str].get_fdata().astype(int)
             mask_gt = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
             dice12 = get_dice12(mask_gt, mask_pred, model_str)
@@ -213,11 +206,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         for f in ffs:
             count += 1
             f_list.append(f)
-            if model is not None:
-                result = tigerbx.run(gpu_str + 'r', f,
-                                      output_dir, model="{'reg':'%s'}" % model)
-            else:
-                result = tigerbx.run(gpu_str + 'r', f, output_dir)
+            result = tigerbx.run(gpu_str + 'r', f, output_dir, model=model)
                 
             model_transform = lib_tool.get_model('mprage_transform.onnx')
             import SimpleITK as sitk

@@ -200,7 +200,7 @@ def run_args(args):
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
-    omodel['reg'] = 'mprage_reg_v001_train.onnx'
+    omodel['reg'] = 'mprage_reg_v002_train.onnx'
     
 
 
