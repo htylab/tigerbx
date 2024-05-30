@@ -131,6 +131,12 @@ def run(argstring, input=None, output=None, model=None):
     from argparse import Namespace
     args = Namespace()
 
+    if 'clean_onnx' in argstring:
+        print('Cleaning downloaed ONNX...')
+        lib_tool.clean_onnx()
+        print('Exiting...')
+        return 1  
+
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
@@ -155,7 +161,6 @@ def run(argstring, input=None, output=None, model=None):
     args.input = input
     args.output = output
     args.model = model
-    args.clean_onnx = 'clean_onnx' in argstring
     return run_args(args)   
 
 
@@ -169,12 +174,6 @@ def run_args(args):
                     #run['Evaluate_registration']]:
         run['bet'] = True
         # Producing extracted brain by default
-
-    if run['clean_onnx']:
-        lib_tool.clean_onnx()
-        print('Exiting...')
-        return 1
-
 
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
