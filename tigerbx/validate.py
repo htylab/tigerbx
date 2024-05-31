@@ -214,9 +214,8 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             mni152_nib = nib.load(lib_tool.get_mni152())
             moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
             Af_seg_sitk = lib_bx.affine_transform(mni152_sitk, moving_seg_sitk, result['Affine_matrix'])
-            sitk.WriteImage(Af_seg_sitk, join(application_path, 'seg_affine_temp.nii.gz'))
+            Af_seg_nib = lib_bx.from_sitk_get_nib(Af_seg_sitk)
 
-            Af_seg_nib = nib.load(join(application_path, 'seg_affine_temp.nii.gz'))
             Af_seg_data = Af_seg_nib.get_fdata().astype(np.float32)
             Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
             Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
@@ -228,7 +227,6 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
                                       mni152_nib.affine, mni152_nib.header)
             
             #fn = save_nib(moved_seg_nib, ftemplate, 'ER')
-            os.remove(join(application_path, 'seg_affine_temp.nii.gz'))
             
             mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
             mask_gt = reorder_img(nib.load(lib_tool.get_mni152_seg()), resample='continous').get_fdata().astype(int)

@@ -360,16 +360,13 @@ def run_args(args):
             result_filedict['ct'] = fn
             
         if run_d['affine'] or run_d['registration']:            
+            import SimpleITK as sitk
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
             bet_nib = reorder_img(bet_nib, resample='continuous')
             #bet = bet_nib.get_fdata()
-            nib.save(bet_nib, join(application_path, 'bet_temp.nii.gz'))
-            
-            
-            import SimpleITK as sitk
-            bet_sitk = sitk.ReadImage(join(application_path, 'bet_temp.nii.gz'), sitk.sitkFloat32)  # 模板影像
+            bet_sitk = lib_bx.from_nib_get_sitk(bet_nib)
             mni152_sitk = sitk.ReadImage(lib_tool.get_mni152(), sitk.sitkFloat32)  # 模板影像
             
             mni152_nib = nib.load(lib_tool.get_mni152())
@@ -377,9 +374,7 @@ def run_args(args):
             mni152_data = mni152_nib.get_fdata()
 
             Af_sitk, final_transform = lib_bx.affine_reg(mni152_sitk, bet_sitk)
-            sitk.WriteImage(Af_sitk, join(application_path, 'affine_temp.nii.gz'))
-
-            Af_nib = nib.load(join(application_path, 'affine_temp.nii.gz'))
+            Af_nib = lib_bx.from_sitk_get_nib(Af_sitk)
             
             result_dict['Affine_matrix'] = final_transform
             if run_d['affine']:
@@ -409,9 +404,6 @@ def run_args(args):
                 #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
                 result_dict['dense_warp'] = warp_nib
                 #result_filedict['dense_warp'] = fn 
-                
-            os.remove(join(application_path, 'bet_temp.nii.gz'))
-            os.remove(join(application_path, 'affine_temp.nii.gz'))
 
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
