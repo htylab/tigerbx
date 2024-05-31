@@ -299,4 +299,27 @@ def affine_transform(mni152_sitk, moving_seg_sitk, final_transform):
     return resampled_segmentation
 
 
+def from_nib_get_sitk(nii_image):
+    import tempfile
+    import SimpleITK as sitk
+    with tempfile.NamedTemporaryFile(suffix='.nii') as temp_file:
+        nib.save(nii_image, temp_file.name)
+        temp_file.seek(0)
+        sitk_image = sitk.ReadImage(temp_file.name, sitk.sitkFloat32)
+        
+    return sitk_image
+
+
+def from_sitk_get_nib(sitk_image):
+    import tempfile
+    import SimpleITK as sitk
+    with tempfile.NamedTemporaryFile(suffix='.nii') as temp_file:
+        sitk.WriteImage(sitk_image, temp_file.name)
+        temp_file.seek(0)       
+        nii_image = nib.load(temp_file.name)
+        nii_image_copy = nib.Nifti1Image(nii_image.get_fdata().copy(), nii_image.affine.copy())
+        
+    return nii_image_copy
+
+
 
