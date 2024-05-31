@@ -42,13 +42,15 @@ def download(url, file_name):
                                 context=context) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
-def get_mni152():
+def get_template(template_path):
+    if template_path:
+        return join(application_path, 'template', template_path)
+    return join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz')
 
-    return join(application_path, 'template', 'MNI152_cropped_norm.nii.gz')
-
-def get_mni152_seg():
-
-    return join(application_path, 'template', 'MNI152_cropped_norm_aseg.nii.gz')
+def get_template_seg(template_path):
+    if template_path:
+        return join(application_path, 'template', template_path.replace('.nii', '_aseg.nii'))
+    return join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz')
 
 def get_model(f):
     from os.path import join, isfile
