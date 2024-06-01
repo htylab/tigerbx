@@ -126,8 +126,7 @@ def main():
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
-    parser.add_argument('-T', '--template', type=str, help='The template filename; must be within the template folder (default is MNI152) \
-                        as long as the file name does not include a path.')
+    parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     args = parser.parse_args()

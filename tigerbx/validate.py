@@ -205,7 +205,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         for f in ffs:
             count += 1
             f_list.append(f)
-            result = tigerbx.run(gpu_str + 'rT', f, output_dir, model=model, template=template)
+            result = tigerbx.run(gpu_str + 'r', f, output_dir, model=model, template=template)
                 
             model_transform = lib_tool.get_model('mprage_transform.onnx')
             import SimpleITK as sitk
