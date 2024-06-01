@@ -11,7 +11,7 @@ from os.path import join, isdir, basename, isfile, dirname
 import nibabel as nib
 import numpy as np
 import sys
-
+from os.path import isfile, join
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -42,13 +42,35 @@ def download(url, file_name):
                                 context=context) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
-def get_mni152():
+def get_template(template_ff):
+    if template_ff:
+        if isfile(template_ff):
+            return template_ff
+        
+        full_path = join(application_path, 'template', template_ff)
+        
+        if isfile(full_path):
+            return full_path
+        else:
+            raise FileNotFoundError("Template file does not exist.")
+    else:
+        return join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz')
 
-    return join(application_path, 'template', 'MNI152_cropped_norm.nii.gz')
-
-def get_mni152_seg():
-
-    return join(application_path, 'template', 'MNI152_cropped_norm_aseg.nii.gz')
+def get_template_seg(template_ff):
+    template_seg_ff = template_ff.replace('.nii', '_aseg.nii')
+    if template_seg_ff:
+        if isfile(template_seg_ff):
+            return template_seg_ff
+        
+        full_path = join(application_path, 'template', template_seg_ff)
+        
+        if isfile(full_path):
+            return full_path
+        else:
+            raise FileNotFoundError("Template file does not exist.")
+    else:
+        return join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz')
+        
 
 def get_model(f):
     from os.path import join, isfile

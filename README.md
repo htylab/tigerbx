@@ -16,6 +16,7 @@ https://github.com/htylab/tigerbx/releases
 
     tigerbx -bmad c:\data\*.nii.gz -o c:\output
     tigerbx -c c:\data\*.nii.gz -o c:\output
+    tigerbx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
 
 ### As a python package
 
@@ -33,6 +34,7 @@ https://github.com/htylab/tigerbx/releases
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
     tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
     tigerbx.run('clean_onnx') #Clean downloaded ONNX file
+    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz') # registers images to template
 
 
 ** Mac and Windows  are supported.**
@@ -57,8 +59,9 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -W: Produces the white matter hypointensity mask (WIP).
 -q: Saves the QC score. Pay attention to QC scores below 30.
 -z: Forces storing in nii.gz format.
--A: Affines images to MNI152.
--r: Registers images to MNI152.
+-A: Affines images to template(default is MNI152).
+-r: Registers images to template(default is MNI152).
+-T: The template filename.
 ```
 ## Citation
 

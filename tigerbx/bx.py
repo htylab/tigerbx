@@ -124,15 +124,16 @@ def main():
     parser.add_argument('-t', '--tumor', action='store_true', help='Producing tumor mask')
     parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to MNI152')
-    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to MNI152')
+    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
+    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
+    parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     args = parser.parse_args()
     run_args(args)
 
 
-def run(argstring, input=None, output=None, model=None):
+def run(argstring, input=None, output=None, model=None, template=None):
 
     from argparse import Namespace
     args = Namespace()
@@ -155,6 +156,7 @@ def run(argstring, input=None, output=None, model=None):
     args.gz = 'z' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
+    args.template = template
 
     if not isinstance(input, list):
         input = [input]
@@ -171,8 +173,8 @@ def run_args(args):
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
-                    run_d['syn'], run_d['affine'], run_d['registration']]: 
-                    #run_d['Evaluate_registration']]:
+                    run_d['syn'], run_d['affine'], run_d['registration'],
+                    run_d['template']]:
         run_d['bet'] = True
         # Producing extracted brain by default
 
@@ -367,13 +369,16 @@ def run_args(args):
             bet_nib = reorder_img(bet_nib, resample='continuous')
             #bet = bet_nib.get_fdata()
             bet_sitk = lib_bx.from_nib_get_sitk(bet_nib)
-            mni152_sitk = sitk.ReadImage(lib_tool.get_mni152(), sitk.sitkFloat32)  # 模板影像
             
-            mni152_nib = nib.load(lib_tool.get_mni152())
-            #mni152_nib = reorder_img(mni152_nib, resample='continuous')
-            mni152_data = mni152_nib.get_fdata()
+            
+            template_nib = nib.load(lib_tool.get_template(run_d['template']))
+            template_nib = lib_bx.resample_voxel(template_nib, (1, 1, 1), (160, 224, 192))
+            template_sitk = lib_bx.from_nib_get_sitk(template_nib)
+          
+            #template_nib = reorder_img(template_nib, resample='continuous')
+            template_data = template_nib.get_fdata()
 
-            Af_sitk, final_transform = lib_bx.affine_reg(mni152_sitk, bet_sitk)
+            Af_sitk, final_transform = lib_bx.affine_reg(template_sitk, bet_sitk)
             Af_nib = lib_bx.from_sitk_get_nib(Af_sitk)
             
             result_dict['Affine_matrix'] = final_transform
@@ -385,17 +390,17 @@ def run_args(args):
                 Af_data = Af_nib.get_fdata()
                 moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
                 moving_image = moving_image/np.max(moving_image)
-                fixed_image = mni152_data.astype(np.float32)[None, ...][None, ...]
-                #fixed_image = fixed_image/np.max(fixed_image)
+                fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
+                fixed_image = fixed_image/np.max(fixed_image)
                 model_ff = lib_tool.get_model(omodel['reg'])
                 
                 output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
                 moved = np.squeeze(output[0])
                 warp = np.squeeze(output[1])
                 moved_nib = nib.Nifti1Image(moved,
-                                         mni152_nib.affine, mni152_nib.header)
+                                         template_nib.affine, template_nib.header)
                 warp_nib = nib.Nifti1Image(warp,
-                                         mni152_nib.affine, mni152_nib.header)
+                                         template_nib.affine, template_nib.header)
                 
                 fn = save_nib(moved_nib, ftemplate, 'reg')
                 result_dict['reg'] = moved_nib

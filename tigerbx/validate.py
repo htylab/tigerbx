@@ -39,7 +39,7 @@ def get_dice26(gt, pd):
         d26.append(getdice(gt==iigt[ii], pd==iigt[ii]))
     return np.array(d26)
 
-def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=False):
+def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=False, template=None):
     #if model is not None:
     #    model = model.replace('\\','/')
     gpu_str = ''
@@ -195,7 +195,6 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
         return df, mean_per_column
     elif argstring == 'reg_50':
-        #ffs = sorted(glob.glob(join(input_dir, '*', '*T1w_raw.nii.gz')))
         ffs = sorted(glob.glob(join(input_dir, '*T1w_raw.nii.gz')))
         if debug: ffs = ffs[:5]
         print(f'Total files: {len(ffs)}')        
@@ -206,14 +205,16 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         for f in ffs:
             count += 1
             f_list.append(f)
-            result = tigerbx.run(gpu_str + 'r', f, output_dir, model=model)
+            result = tigerbx.run(gpu_str + 'r', f, output_dir, model=model, template=template)
                 
             model_transform = lib_tool.get_model('mprage_transform.onnx')
             import SimpleITK as sitk
-            mni152_sitk = sitk.ReadImage(lib_tool.get_mni152(), sitk.sitkFloat32)  # 模板影像
-            mni152_nib = nib.load(lib_tool.get_mni152())
+            template_nib = nib.load(lib_tool.get_template(template))
+            template_nib = lib_bx.resample_voxel(template_nib, (1, 1, 1), (160, 224, 192))
+            template_sitk = lib_bx.from_nib_get_sitk(template_nib)
+            
             moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
-            Af_seg_sitk = lib_bx.affine_transform(mni152_sitk, moving_seg_sitk, result['Affine_matrix'])
+            Af_seg_sitk = lib_bx.affine_transform(template_sitk, moving_seg_sitk, result['Affine_matrix'])
             Af_seg_nib = lib_bx.from_sitk_get_nib(Af_seg_sitk)
 
             Af_seg_data = Af_seg_nib.get_fdata().astype(np.float32)
@@ -224,12 +225,13 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             output = lib_tool.predict(model_transform, [Af_seg_data, warp], GPU=None, mode='reg')
             moved_seg = np.squeeze(output[0])
             moved_seg_nib = nib.Nifti1Image(moved_seg,
-                                      mni152_nib.affine, mni152_nib.header)
+                                      template_nib.affine, template_nib.header)
             
-            #fn = save_nib(moved_seg_nib, ftemplate, 'ER')
             
             mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
-            mask_gt = reorder_img(nib.load(lib_tool.get_mni152_seg()), resample='continous').get_fdata().astype(int)
+            template_seg = nib.load(lib_tool.get_template_seg(template))
+            template_seg = lib_bx.resample_voxel(template_seg, (1, 1, 1), (160, 224, 192), interpolation='nearest')
+            mask_gt = reorder_img(template_seg, resample='nearest').get_fdata().astype(int)
             
             
             dice26 = get_dice26(mask_gt, mask_pred)
