@@ -371,8 +371,7 @@ def run_args(args):
             bet_sitk = lib_bx.from_nib_get_sitk(bet_nib)
             
             
-            template_nib = nib.load(lib_tool.get_template(run_d['template']))
-            template_nib = lib_bx.resample_voxel(template_nib, (1, 1, 1), (160, 224, 192))
+            template_nib = lib_tool.get_template(run_d['template'])
             template_sitk = lib_bx.from_nib_get_sitk(template_nib)
           
             #template_nib = reorder_img(template_nib, resample='continuous')
