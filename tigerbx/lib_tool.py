@@ -12,6 +12,8 @@ import nibabel as nib
 import numpy as np
 import sys
 from os.path import isfile, join
+from tigerbx import lib_bx
+from nilearn.image import resample_img
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -43,33 +45,43 @@ def download(url, file_name):
         shutil.copyfileobj(response, out_file)
 
 def get_template(template_ff):
+    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz'))
+    mni_affine = mni_template.affine
     if template_ff:
-        if isfile(template_ff):
-            return template_ff
-        
         full_path = join(application_path, 'template', template_ff)
+        if isfile(template_ff):
+            full_path = template_ff
         
         if isfile(full_path):
-            return full_path
+            user_template_nib = nib.load(full_path)
+            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
+            return resampled_template
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        return join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz')
+        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
+        return template_nib
+
 
 def get_template_seg(template_ff):
-    template_seg_ff = template_ff.replace('.nii', '_aseg.nii')
-    if template_seg_ff:
-        if isfile(template_seg_ff):
-            return template_seg_ff
-        
+    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz'))
+    mni_affine = mni_template.affine
+
+    if template_ff:
+        template_seg_ff = template_ff.replace('.nii', '_aseg.nii')
         full_path = join(application_path, 'template', template_seg_ff)
+        if isfile(template_seg_ff):
+            full_path = template_seg_ff
         
         if isfile(full_path):
-            return full_path
+            user_template_nib = nib.load(full_path)
+            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
+            return resampled_template
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        return join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz')
+        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
+        return template_nib
         
 
 def get_model(f):

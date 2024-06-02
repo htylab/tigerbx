@@ -209,8 +209,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
                 
             model_transform = lib_tool.get_model('mprage_transform.onnx')
             import SimpleITK as sitk
-            template_nib = nib.load(lib_tool.get_template(template))
-            template_nib = lib_bx.resample_voxel(template_nib, (1, 1, 1), (160, 224, 192))
+            template_nib = lib_tool.get_template(template)
             template_sitk = lib_bx.from_nib_get_sitk(template_nib)
             
             moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
@@ -229,8 +228,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             
             
             mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
-            template_seg = nib.load(lib_tool.get_template_seg(template))
-            template_seg = lib_bx.resample_voxel(template_seg, (1, 1, 1), (160, 224, 192), interpolation='nearest')
+            template_seg = lib_tool.get_template_seg(template)
             mask_gt = reorder_img(template_seg, resample='nearest').get_fdata().astype(int)
             
             
