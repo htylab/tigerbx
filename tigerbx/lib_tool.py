@@ -75,12 +75,12 @@ def get_template_seg(template_ff):
         
         if isfile(full_path):
             user_template_nib = nib.load(full_path)
-            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
+            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192], interpolation='nearest')
             return resampled_template
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
+        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
         return template_nib
         
 
