@@ -278,7 +278,7 @@ def run_args(args):
             npz = ftemplate.replace('.nii','').replace('.gz', '')
             npz = npz.replace('@@@@', f'encode.npz')
             np.savez_compressed(npz, z_mu=z_mu, z_sigma=z_sigma,
-                                affine=input_nib.affine, header=input_nib.header.item())
+                                affine=input_nib.affine, header=input_nib.header)
             
             result_dict['encode'] = np.load(npz)
             result_filedict['encode'] = npz
@@ -292,7 +292,7 @@ def run_args(args):
             sample = np.clip(sample, 0, 1)
             sample = (sample * 255).astype(np.uint8)
 
-            output_nib = nib.Nifti1Image(sample, latent['affine'], latent['header'])
+            output_nib = nib.Nifti1Image(sample, latent['affine'], latent['header'].item())
             output_nib.header.set_data_dtype(np.uint8)
 
             fn = save_nib(output_nib, ftemplate, 'decode')
