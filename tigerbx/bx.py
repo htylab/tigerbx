@@ -83,7 +83,7 @@ def save_nib(data_nib, ftemplate, postfix):
 
 def get_template(f, output_dir, get_z, common_folder=None):
     f_output_dir = output_dir
-    ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
+    ftemplate = basename(f).replace('.nii', f'_@@@@.nii').replace('.npz', f'_@@@@.nii.gz')
 
     if f_output_dir is None: #save the results in the same dir of T1_raw.nii.gz
         f_output_dir = os.path.dirname(os.path.abspath(f))
