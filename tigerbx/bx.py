@@ -261,9 +261,9 @@ def run_args(args):
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
         if run_d['encode'] or run_d['decode']:
-            print('''#Autoencoding weights converted from \n
-                     #Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.\n
-                     #https://github.com/Project-MONAI/GenerativeModels''')
+            print('''#Autoencoding weights converted from
+                  #Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.
+                  #https://github.com/Project-MONAI/GenerativeModels''')
 
         if run_d['encode']:
             model_ff = lib_tool.get_model(omodel['encode'])
