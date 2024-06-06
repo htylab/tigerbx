@@ -153,25 +153,27 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.encode = 'encode' in argstring
     args.decode = 'decode' in argstring
     args.gpu = 'g' in argstring
-    if not (args.encode or args.decode or args.clean_onnx):
-        args.betmask = 'm' in argstring
-        args.aseg = 'a' in argstring
-        args.bet = 'b' in argstring
-        args.bam = 'B' in argstring
-        args.ct = 'c' in argstring
-        args.cgw = 'C' in argstring
-        args.dgm = 'd' in argstring        
-        args.dkt = 'k' in argstring
-        args.wmh = 'W' in argstring    
-        args.wmp = 'w' in argstring
-        #args.seg3 = 's' in argstring
-        args.syn = 'S' in argstring
-        args.tumor = 't' in argstring
-        args.qc = 'q' in argstring
-        args.gz = 'z' in argstring
-        args.affine = 'A' in argstring
-        args.registration = 'r' in argstring
-        args.template = template
+
+    if (args.encode or args.decode or args.clean_onnx):
+        argstring = ''
+    args.betmask = 'm' in argstring
+    args.aseg = 'a' in argstring
+    args.bet = 'b' in argstring
+    args.bam = 'B' in argstring
+    args.ct = 'c' in argstring
+    args.cgw = 'C' in argstring
+    args.dgm = 'd' in argstring        
+    args.dkt = 'k' in argstring
+    args.wmh = 'W' in argstring    
+    args.wmp = 'w' in argstring
+    #args.seg3 = 's' in argstring
+    args.syn = 'S' in argstring
+    args.tumor = 't' in argstring
+    args.qc = 'q' in argstring
+    args.gz = 'z' in argstring
+    args.affine = 'A' in argstring
+    args.registration = 'r' in argstring
+    args.template = template
     return run_args(args)   
 
 
