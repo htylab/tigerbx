@@ -26,7 +26,7 @@ setup(
      keywords='MRI brain segmentation',
      packages=find_packages(),
      package_data={
-        '': ['*.nii.gz'],  # include the MNI152 template
+        'tigerbx': ['template/*.nii.gz'],  # include the MNI152 template
      },
      include_package_data=True,
 
