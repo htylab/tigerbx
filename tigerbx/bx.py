@@ -277,7 +277,8 @@ def run_args(args):
 
             npz = ftemplate.replace('.nii','').replace('.gz', '')
             npz = npz.replace('@@@@', f'encode.npz')
-            np.savez_compressed(npz, z_mu=z_mu, z_sigma=z_sigma, affine=input_nib.affine, header=input_nib.header)
+            np.savez_compressed(npz, z_mu=z_mu, z_sigma=z_sigma,
+                                affine=input_nib.affine, header=input_nib.header.item())
             
             result_dict['encode'] = np.load(npz)
             result_filedict['encode'] = npz
