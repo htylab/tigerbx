@@ -21,7 +21,7 @@ https://github.com/htylab/tigerbx/releases
 ### As a python package
 
     pip install onnxruntime #for gpu version: onnxruntime-gpu
-    pip install https://github.com/htylab/tigerbx/archive/release.zip
+    pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
 
 ### For archived versions
     pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.15.tar.gz
