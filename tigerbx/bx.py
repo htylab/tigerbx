@@ -184,7 +184,7 @@ def run_args(args):
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'], run_d['affine'], run_d['registration'],
-                    run_d['template']]:
+                    run_d['template'], run_d['encode'], run_d['decode']]:
         run_d['bet'] = True
         # Producing extracted brain by default
 
