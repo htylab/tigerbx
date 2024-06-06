@@ -260,6 +260,14 @@ def predict(model, data, GPU, mode=None):
         input_names = [input.name for input in session.get_inputs()]
         inputs = {input_names[0]: data[0], input_names[1]: data[1]}
         return session.run(None, inputs)
+    
+    if mode == 'encode':
+        mu, sigma = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )
+        return mu, sigma
+    
+    if mode == 'decode':
+        result = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )
+        return result[0]
 
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
 
