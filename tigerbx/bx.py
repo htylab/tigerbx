@@ -224,6 +224,11 @@ def run_args(args):
     omodel['reg'] = 'mprage_reg_v002_train.onnx'
     omodel['encode'] = 'mprage_encode_v1.onnx'
     omodel['decode'] = 'mprage_decode_v1.onnx'
+
+    if run_d['encode'] or run_d['decode']:
+        print('#Autoencoding weights converted from')
+        print('#Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.')
+        print('#https://github.com/Project-MONAI/GenerativeModels')
     
 
 
@@ -260,10 +265,7 @@ def run_args(args):
 
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
-        if run_d['encode'] or run_d['decode']:
-            print('''#Autoencoding weights converted from
-                  #Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.
-                  #https://github.com/Project-MONAI/GenerativeModels''')
+
 
         if run_d['encode']:
             model_ff = lib_tool.get_model(omodel['encode'])
@@ -283,7 +285,7 @@ def run_args(args):
 
         if run_d['decode']:
             model_ff = lib_tool.get_model(omodel['decode'])
-            latent = np.load(f)
+            latent = np.load(f, allow_pickle=True)
             sample = lib_tool.predict(model_ff, latent['z_mu'],
                                               GPU=args.gpu, mode='decode').squeeze()
             sample = np.clip(sample, 0, 1)
