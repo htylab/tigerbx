@@ -11,7 +11,7 @@
     df, metric3 = tigerbx.val('aseg_123', 'aseg', 'temp', GPU=True)
     df, metric4 = tigerbx.val('dgm_123', 'aseg', 'temp', GPU=True)
     df, metric5 = tigerbx.val('syn_123', 'aseg', 'temp', GPU=True)
-    df, metric6 = tigerbx.val('reg_50', input_dir, output_dir, GPU=True)
+    df, metric6 = tigerbx.val('reg_50', input_dir, output_dir, GPU=True, template='Template_T1_tbet.nii.gz')
 
     
     print('bet_NFBS', metric1)

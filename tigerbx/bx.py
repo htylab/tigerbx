@@ -127,6 +127,7 @@ def main():
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
+    parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
@@ -173,6 +174,7 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.gz = 'z' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
+    args.rigid = 'R' in argstring
     args.template = template
     return run_args(args)   
 
@@ -184,7 +186,8 @@ def run_args(args):
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'], run_d['affine'], run_d['registration'],
-                    run_d['template'], run_d['encode'], run_d['decode']]:
+                    run_d['rigid'], run_d['template'], run_d['encode'], 
+                    run_d['decode']]:
         run_d['bet'] = True
         # Producing extracted brain by default
 
@@ -418,7 +421,7 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
-        if run_d['affine'] or run_d['registration']:            
+        if run_d['affine'] or run_d['rigid'] or run_d['registration']:            
             import SimpleITK as sitk
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
@@ -433,6 +436,12 @@ def run_args(args):
           
             #template_nib = reorder_img(template_nib, resample='continuous')
             template_data = template_nib.get_fdata()
+            if run_d['rigid']:
+                rigid_sitk, final_transform = lib_bx.affine_reg(template_sitk, bet_sitk, mode='rigid')
+                rigid_nib = lib_bx.from_sitk_get_nib(rigid_sitk)
+                fn = save_nib(rigid_nib, ftemplate, 'rigid')
+                result_dict['rigid'] = rigid_nib
+                result_filedict['rigid'] = fn
 
             Af_sitk, final_transform = lib_bx.affine_reg(template_sitk, bet_sitk)
             Af_nib = lib_bx.from_sitk_get_nib(Af_sitk)

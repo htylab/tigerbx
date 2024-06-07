@@ -64,6 +64,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -A: Affines images to template(default is MNI152).
 -r: Registers images to template(default is MNI152).
 -T: The template filename.
+-R: Rigid transforms images to template(default is MNI152).
 ```
 ## Citation
 
