@@ -83,7 +83,7 @@ def save_nib(data_nib, ftemplate, postfix):
 
 def get_template(f, output_dir, get_z, common_folder=None):
     f_output_dir = output_dir
-    ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
+    ftemplate = basename(f).replace('.nii', f'_@@@@.nii').replace('.npz', f'_@@@@.nii.gz')
 
     if f_output_dir is None: #save the results in the same dir of T1_raw.nii.gz
         f_output_dir = os.path.dirname(os.path.abspath(f))
@@ -129,6 +129,13 @@ def main():
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
+    parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
+    parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
+    # Autoencoding weights converted from 
+    # Pinaya, Walter HL, et al. "Brain imaging generation with latent diffusion models." 
+    # MICCAI Workshop on Deep Generative Models. Springer, Cham, 2022.
+    # https://github.com/Project-MONAI/GenerativeModels
+
     args = parser.parse_args()
     run_args(args)
 
@@ -137,15 +144,25 @@ def run(argstring, input=None, output=None, model=None, template=None):
 
     from argparse import Namespace
     args = Namespace()
+    if not isinstance(input, list):
+        input = [input]
+    args.input = input
+    args.output = output
+    args.model = model
+    args.clean_onnx = 'clean_onnx' in argstring
+    args.encode = 'encode' in argstring
+    args.decode = 'decode' in argstring
+    args.gpu = 'g' in argstring
 
+    if (args.encode or args.decode or args.clean_onnx):
+        argstring = ''
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
     args.bam = 'B' in argstring
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
-    args.dgm = 'd' in argstring
-    args.gpu = 'g' in argstring
+    args.dgm = 'd' in argstring        
     args.dkt = 'k' in argstring
     args.wmh = 'W' in argstring    
     args.wmp = 'w' in argstring
@@ -157,13 +174,6 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
     args.template = template
-
-    if not isinstance(input, list):
-        input = [input]
-    args.input = input
-    args.output = output
-    args.model = model
-    args.clean_onnx = 'clean_onnx' in argstring
     return run_args(args)   
 
 
@@ -174,7 +184,7 @@ def run_args(args):
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'], run_d['affine'], run_d['registration'],
-                    run_d['template']]:
+                    run_d['template'], run_d['encode'], run_d['decode']]:
         run_d['bet'] = True
         # Producing extracted brain by default
 
@@ -186,8 +196,11 @@ def run_args(args):
 
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
-        input_file_list = glob.glob(join(args.input[0], '*.nii'))
-        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
+        if run_d['decode']:
+            input_file_list = glob.glob(join(args.input[0], '*.npz'))
+        else:
+            input_file_list = glob.glob(join(args.input[0], '*.nii'))
+            input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
 
     elif '*' in args.input[0]:
         input_file_list = glob.glob(args.input[0])
@@ -209,6 +222,13 @@ def run_args(args):
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v002_train.onnx'
+    omodel['encode'] = 'mprage_encode_v1.onnx'
+    omodel['decode'] = 'mprage_decode_v1.onnx'
+
+    if run_d['encode'] or run_d['decode']:
+        print('#Autoencoding weights converted from')
+        print('#Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.')
+        print('#https://github.com/Project-MONAI/GenerativeModels')
     
 
 
@@ -244,35 +264,72 @@ def run_args(args):
         t = time.time()
 
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
-        
-        tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
-        input_nib = nib.load(f)
-        tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
-        tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
-        tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
-                        input_nib.header)
-        tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
-        tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 
-        zoom = tbet_nib.header.get_zooms() 
 
-        if max(zoom) > 1.1 or min(zoom) < 0.9:
-            tbet_seg = tbet_nib111
-        else:
-            tbet_seg = reorder_img(tbet_nib, resample='continuous')
-        
-        print('QC score:', qc_score)
 
-        result_dict['QC'] = qc_score
-        result_filedict['QC'] = qc_score
-        if qc_score < 30:
-            print('Pay attention to the result with QC < 30. ')
-        if run_d['qc'] or qc_score < 30:
-            qcfile = ftemplate.replace('.nii','').replace('.gz', '')
-            qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
-            with open(qcfile, 'a') as the_file:
-                the_file.write(f'QC: {qc_score} \n')
-            print('Writing output file: ', qcfile)
+        if run_d['encode']:
+            model_ff = lib_tool.get_model(omodel['encode'])
+            input_nib = nib.load(f)
+            input_vol = input_nib.get_fdata().squeeze()
+            input_vol = input_vol/np.max(input_vol)
+            z_mu, z_sigma = lib_tool.predict(model_ff, input_vol[None, ...][None, ...],
+                                              GPU=args.gpu, mode='encode')
+
+            npz = ftemplate.replace('.nii','').replace('.gz', '')
+            npz = npz.replace('@@@@', f'encode.npz')
+            np.savez_compressed(npz, z_mu=z_mu, z_sigma=z_sigma,
+                                affine=input_nib.affine, header=input_nib.header)
+            
+            result_dict['encode'] = np.load(npz)
+            result_filedict['encode'] = npz
+
+
+        if run_d['decode']:
+            model_ff = lib_tool.get_model(omodel['decode'])
+            latent = np.load(f, allow_pickle=True)
+            sample = lib_tool.predict(model_ff, latent['z_mu'],
+                                              GPU=args.gpu, mode='decode').squeeze()
+            sample = np.clip(sample, 0, 1)
+            sample = (sample * 255).astype(np.uint8)
+
+            output_nib = nib.Nifti1Image(sample, latent['affine'], latent['header'].item())
+            output_nib.header.set_data_dtype(np.uint8)
+
+            fn = save_nib(output_nib, ftemplate, 'decode')
+            result_dict['decode'] = output_nib
+            result_filedict['decode'] = fn            
+   
+
+
+        if (not run_d['decode']) and (not run_d['encode']): #skipping the following operation for decode and encode
+            tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
+            input_nib = nib.load(f)
+            tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+            tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
+            tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
+                            input_nib.header)
+            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+
+            zoom = tbet_nib.header.get_zooms() 
+
+            if max(zoom) > 1.1 or min(zoom) < 0.9:
+                tbet_seg = tbet_nib111
+            else:
+                tbet_seg = reorder_img(tbet_nib, resample='continuous')
+            
+            print('QC score:', qc_score)
+
+            result_dict['QC'] = qc_score
+            result_filedict['QC'] = qc_score
+            if qc_score < 30:
+                print('Pay attention to the result with QC < 30. ')
+            if run_d['qc'] or qc_score < 30:
+                qcfile = ftemplate.replace('.nii','').replace('.gz', '')
+                qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
+                with open(qcfile, 'a') as the_file:
+                    the_file.write(f'QC: {qc_score} \n')
+                print('Writing output file: ', qcfile)
 
         if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
@@ -385,6 +442,7 @@ def run_args(args):
                 fn = save_nib(Af_nib, ftemplate, 'Af')
                 result_dict['Af'] = Af_nib
                 result_filedict['Af'] = fn
+
             if run_d['registration']:
                 Af_data = Af_nib.get_fdata()
                 moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
