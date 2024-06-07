@@ -249,14 +249,19 @@ def resample_voxel(data_nib, voxelsize,
 
 
 
-def affine_reg(mni152_sitk, bet_sitk):
+def affine_reg(mni152_sitk, bet_sitk, mode=None):
     import SimpleITK as sitk
     #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
     #moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
     fixed_image = mni152_sitk
     moving_image = bet_sitk
-
-    initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+    if mode=='rigid': 
+        initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+                                                            moving_image,
+                                                            sitk.Euler3DTransform(),
+                                                            sitk.CenteredTransformInitializerFilter.GEOMETRY)
+    else:
+        initial_transform = sitk.CenteredTransformInitializer(fixed_image,
                                                         moving_image,
                                                         sitk.AffineTransform(3),
                                                         sitk.CenteredTransformInitializerFilter.GEOMETRY)
@@ -268,8 +273,10 @@ def affine_reg(mni152_sitk, bet_sitk):
     # Interpolator
     registration_method.SetInterpolator(sitk.sitkLinear)
     # Optimizer settings
-    #registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
-    registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    if mode=='rigid':
+        registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    else:
+        registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
     registration_method.SetOptimizerScalesFromPhysicalShift()
     # Optionally, set up the multi-resolution framework
     registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
