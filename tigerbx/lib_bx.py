@@ -273,10 +273,10 @@ def affine_reg(mni152_sitk, bet_sitk, mode=None):
     # Interpolator
     registration_method.SetInterpolator(sitk.sitkLinear)
     # Optimizer settings
-    if mode=='rigid':
-        registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
-    else:
-        registration_method.SetOptimizerAsGradientDescent(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    #if mode=='rigid':
+    #    registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    #else:
+    registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
     registration_method.SetOptimizerScalesFromPhysicalShift()
     # Optionally, set up the multi-resolution framework
     registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
