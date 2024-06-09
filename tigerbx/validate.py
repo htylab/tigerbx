@@ -194,8 +194,8 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
 
         return df, mean_per_column
-    elif argstring == 'reg_50':
-        ffs = sorted(glob.glob(join(input_dir, '*T1w_raw.nii.gz')))
+    elif argstring == 'reg_60':
+        ffs = sorted(glob.glob(join(input_dir, 'raw60', '*.nii.gz')))
         if debug: ffs = ffs[:5]
         print(f'Total files: {len(ffs)}')        
 
@@ -212,7 +212,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             template_nib = lib_tool.get_template(template)
             template_sitk = lib_bx.from_nib_get_sitk(template_nib)
             
-            moving_seg_sitk = sitk.ReadImage(f.replace('_T1w_raw.nii', '_aseg.nii'), sitk.sitkFloat32)
+            moving_seg_sitk = sitk.ReadImage(f.replace('raw60', 'label60'), sitk.sitkFloat32)
             Af_seg_sitk = lib_bx.affine_transform(template_sitk, moving_seg_sitk, result['Affine_matrix'])
             Af_seg_nib = lib_bx.from_sitk_get_nib(Af_seg_sitk)
 
@@ -253,7 +253,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
         # Add the IDs as the first column
         df.insert(0, 'Filename', f_list)
-        df.to_csv(join(output_dir, f'val_reg_50.csv'), index=False)
+        df.to_csv(join(output_dir, f'val_reg_60.csv'), index=False)
         print('mean Dice of all data:', np.mean(np.array(dsc_list).flatten()))
         mean_per_column = df.mean(numeric_only=True)
         print(mean_per_column)

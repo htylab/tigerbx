@@ -11,7 +11,7 @@
     df, metric3 = tigerbx.val('aseg_123', 'aseg', 'temp', GPU=True)
     df, metric4 = tigerbx.val('dgm_123', 'aseg', 'temp', GPU=True)
     df, metric5 = tigerbx.val('syn_123', 'aseg', 'temp', GPU=True)
-    df, metric6 = tigerbx.val('reg_50', input_dir, output_dir, GPU=True, template='Template_T1_tbet.nii.gz')
+    df, metric6 = tigerbx.val('reg_60', 'aseg, 'temp', GPU=True, template='Template_T1_tbet.nii.gz')
 
     
     print('bet_NFBS', metric1)
@@ -19,7 +19,7 @@
     print('aseg_123', metric3)
     print('dgm_123', metric4)
     print('syn_123', metric5)
-    print('reg_50', metric6)
+    print('reg_60', metric6)
     print('Time', time.time() - t)
 
 ### Validation Datasets
@@ -49,32 +49,32 @@
 
     | Structure                | Dice    |
     |--------------------------|---------|
-    | Left-Cerebral WM         | 0.818223|
-    | Right-Cerebral WM        | 0.818454|
-    | Left-Cerebral Cortex     | 0.741146|
-    | Right-Cerebral Cortex    | 0.740528|
-    | Left-Lateral Ventricle   | 0.802001|
-    | Right-Lateral Ventricle  | 0.798651|
-    | Left-Cerebellum WM       | 0.828475|
-    | Right-Cerebellum WM      | 0.842291|
-    | Left-Cerebellum Cortex   | 0.896367|
-    | Right-Cerebellum Cortex  | 0.903447|
-    | Left-Thalamus            | 0.889438|
-    | Right-Thalamus           | 0.888188|
-    | Left-Caudate             | 0.835551|
-    | Right-Caudate            | 0.833432|
-    | Left-Putamen             | 0.874721|
-    | Right-Putamen            | 0.876234|
-    | Left-Pallidum            | 0.834620|
-    | Right-Pallidum           | 0.821823|
-    | Left-Hippocampus         | 0.833547|
-    | Right-Hippocampus        | 0.843158|
-    | Left-Amygdala            | 0.799048|
-    | Right-Amygdala           | 0.815428|
-    | Left-VentralDC           | 0.840898|
-    | Right-VentralDC          | 0.841974|
-    | Brain Stem               | 0.910285|
-    | CSF                      | 0.681465|
+    | Left-Cerebral WM         | 0.824747|
+    | Right-Cerebral WM        | 0.826378|
+    | Left-Cerebral Cortex     | 0.739047|
+    | Right-Cerebral Cortex    | 0.741221|
+    | Left-Lateral Ventricle   | 0.804508|
+    | Right-Lateral Ventricle  | 0.803698|
+    | Left-Cerebellum WM       | 0.838658|
+    | Right-Cerebellum WM      | 0.849894|
+    | Left-Cerebellum Cortex   | 0.902093|
+    | Right-Cerebellum Cortex  | 0.909830|
+    | Left-Thalamus            | 0.879016|
+    | Right-Thalamus           | 0.878512|
+    | Left-Caudate             | 0.822172|
+    | Right-Caudate            | 0.834346|
+    | Left-Putamen             | 0.875642|
+    | Right-Putamen            | 0.883873|
+    | Left-Pallidum            | 0.834932|
+    | Right-Pallidum           | 0.833917|
+    | Left-Hippocampus         | 0.835422|
+    | Right-Hippocampus        | 0.848588|
+    | Left-Amygdala            | 0.821882|
+    | Right-Amygdala           | 0.834197|
+    | Left-VentralDC           | 0.840949|
+    | Right-VentralDC          | 0.842651|
+    | Brain Stem               | 0.914912|
+    | CSF                      | 0.661478|
 #### Skull Stripping
     bet_NFBS: 0.969
     bet_synstrip: 0.971
