@@ -45,36 +45,9 @@
     | Hippocampus| L   | 0.808 | 0.828| 0.789| R   | 0.810 | 0.831| 0.779|
     | Amygdala   | L   | 0.737 | 0.764| 0.716| R   | 0.727 | 0.750| 0.711|
     | Mean       | L   | 0.833 | 0.846| 0.820| R   | 0.829 | 0.841| 0.807|
-#### Registration: Dice coefficients
+#### Registration:
+    mean dice: 0.833
 
-    | Structure                | Dice    |
-    |--------------------------|---------|
-    | Left-Cerebral WM         | 0.824747|
-    | Right-Cerebral WM        | 0.826378|
-    | Left-Cerebral Cortex     | 0.739047|
-    | Right-Cerebral Cortex    | 0.741221|
-    | Left-Lateral Ventricle   | 0.804508|
-    | Right-Lateral Ventricle  | 0.803698|
-    | Left-Cerebellum WM       | 0.838658|
-    | Right-Cerebellum WM      | 0.849894|
-    | Left-Cerebellum Cortex   | 0.902093|
-    | Right-Cerebellum Cortex  | 0.909830|
-    | Left-Thalamus            | 0.879016|
-    | Right-Thalamus           | 0.878512|
-    | Left-Caudate             | 0.822172|
-    | Right-Caudate            | 0.834346|
-    | Left-Putamen             | 0.875642|
-    | Right-Putamen            | 0.883873|
-    | Left-Pallidum            | 0.834932|
-    | Right-Pallidum           | 0.833917|
-    | Left-Hippocampus         | 0.835422|
-    | Right-Hippocampus        | 0.848588|
-    | Left-Amygdala            | 0.821882|
-    | Right-Amygdala           | 0.834197|
-    | Left-VentralDC           | 0.840949|
-    | Right-VentralDC          | 0.842651|
-    | Brain Stem               | 0.914912|
-    | CSF                      | 0.661478|
 #### Skull Stripping
     bet_NFBS: 0.969
     bet_synstrip: 0.971
