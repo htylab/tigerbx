@@ -46,7 +46,7 @@
     | Amygdala   | L   | 0.737 | 0.764| 0.716| R   | 0.727 | 0.750| 0.711|
     | Mean       | L   | 0.833 | 0.846| 0.820| R   | 0.829 | 0.841| 0.807|
 #### Registration:
-    mean dice: 0.833
+    mean dice: 0.808
 
 #### Skull Stripping
     bet_NFBS: 0.969
