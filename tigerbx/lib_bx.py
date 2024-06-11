@@ -29,7 +29,7 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
 
 label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
                          26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
-nib.Nifti1Header.quaternion_threshold = -100
+#nib.Nifti1Header.quaternion_threshold = -100
 
 
 def get_mode(model_ff):
@@ -79,27 +79,14 @@ def read_nib(input_nib):
 
     return np.squeeze(input_nib.get_fdata())
 
-def run(model_ff, input_nib, GPU):
+def reorient(nii, orientation="RAS"):
+    orig_ornt = nib.orientations.io_orientation(nii.affine)
+    targ_ornt = nib.orientations.axcodes2ornt(orientation)
+    transform = nib.orientations.ornt_transform(orig_ornt, targ_ornt)
+    reoriented_nii = nii.as_reoriented(transform)
+    return reoriented_nii
 
-
-    seg_mode, _ , model_str = get_mode(model_ff)
-     
-
-
-    #data = input_nib.get_fdata()
-    data = read_nib(input_nib)
-
-
-    image = data[None, ...][None, ...]
-    if seg_mode == 'synthseg':
-        image = (image - np.min(image)) / (np.max(image) - np.min(image))
-    else:
-        image = image/np.max(image)
-
-
-    logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
-
-
+def logit_to_prob(logits, seg_mode):
     label_num = dict()
     label_num['bet'] = 2
     label_num['aseg43'] = 44
@@ -115,23 +102,46 @@ def run(model_ff, input_nib, GPU):
         #sigmoid
         th = 0.5
         from scipy.special import expit
-        logits = expit(logits)
-        th = 0.5
-        mask_pred = np.argmax(logits, axis=0) + 1
-        mask_pred[np.max(logits, axis=0) <= th] = 0
-        mask_pred = getLarea(mask_pred)
-        prob = logits
-
+        prob = expit(logits)
     else:
         #softmax mode
-        #print(logits.shape)
-        mask_pred = np.argmax(logits, axis=0)
+        #print(logits.shape)        
         prob = softmax(logits, axis=0)
+    return prob
+
+def run(model_ff_list, input_nib, GPU):
+
+    if not isinstance(model_ff_list, list):
+        model_ff_list = [model_ff_list]
+
+
+    seg_mode, _ , model_str = get_mode(model_ff_list[0]) 
+
+    #data = input_nib.get_fdata()
+    data = read_nib(input_nib)
+
+    image = data[None, ...][None, ...]
+    if seg_mode == 'synthseg':
+        image = (image - np.min(image)) / (np.max(image) - np.min(image))
+    else:
+        image = image/np.max(image)
+
+    prob = 0
+    count = 0
+    for model_ff in model_ff_list:
+        count += 1
+        logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
+        prob += logit_to_prob(logits, seg_mode)
+    prob = prob/count # average the prob
+
+    if seg_mode =='bet': #sigmoid 1 channel
+        th = 0.5
+        mask_pred = np.ones(prob[0, ...].shape)
+        mask_pred[prob[0, ...] < th] = 0
+        mask_pred = getLarea(mask_pred)
+    else:    
+        mask_pred = np.argmax(prob, axis=0)
     
-    #qc1 = np.mean(probmax[mask_pred > 0])
-    #qc2 = np.mean(probmax[(mask_pred > 0) & (probmax < 0.95)] ** 2)
-    #sum1 = np.sum(mask_pred>0)
-    #sum2 = sum1 - np.sum((probmax[mask_pred > 0] ** 10)< 0.99)
 
     if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
         labels = label_all[seg_mode]
@@ -161,7 +171,7 @@ def read_file(model_ff, input_file):
 
     if mat_size == -1 or mat_size == 111:
 
-        if max(zoom) > 1.2 or min(zoom) < 0.8 or mat_size == 111:
+        if max(zoom) > 1.1 or min(zoom) < 0.9 or mat_size == 111:
 
             vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
@@ -238,6 +248,85 @@ def resample_voxel(data_nib, voxelsize,
     return new_nib
 
 
+
+def affine_reg(mni152_sitk, bet_sitk, mode=None):
+    import SimpleITK as sitk
+    #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
+    #moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
+    fixed_image = mni152_sitk
+    moving_image = bet_sitk
+    if mode=='rigid': 
+        initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+                                                            moving_image,
+                                                            sitk.Euler3DTransform(),
+                                                            sitk.CenteredTransformInitializerFilter.GEOMETRY)
+    else:
+        initial_transform = sitk.CenteredTransformInitializer(fixed_image,
+                                                        moving_image,
+                                                        sitk.AffineTransform(3),
+                                                        sitk.CenteredTransformInitializerFilter.GEOMETRY)
+    # Set up the registration framework
+    registration_method = sitk.ImageRegistrationMethod()
+    # Similarity metric setting
+    registration_method.SetMetricAsCorrelation()
+    registration_method.SetMetricSamplingStrategy(registration_method.NONE)
+    # Interpolator
+    registration_method.SetInterpolator(sitk.sitkLinear)
+    # Optimizer settings
+    #if mode=='rigid':
+    #    registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    #else:
+    registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
+    registration_method.SetOptimizerScalesFromPhysicalShift()
+    # Optionally, set up the multi-resolution framework
+    registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
+    registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2,1,0])
+    registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+    registration_method.SetInitialTransform(initial_transform)
+    # Execute the registration
+    final_transform = registration_method.Execute(fixed_image, moving_image)
+    
+    # Apply the final transform to the moving image
+    resampled = sitk.Resample(moving_image, fixed_image, final_transform, sitk.sitkLinear, 0.0, moving_image.GetPixelID())
+    #sitk.WriteImage(resampled, '/NFS/PeiMao/tigerbx-main/output/test.nii.gz')
+    #Af_data = sitk.GetArrayFromImage(resampled)
+
+    return resampled, final_transform
+
+
+def affine_transform(mni152_sitk, moving_seg_sitk, final_transform):
+    import SimpleITK as sitk
+    #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
+    #moving_seg = sitk.GetImageFromArray(seg_bet.astype(np.float32))
+
+    resampled_segmentation = sitk.Resample(moving_seg_sitk, mni152_sitk, final_transform, sitk.sitkNearestNeighbor, 0.0, moving_seg_sitk.GetPixelID())
+    #sitk.WriteImage(resampled_segmentation, '/NFS/PeiMao/tigerbx-main/output/sitk.nii.gz')
+    #Af_seg_data = sitk.GetArrayFromImage(resampled_segmentation)
+    
+    return resampled_segmentation
+
+
+def from_nib_get_sitk(nii_image):
+    import tempfile
+    import SimpleITK as sitk
+    with tempfile.NamedTemporaryFile(suffix='.nii') as temp_file:
+        nib.save(nii_image, temp_file.name)
+        temp_file.seek(0)
+        sitk_image = sitk.ReadImage(temp_file.name, sitk.sitkFloat32)
+        
+    return sitk_image
+
+
+def from_sitk_get_nib(sitk_image):
+    import tempfile
+    import SimpleITK as sitk
+    with tempfile.NamedTemporaryFile(suffix='.nii') as temp_file:
+        sitk.WriteImage(sitk_image, temp_file.name)
+        temp_file.seek(0)       
+        nii_image = nib.load(temp_file.name)
+        nii_image_copy = nib.Nifti1Image(nii_image.get_fdata().copy(), nii_image.affine.copy())
+        
+    return nii_image_copy
 
 
 

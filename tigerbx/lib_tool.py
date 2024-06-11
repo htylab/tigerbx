@@ -11,7 +11,9 @@ from os.path import join, isdir, basename, isfile, dirname
 import nibabel as nib
 import numpy as np
 import sys
-
+from os.path import isfile, join
+from tigerbx import lib_bx
+from nilearn.image import resample_img
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -42,6 +44,45 @@ def download(url, file_name):
                                 context=context) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
 
+def get_template(template_ff):
+    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz'))
+    mni_affine = mni_template.affine
+    if template_ff:
+        full_path = join(application_path, 'template', template_ff)
+        if isfile(template_ff):
+            full_path = template_ff
+        
+        if isfile(full_path):
+            user_template_nib = nib.load(full_path)
+            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
+            return resampled_template
+        else:
+            raise FileNotFoundError("Template file does not exist.")
+    else:
+        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
+        return template_nib
+
+
+def get_template_seg(template_ff):
+    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz'))
+    mni_affine = mni_template.affine
+
+    if template_ff:
+        template_seg_ff = template_ff.replace('.nii', '_aseg.nii')
+        full_path = join(application_path, 'template', template_seg_ff)
+        if isfile(template_seg_ff):
+            full_path = template_seg_ff
+        
+        if isfile(full_path):
+            user_template_nib = nib.load(full_path)
+            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192], interpolation='nearest')
+            return resampled_template
+        else:
+            raise FileNotFoundError("Template file does not exist.")
+    else:
+        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
+        return template_nib
+        
 
 def get_model(f):
     from os.path import join, isfile
@@ -192,7 +233,7 @@ def cpu_count():
     raise Exception('Can not determine number of CPUs on this system')
 
 
-def predict(model, data, GPU):
+def predict(model, data, GPU, mode=None):
     #from .tool import cpu_count
     #will reload model file every time
 
@@ -215,6 +256,25 @@ def predict(model, data, GPU):
     data_type = 'float64'
     if session.get_inputs()[0].type == 'tensor(float)':
         data_type = 'float32'
+    if mode == 'reg':
+        input_names = [input.name for input in session.get_inputs()]
+        inputs = {input_names[0]: data[0], input_names[1]: data[1]}
+        return session.run(None, inputs)
+    
+    if mode == 'encode':
+        mu, sigma = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )
+        return mu, sigma
+    
+    if mode == 'decode':
+        result = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )
+        return result[0]
 
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
 
+
+def clean_onnx():
+    import glob
+    ffs = glob.glob(join(model_path, '*.onnx'))
+    for f in ffs:
+        print('Removing ', f)
+        os.remove(f)

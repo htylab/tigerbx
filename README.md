@@ -2,7 +2,6 @@
 
 ## Background
 
-
 * This repo provides deep learning methods with pretrained models for brain extraction.
 * We also provided the stand-alone application working on Windows, Mac, and Linux.
 * The software has been exclusively designed for research purposes and is not intended for any commercial application.
@@ -17,11 +16,15 @@ https://github.com/htylab/tigerbx/releases
 
     tigerbx -bmad c:\data\*.nii.gz -o c:\output
     tigerbx -c c:\data\*.nii.gz -o c:\output
+    tigerbx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
 
 ### As a python package
 
     pip install onnxruntime #for gpu version: onnxruntime-gpu
-    pip install https://github.com/htylab/tigerbx/archive/release.zip
+    pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
+
+### For archived versions
+    pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.15.tar.gz
 
 ### As a python package
 
@@ -30,6 +33,10 @@ https://github.com/htylab/tigerbx/releases
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
     tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
+    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz') # registers images to template
+    tigerbx.run('clean_onnx') #Clean downloaded ONNX file
+    tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
+    tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
 
 
 ** Mac and Windows  are supported.**
@@ -39,21 +46,25 @@ https://github.com/htylab/tigerbx/releases
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
 ```
->>tigerbx  c:\data\**\*T1w.nii -o c:\outputdir -b -m -a -d -f
--m: Producing the brain mask.
--a: Producing the aseg mask.
--b: Producing the extracted brain.
--B: Producing brain age mapping (WIP)
--d: Producing the deep gray matter mask.
--k: Producing the DKT mask. (WIP)
--c: Producing the cortical thickness map. 
--C: Producing the FSL-style PVEs of CSF, GM, WM. (WIP)
--S: Producing aseg mask using SynthSeg-like method (WIP)
--t: Production the tumor mask. (T1 and T1c) (WIP)
--w: Producing the white matter parcellation. (WIP)
--W: Producing the white-matter hyperintensity mask (T1 and FLAIR) (WIP).
--q: Save the QC score. Pay attention to QC scores less than 50.
--z: Force storing in nii.gz format.
+tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
+-m: Produces the brain mask.
+-a: Produces the aseg mask.
+-b: Produces the extracted brain.
+-B: Produces brain age mapping (WIP).
+-d: Produces the deep gray matter mask.
+-k: Produces the DKT mask (WIP).
+-c: Produces the cortical thickness map.
+-C: Produces the FSL-style PVEs of CSF, GM, and WM (WIP).
+-S: Produces the aseg mask using the SynthSeg-like method (WIP).
+-t: Produces the tumor mask (T1 and T1c) (WIP).
+-w: Produces the white matter parcellation (WIP).
+-W: Produces the white matter hypointensity mask (WIP).
+-q: Saves the QC score. Pay attention to QC scores below 30.
+-z: Forces storing in nii.gz format.
+-A: Affines images to template(default is MNI152).
+-r: Registers images to template(default is MNI152).
+-T: The template filename.
+-R: Rigid transforms images to template(default is MNI152).
 ```
 ## Citation
 
@@ -66,6 +77,10 @@ https://github.com/htylab/tigerbx/releases
 ## Label definitions
 
 For label definitions, please check here. [Label definitions](doc/seglabel.md)
+
+## Performance evaluation
+
+For performance of this package, please check here. [Validation](doc/validation.md)
 
 ## Disclaimer
 

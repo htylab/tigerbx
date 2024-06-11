@@ -1,1 +1,2 @@
 global-include *.txt *.py
+include tigerbx/template/*.nii.gz
