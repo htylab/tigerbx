@@ -320,7 +320,7 @@ def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], sigma_scale: 
     gaussian_importance_map[mask] = np.min(gaussian_importance_map[~mask])
     return gaussian_importance_map
 
-def img_to_patches(vol_d: torch.Tensor, patch_size: Tuple[int, ...], tile_step_size: float):
+def img_to_patches(vol_d: np.ndarray, patch_size: Tuple[int, ...], tile_step_size: float):#####
     steps = compute_steps_for_sliding_window(vol_d.shape, patch_size, tile_step_size)
     slice_list = []
     point_list = [[i, j, k] for i in steps[0] for j in steps[1] for k in steps[2]]
@@ -328,19 +328,19 @@ def img_to_patches(vol_d: torch.Tensor, patch_size: Tuple[int, ...], tile_step_s
     for p in point_list:            
         slice_input = vol_d[p[0] : p[0]+patch_size[0], p[1] : p[1]+patch_size[1], p[2] : p[2]+patch_size[2]]
         slice_list.append(slice_input)
-    return torch.cat([s[np.newaxis, ...] for s in slice_list], axis=0), point_list
+    return np.concatenate([s[np.newaxis, ...] for s in slice_list], axis=0), point_list
 
-def patches_to_img(patches: torch.Tensor, vol_d_size: Tuple[int, ...], point_list: List[List[int]]):
+def patches_to_img(patches: np.ndarray, vol_d_size: Tuple[int, ...], point_list: List[List[int]]):
     '''
     patches shape = (patch_num, channel, w, h, d)
     '''
     patch_size = patches.shape[-3:]
-    prob_tensor = torch.zeros(((patches.shape[1],) + vol_d_size), device='cpu')
+    prob_tensor = np.zeros(((patches.shape[1],) + vol_d_size))
     
     for patch_dim, p in zip(range(patches.shape[0]), point_list):
         none_zero_mask1 = prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]]!= 0 
         none_zero_mask2 = patches[patch_dim, : ,...]!= 0
-        none_zero_num = torch.clamp(none_zero_mask1 + none_zero_mask2, min=1)
+        none_zero_num = np.clip(none_zero_mask1 + none_zero_mask2, a_min=1, a_max=None)
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += patches[patch_dim, : ,...]
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] /= none_zero_num
     return prob_tensor
