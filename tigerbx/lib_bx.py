@@ -130,7 +130,7 @@ def run(model_ff_list, input_nib, GPU):
     count = 0
     for model_ff in model_ff_list:
         count += 1
-        logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
+        logits = lib_tool.predict(model_ff, image, GPU, 'patch')[0, ...]
         prob += logit_to_prob(logits, seg_mode)
     prob = prob/count # average the prob
 
