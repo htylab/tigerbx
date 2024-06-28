@@ -15,7 +15,7 @@ from os.path import isfile, join
 from tigerbx import lib_bx
 from nilearn.image import resample_img
 from typing import Union, Tuple, List
-
+from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
@@ -270,16 +270,35 @@ def predict(model, data, GPU, mode=None):
         return result[0]
         
     if mode == 'patch':
-        print(data.shape)
-        print(data_type)
-        logits = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
-        print('logits type', type(logits))
-        print(logits.shape)
+        logits = patch_inference_3d(session, data.astype(data_type), patch_size = (160,)*3, gaussian = True)
+        # print(data.shape)
+        # logits = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
+        # print('logits type', type(logits))
+        
         return logits
         
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
-def compute_steps_for_sliding_window(image_size: Tuple[int, ...], tile_size: Tuple[int, ...], tile_step_size: float) -> \
-        List[List[int]]:
+
+def patch_inference_3d(session, 
+                       vol_d: np.ndarray, 
+                       patch_size : Tuple[int, ...] = (128,)*3, 
+                       tile_step_size: float = 0.5, 
+                       gaussian = False ):
+    patches, point_list = img_to_patches(vol_d, patch_size, tile_step_size)#patches.shape = (patch_num, 1, 1, 128, 128, 128)  
+    output_patch_list = []
+    for patch in patches:
+        logits = session.run(None, {session.get_inputs()[0].name: patch}, )[0]#logits.shape = (1, 1, 128, 128, 128)             
+        output_patch_list.append(logits.squeeze(0))
+    output_patches = np.concatenate([s[np.newaxis, ...] for s in output_patch_list], axis=0)#shape = (patch_num, 1, 128, 128, 128)  
+    if gaussian:    
+        gaussian_map = compute_gaussian(patch_size)
+        output_patches = output_patches*gaussian_map
+    # print(output_patches.shape) # (patch_num, channel, w, h, d)
+    mean_prob = patches_to_img(output_patches, vol_d.shape[-3:], point_list)
+    return mean_prob
+def compute_steps_for_sliding_window(image_size: Tuple[int, ...], 
+                                     tile_size: Tuple[int, ...], 
+                                     tile_step_size: float) ->  List[List[int]]:
     assert [i >= j for i, j in zip(image_size, tile_size)], "image size must be as large or larger than patch_size"
     assert 0 < tile_step_size <= 1, 'step_size must be larger than 0 and smaller or equal to 1'
 
@@ -304,9 +323,10 @@ def compute_steps_for_sliding_window(image_size: Tuple[int, ...], tile_size: Tup
     return steps
 
 
-
-def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], sigma_scale: float = 1. / 8,
-                     value_scaling_factor: float = 1, dtype=np.float16) -> np.ndarray:
+def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], 
+                     sigma_scale: float = 1. / 8,
+                     value_scaling_factor: float = 1, 
+                     dtype=np.float16) -> np.ndarray:
     tmp = np.zeros(tile_size)
     center_coords = [i // 2 for i in tile_size]
     sigmas = [i * sigma_scale for i in tile_size]
@@ -320,13 +340,12 @@ def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], sigma_scale: 
     gaussian_importance_map[mask] = np.min(gaussian_importance_map[~mask])
     return gaussian_importance_map
 
-def img_to_patches(vol_d: np.ndarray, patch_size: Tuple[int, ...], tile_step_size: float):#####
-    steps = compute_steps_for_sliding_window(vol_d.shape, patch_size, tile_step_size)
+def img_to_patches(vol_d: np.ndarray, patch_size: Tuple[int, ...], tile_step_size: float):
+    steps = compute_steps_for_sliding_window(vol_d.shape[-3:], patch_size, tile_step_size)
     slice_list = []
     point_list = [[i, j, k] for i in steps[0] for j in steps[1] for k in steps[2]]
-
     for p in point_list:            
-        slice_input = vol_d[p[0] : p[0]+patch_size[0], p[1] : p[1]+patch_size[1], p[2] : p[2]+patch_size[2]]
+        slice_input = vol_d[:, :, p[0] : p[0]+patch_size[0], p[1] : p[1]+patch_size[1], p[2] : p[2]+patch_size[2]]
         slice_list.append(slice_input)
     return np.concatenate([s[np.newaxis, ...] for s in slice_list], axis=0), point_list
 
@@ -338,12 +357,12 @@ def patches_to_img(patches: np.ndarray, vol_d_size: Tuple[int, ...], point_list:
     prob_tensor = np.zeros(((patches.shape[1],) + vol_d_size))
     
     for patch_dim, p in zip(range(patches.shape[0]), point_list):
-        none_zero_mask1 = prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]]!= 0 
+        none_zero_mask1 = prob_tensor[:, p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]]!= 0 
         none_zero_mask2 = patches[patch_dim, : ,...]!= 0
         none_zero_num = np.clip(none_zero_mask1 + none_zero_mask2, a_min=1, a_max=None)
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += patches[patch_dim, : ,...]
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] /= none_zero_num
-    return prob_tensor
+    return prob_tensor[np.newaxis, :]
 
 def clean_onnx():
     import glob
