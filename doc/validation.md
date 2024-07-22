@@ -49,7 +49,7 @@
     mean dice: 0.808
 
 #### Skull Stripping
-    bet_NFBS: 0.969
+    bet_NFBS: 0.973
     bet_synstrip: 0.971
 
 
