@@ -20,7 +20,7 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
     
-def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None):
+def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None, patch=False):
     if not isinstance(model, list):
         model = [model]
     # for multi-model ensemble
@@ -38,7 +38,7 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
         
         
     mask_nib_resp, prob_resp = lib_bx.run(
-        model_ff_list, input_nib_resp,  GPU=GPU)
+        model_ff_list, input_nib_resp,  GPU=GPU, patch=patch)
         
     mask_nib = resample_to_img(
         mask_nib_resp, input_nib, interpolation="nearest")
@@ -128,6 +128,7 @@ def main():
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
+    parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
@@ -142,7 +143,6 @@ def main():
 
 
 def run(argstring, input=None, output=None, model=None, template=None):
-
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -175,6 +175,7 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
     args.rigid = 'R' in argstring
+    args.patch = 'p' in argstring
     args.template = template
     return run_args(args)   
 
@@ -187,7 +188,7 @@ def run_args(args):
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'], run_d['affine'], run_d['registration'],
                     run_d['rigid'], run_d['template'], run_d['encode'], 
-                    run_d['decode']]:
+                    run_d['decode'], run_d['patch']]:
         run_d['bet'] = True
         # Producing extracted brain by default
 
@@ -227,7 +228,7 @@ def run_args(args):
     omodel['reg'] = 'mprage_reg_v002_train.onnx'
     omodel['encode'] = 'mprage_encode_v1.onnx'
     omodel['decode'] = 'mprage_decode_v1.onnx'
-
+    
     if run_d['encode'] or run_d['decode']:
         print('#Autoencoding weights converted from')
         print('#Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.')
@@ -347,7 +348,7 @@ def run_args(args):
         for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
-                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg)
+                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 result_dict[seg_str] = result_nib
                 result_filedict[seg_str] = fn
