@@ -270,7 +270,7 @@ def predict(model, data, GPU, mode=None):
         return result[0]
         
     if mode == 'patch':
-        logits = patch_inference_3d(session, data.astype(data_type), patch_size = (160,)*3, gaussian = True)
+        logits = patch_inference_3d_lite(session, data.astype(data_type), patch_size = (160,)*3, gaussian = True)
         # print(data.shape)
         # logits = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
         # print('logits type', type(logits))
@@ -278,7 +278,28 @@ def predict(model, data, GPU, mode=None):
         return logits
         
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
+def patch_inference_3d_lite(session, 
+                       vol_d: np.ndarray, 
+                       patch_size : Tuple[int, ...] = (128,)*3, 
+                       tile_step_size: float = 0.5, 
+                       gaussian = False ):
+    patches, point_list = img_to_patches(vol_d, patch_size, tile_step_size)#patches.shape = (patch_num, 1, 1, 128, 128, 128)  
+    gaussian_map = compute_gaussian(patch_size)
+    patch_logits_shape = session.run(None, {session.get_inputs()[0].name: patches[0]}, )[0].shape
+    prob_tensor = np.zeros(((patch_logits_shape[1],) + vol_d.shape[-3:]))
+    for patch, p in zip(patches, point_list):
+        logits = session.run(None, {session.get_inputs()[0].name: patch}, )[0]#logits.shape = (1, c, 128, 128, 128)      
+        if gaussian:    
+            output_patch = logits.squeeze(0)*gaussian_map
+        none_zero_mask1 = prob_tensor[:, p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]]!= 0 
+        none_zero_mask2 = output_patch != 0
+        none_zero_num = np.clip(none_zero_mask1 + none_zero_mask2, a_min=1, a_max=None)
+        prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += output_patch
+        prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] /= none_zero_num
+    return prob_tensor[np.newaxis, :]
 
+
+    
 def patch_inference_3d(session, 
                        vol_d: np.ndarray, 
                        patch_size : Tuple[int, ...] = (128,)*3, 
