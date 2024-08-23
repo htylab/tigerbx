@@ -12,7 +12,7 @@ import nibabel as nib
 from tigerbx import lib_tool
 from tigerbx import lib_bx
 import copy
-from nilearn.image import resample_to_img, reorder_img
+from nilearn.image import resample_to_img, reorder_img, resample_img
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
@@ -225,6 +225,8 @@ def run_args(args):
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v002_train.onnx'
+    omodel['affine'] = 'mprage_affine_v001_train.onnx'
+    omodel['rigid'] = 'mprage_rigid_v001_train.onnx'
     omodel['encode'] = 'mprage_encode_v1.onnx'
     omodel['decode'] = 'mprage_decode_v1.onnx'
 
@@ -422,59 +424,85 @@ def run_args(args):
             result_filedict['ct'] = fn
             
         if run_d['affine'] or run_d['rigid'] or run_d['registration']:            
-            import SimpleITK as sitk
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
-            bet_nib = reorder_img(bet_nib, resample='continuous')
-            #bet = bet_nib.get_fdata()
-            bet_sitk = lib_bx.from_nib_get_sitk(bet_nib)
             
+            bet_nib = reorder_img(bet_nib, resample='continuous')
+            ori_affine = bet_nib.affine
+            bet_data = bet_nib.get_fdata()
+            bet_data, _ = lib_bx.pad_to_shape(bet_data, (256, 256, 256))
+            bet_data, _ = lib_bx.crop_image(bet_data, target_shape=(256, 256, 256))
             
             template_nib = lib_tool.get_template(run_d['template'])
-            template_sitk = lib_bx.from_nib_get_sitk(template_nib)
-          
-            #template_nib = reorder_img(template_nib, resample='continuous')
+            template_nib = reorder_img(template_nib, resample='continuous')
+            
+            fixed_affine = template_nib.affine
             template_data = template_nib.get_fdata()
+            template_data, pad_width = lib_bx.pad_to_shape(template_data, (256, 256, 256))
+            
+            moving = bet_data.astype(np.float32)[None, ...][None, ...]
+            moving = lib_bx.min_max_norm(moving)
+            if run_d['template'] == None:
+                template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
+            fixed = template_data.astype(np.float32)[None, ...][None, ...]
+            fixed = lib_bx.min_max_norm(fixed)
+            
             if run_d['rigid']:
-                rigid_sitk, final_transform = lib_bx.affine_reg(template_sitk, bet_sitk, mode='rigid')
-                rigid_nib = lib_bx.from_sitk_get_nib(rigid_sitk)
+                model_ff = lib_tool.get_model(omodel['rigid'])
+                output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
+                rigided, regid_matrix = np.squeeze(output[0]), np.squeeze(output[1])
+                rigided = lib_bx.remove_padding(rigided, pad_width)
+                
+                rigid_nib = nib.Nifti1Image(rigided, fixed_affine)
                 fn = save_nib(rigid_nib, ftemplate, 'rigid')
                 result_dict['rigid'] = rigid_nib
                 result_filedict['rigid'] = fn
-
-            Af_sitk, final_transform = lib_bx.affine_reg(template_sitk, bet_sitk)
-            Af_nib = lib_bx.from_sitk_get_nib(Af_sitk)
             
-            result_dict['Affine_matrix'] = final_transform
-            if run_d['affine']:
-                fn = save_nib(Af_nib, ftemplate, 'Af')
-                result_dict['Af'] = Af_nib
-                result_filedict['Af'] = fn
+            if run_d['affine'] or run_d['registration']: 
+                
+                model_ff = lib_tool.get_model(omodel['affine'])
+                output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
+                affined, affine_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
+                initflow_nib = nib.Nifti1Image(init_flow, ori_affine)
+                result_dict['init_flow'] = initflow_nib
+                affined = lib_bx.remove_padding(affined, pad_width)
+                affine_nib = nib.Nifti1Image(affined, fixed_affine)
 
-            if run_d['registration']:
-                Af_data = Af_nib.get_fdata()
-                moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
-                moving_image = moving_image/np.max(moving_image)
-                fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
-                fixed_image = fixed_image/np.max(fixed_image)
-                model_ff = lib_tool.get_model(omodel['reg'])
-                
-                output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
-                moved = np.squeeze(output[0])
-                warp = np.squeeze(output[1])
-                moved_nib = nib.Nifti1Image(moved,
-                                         template_nib.affine, template_nib.header)
-                warp_nib = nib.Nifti1Image(warp,
-                                         template_nib.affine, template_nib.header)
-                
-                fn = save_nib(moved_nib, ftemplate, 'reg')
-                result_dict['reg'] = moved_nib
-                result_filedict['reg'] = fn           
-                
-                #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
-                result_dict['dense_warp'] = warp_nib
-                #result_filedict['dense_warp'] = fn 
+                result_dict['Affine_matrix'] = affine_matrix
+                if run_d['affine']:
+                    fn = save_nib(affine_nib, ftemplate, 'Af')
+                    result_dict['Af'] = affine_nib
+                    result_filedict['Af'] = fn
+    
+                if run_d['registration']:
+                    template_data = template_nib.get_fdata()
+                    
+                    fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
+                    fixed_image = lib_bx.min_max_norm(fixed_image)
+                    #fixed_image = fixed_image/np.max(fixed_image)
+                    
+                    Af_data = affine_nib.get_fdata()
+                    moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
+                    #moving_image = moving_image/np.max(moving_image)
+                    
+                    model_ff = lib_tool.get_model(omodel['reg'])
+                    
+                    output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
+                    moved = np.squeeze(output[0])
+                    warp = np.squeeze(output[1])
+                    moved_nib = nib.Nifti1Image(moved,
+                                             fixed_affine, template_nib.header)
+                    warp_nib = nib.Nifti1Image(warp,
+                                             fixed_affine, template_nib.header)
+                    
+                    fn = save_nib(moved_nib, ftemplate, 'reg')
+                    result_dict['reg'] = moved_nib
+                    result_filedict['reg'] = fn           
+                    
+                    #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
+                    result_dict['dense_warp'] = warp_nib
+                    #result_filedict['dense_warp'] = fn 
 
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
