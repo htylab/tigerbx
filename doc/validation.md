@@ -11,7 +11,7 @@
     df, metric3 = tigerbx.val('aseg_123', 'aseg', 'temp', GPU=True)
     df, metric4 = tigerbx.val('dgm_123', 'aseg', 'temp', GPU=True)
     df, metric5 = tigerbx.val('syn_123', 'aseg', 'temp', GPU=True)
-    df, metric6 = tigerbx.val('reg_60', 'aseg, 'temp', GPU=True, template='Template_T1_tbet.nii.gz')
+    df, metric6 = tigerbx.val('reg_60', 'aseg', 'temp', GPU=True, template='Template_T1_tbet.nii.gz')
 
     
     print('bet_NFBS', metric1)
@@ -46,7 +46,7 @@
     | Amygdala   | L   | 0.737 | 0.764| 0.716| R   | 0.727 | 0.750| 0.711|
     | Mean       | L   | 0.833 | 0.846| 0.820| R   | 0.829 | 0.841| 0.807|
 #### Registration:
-    mean dice: 0.808
+    mean dice: 0.797
 
 #### Skull Stripping
     bet_NFBS: 0.973
