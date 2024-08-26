@@ -329,4 +329,43 @@ def from_sitk_get_nib(sitk_image):
     return nii_image_copy
 
 
+def pad_to_shape(img, target_shape):
+    """
+    Pads the input image with zeros to match the target shape.
+    """
+    padding = [(max(0, t - s)) for s, t in zip(img.shape, target_shape)]
+    pad_width = [(p // 2, p - (p // 2)) for p in padding]
+    padded_img = np.pad(img, pad_width, mode='constant', constant_values=0)
+    return padded_img, pad_width
 
+
+def min_max_norm(img):
+    max = np.max(img)
+    min = np.min(img)
+
+    norm_img = (img - min) / (max - min)
+
+    return norm_img
+
+
+def crop_image(image, target_shape):
+    """Crops the image to the target shape."""
+    current_shape = image.shape
+    crop_slices = []
+
+    for i in range(len(target_shape)):
+        start = (current_shape[i] - target_shape[i]) // 2
+        end = start + target_shape[i]
+        crop_slices.append(slice(start, end))
+
+    cropped_image = image[tuple(crop_slices)]
+    return cropped_image, crop_slices
+
+
+def remove_padding(padded_img, pad_width):
+    """
+    Removes the padding from the input image based on the pad_width.
+    """
+    slices = [slice(p[0], -p[1] if p[1] != 0 else None) for p in pad_width]
+    cropped_img = padded_img[tuple(slices)]
+    return cropped_img

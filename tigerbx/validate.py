@@ -208,30 +208,41 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             result = tigerbx.run(gpu_str + 'r', f, output_dir, model=model, template=template)
                 
             model_transform = lib_tool.get_model('mprage_transform.onnx')
-            import SimpleITK as sitk
-            template_nib = lib_tool.get_template(template)
-            template_sitk = lib_bx.from_nib_get_sitk(template_nib)
+            model_affine_transform = lib_tool.get_model('mprage_affine_transform_v001_train.onnx')
             
-            moving_seg_sitk = sitk.ReadImage(f.replace('raw60', 'label60'), sitk.sitkFloat32)
-            Af_seg_sitk = lib_bx.affine_transform(template_sitk, moving_seg_sitk, result['Affine_matrix'])
-            Af_seg_nib = lib_bx.from_sitk_get_nib(Af_seg_sitk)
+            template_nib = lib_tool.get_template(template)
+            template_nib = reorder_img(template_nib, resample='continuous')
+            template_data = template_nib.get_fdata()
+            template_data, pad_width = lib_bx.pad_to_shape(template_data, (256, 256, 256))
+            
+            moving_seg_nib = nib.load(f.replace('raw60', 'label60'))
+            moving_seg_nib = reorder_img(moving_seg_nib, resample='nearest')
+            moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
+            moving_seg_data, _ = lib_bx.pad_to_shape(moving_seg_data, (256, 256, 256))
+            moving_seg_data, _ = lib_bx.crop_image(moving_seg_data, target_shape=(256, 256, 256))
+            moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
 
-            Af_seg_data = Af_seg_nib.get_fdata().astype(np.float32)
-            Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
-            Af_seg_data = np.expand_dims(Af_seg_data, axis=0)
+            init_flow = result['init_flow'].get_fdata().astype(np.float32)
+            Affine_matrix = result['Affine_matrix'].astype(np.float32)            
+            Affine_matrix= np.expand_dims(Affine_matrix, axis=0)
+            
+            output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
+            moved_seg = np.squeeze(output[0])
+            
+            moved_seg = lib_bx.remove_padding(moved_seg, pad_width)
+  
+            moved_seg = np.expand_dims(np.expand_dims(moved_seg, axis=0), axis=1)
             warp = result['dense_warp'].get_fdata().astype(np.float32)
             warp = np.expand_dims(warp, axis=0)
-            output = lib_tool.predict(model_transform, [Af_seg_data, warp], GPU=None, mode='reg')
+            output = lib_tool.predict(model_transform, [moved_seg, warp], GPU=None, mode='reg')
             moved_seg = np.squeeze(output[0])
             moved_seg_nib = nib.Nifti1Image(moved_seg,
                                       template_nib.affine, template_nib.header)
-            
-            
+    
             mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
             template_seg = lib_tool.get_template_seg(template)
             mask_gt = reorder_img(template_seg, resample='nearest').get_fdata().astype(int)
-            
-            
+  
             dice26 = get_dice26(mask_gt, mask_pred)
             dsc_list.append(dice26)
 

@@ -38,7 +38,7 @@ setup(
     },
      python_requires='>=3.7',
      install_requires=[
-             'numpy>=1.21.6',
+             'numpy>=1.21.6,<2.0',
              'nilearn>=0.9.2',
 	     'SimpleITK>=2.0.0',
          ]
