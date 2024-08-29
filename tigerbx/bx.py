@@ -542,9 +542,9 @@ def run_args(args):
                 output = lib_tool.predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
                 reg_GM = np.squeeze(output[0])
                 reg_GM_nib = nib.Nifti1Image(reg_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(reg_GM_nib, ftemplate, 'regGM')                
-                result_dict['reg_GM'] = reg_GM_nib
-                result_filedict['reg_GM'] = fn
+                fn = save_nib(reg_GM_nib, ftemplate, 'RegGM')                
+                result_dict['Reg_GM'] = reg_GM_nib
+                result_filedict['Reg_GM'] = fn
                 
                 warp = warp.transpose(0, 2, 3, 4, 1).squeeze()
                 warp_Jacobian = lib_bx.jacobian_determinant(warp)
