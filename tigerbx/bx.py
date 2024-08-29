@@ -129,6 +129,7 @@ def main():
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
+    parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
@@ -176,6 +177,7 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.registration = 'r' in argstring
     args.rigid = 'R' in argstring
     args.patch = 'p' in argstring
+    args.vbm = 'v' in argstring
     args.template = template
     return run_args(args)   
 
@@ -188,10 +190,13 @@ def run_args(args):
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'], run_d['affine'], run_d['registration'],
                     run_d['rigid'], run_d['template'], run_d['encode'], 
-                    run_d['decode'], run_d['patch']]:
+                    run_d['decode'], run_d['patch'], run_d['vbm']]:
         run_d['bet'] = True
         # Producing extracted brain by default
-
+        
+    if run_d['vbm']:
+        run_d['registration'] = run_d['cgw'] = True
+        
     if run_d['clean_onnx']:
         lib_tool.clean_onnx()
         print('Exiting...')
@@ -271,7 +276,15 @@ def run_args(args):
 
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
+        
 
+        if run_d['vbm']:
+            dir_path, filename = os.path.split(ftemplate)           
+            prefix = filename.split('_@@@@')[0]          
+            new_dir_path = os.path.join(dir_path, prefix)
+            os.makedirs(new_dir_path, exist_ok=True)
+            ftemplate = os.path.join(dir_path, prefix, filename)
+            
 
         if run_d['encode']:
             model_ff = lib_tool.get_model(omodel['encode'])
@@ -399,9 +412,11 @@ def run_args(args):
 
                 pve_nib.header.set_data_dtype(float)
                 
-                fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
-                result_dict['cgw'].append(pve_nib)
-                result_filedict['cgw'].append(fn)        
+                if not run_d['vbm'] or kk==2:
+                    print(ftemplate)
+                    fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                    result_filedict['cgw'].append(fn)
+                result_dict['cgw'].append(pve_nib)                       
 
         if run_d['ct']:
             model_ff = lib_tool.get_model(omodel['ct'])
@@ -497,14 +512,56 @@ def run_args(args):
                     warp_nib = nib.Nifti1Image(warp,
                                              fixed_affine, template_nib.header)
                     
-                    fn = save_nib(moved_nib, ftemplate, 'reg')
-                    result_dict['reg'] = moved_nib
-                    result_filedict['reg'] = fn           
+                    if not run_d['vbm']:
+                        fn = save_nib(moved_nib, ftemplate, 'reg')
+                        result_filedict['reg'] = fn
+                    result_dict['reg'] = moved_nib        
                     
                     #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
                     result_dict['dense_warp'] = warp_nib
                     #result_filedict['dense_warp'] = fn 
-
+            
+            if run_d['vbm']:
+                raw_GM_nib = reorder_img(result_dict['cgw'][1], resample='continuous')
+                raw_GM = raw_GM_nib.get_fdata().astype(np.float32)
+                raw_GM, _ = lib_bx.pad_to_shape(raw_GM, (256, 256, 256))
+                raw_GM, _ = lib_bx.crop_image(raw_GM, target_shape=(256, 256, 256))
+                raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
+                
+                model_transform = lib_tool.get_model('mprage_transform_bili.onnx')
+                model_affine_transform = lib_tool.get_model('mprage_affine_transform_v001_train_bili.onnx')
+                
+                Affine_matrix= np.expand_dims(affine_matrix, axis=0)
+                output = lib_tool.predict(model_affine_transform, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
+                affined_GM = np.squeeze(output[0])
+                affined_GM = lib_bx.remove_padding(affined_GM, pad_width)
+                
+                affined_GM = np.expand_dims(np.expand_dims(affined_GM, axis=0), axis=1)
+                warp = np.expand_dims(warp, axis=0)
+                
+                output = lib_tool.predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
+                reg_GM = np.squeeze(output[0])
+                reg_GM_nib = nib.Nifti1Image(reg_GM, template_nib.affine, template_nib.header)
+                fn = save_nib(reg_GM_nib, ftemplate, 'regGM')                
+                result_dict['reg_GM'] = reg_GM_nib
+                result_filedict['reg_GM'] = fn
+                
+                warp = warp.transpose(0, 2, 3, 4, 1).squeeze()
+                warp_Jacobian = lib_bx.jacobian_determinant(warp)
+                Modulated_GM = reg_GM*warp_Jacobian
+                Modulated_GM_nib = nib.Nifti1Image(Modulated_GM, template_nib.affine, template_nib.header)
+                fn = save_nib(Modulated_GM_nib, ftemplate, 'ModulatedGM')                
+                result_dict['Modulated_GM'] = Modulated_GM_nib
+                result_filedict['Modulated_GM'] = fn
+                
+                fwhm_value = 8.0
+                Smoothed_GM = lib_bx.apply_gaussian_smoothing(Modulated_GM, fwhm=fwhm_value)
+                Smoothed_GM_nib = nib.Nifti1Image(Smoothed_GM, template_nib.affine, template_nib.header)
+                fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')
+                result_dict['Smoothed_GM'] = Smoothed_GM_nib
+                result_filedict['Smoothed_GM'] = fn
+                
+                
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
