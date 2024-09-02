@@ -5,6 +5,8 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
+import pystrum.pynd.ndutils as nd
+from scipy.ndimage import gaussian_filter
 
 from tigerbx import lib_tool
 
@@ -109,7 +111,7 @@ def logit_to_prob(logits, seg_mode):
         prob = softmax(logits, axis=0)
     return prob
 
-def run(model_ff_list, input_nib, GPU):
+def run(model_ff_list, input_nib, GPU, patch=False):
 
     if not isinstance(model_ff_list, list):
         model_ff_list = [model_ff_list]
@@ -130,7 +132,10 @@ def run(model_ff_list, input_nib, GPU):
     count = 0
     for model_ff in model_ff_list:
         count += 1
-        logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
+        if patch:
+            logits = lib_tool.predict(model_ff, image, GPU, mode='patch')[0, ...]
+        else:
+            logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
         prob += logit_to_prob(logits, seg_mode)
     prob = prob/count # average the prob
 
@@ -329,4 +334,118 @@ def from_sitk_get_nib(sitk_image):
     return nii_image_copy
 
 
+def pad_to_shape(img, target_shape):
+    """
+    Pads the input image with zeros to match the target shape.
+    """
+    padding = [(max(0, t - s)) for s, t in zip(img.shape, target_shape)]
+    pad_width = [(p // 2, p - (p // 2)) for p in padding]
+    padded_img = np.pad(img, pad_width, mode='constant', constant_values=0)
+    return padded_img, pad_width
 
+
+def min_max_norm(img):
+    max = np.max(img)
+    min = np.min(img)
+
+    norm_img = (img - min) / (max - min)
+
+    return norm_img
+
+
+def crop_image(image, target_shape):
+    """Crops the image to the target shape."""
+    current_shape = image.shape
+    crop_slices = []
+
+    for i in range(len(target_shape)):
+        start = (current_shape[i] - target_shape[i]) // 2
+        end = start + target_shape[i]
+        crop_slices.append(slice(start, end))
+
+    cropped_image = image[tuple(crop_slices)]
+    return cropped_image, crop_slices
+
+
+def remove_padding(padded_img, pad_width):
+    """
+    Removes the padding from the input image based on the pad_width.
+    """
+    slices = [slice(p[0], -p[1] if p[1] != 0 else None) for p in pad_width]
+    cropped_img = padded_img[tuple(slices)]
+    return cropped_img
+
+
+def jacobian_determinant(disp):
+    """
+    jacobian determinant of a displacement field.
+    NB: to compute the spatial gradients, we use np.gradient.
+
+    Parameters:
+        disp: 2D or 3D displacement field of size [*vol_shape, nb_dims], 
+              where vol_shape is of len nb_dims
+
+    Returns:
+        jacobian determinant (scalar)
+    """
+
+    # check inputs
+    volshape = disp.shape[:-1]
+    nb_dims = len(volshape)
+    assert len(volshape) in (2, 3), 'flow has to be 2D or 3D'
+
+    # compute grid
+    grid_lst = nd.volsize2ndgrid(volshape)
+    grid = np.stack(grid_lst, len(volshape))
+
+    # compute gradients
+    J = np.gradient(disp + grid)
+
+    # 3D glow
+    if nb_dims == 3:
+        dx = J[0]
+        dy = J[1]
+        dz = J[2]
+
+        # compute jacobian components
+        Jdet0 = dx[..., 0] * (dy[..., 1] * dz[..., 2] - dy[..., 2] * dz[..., 1])
+        Jdet1 = dx[..., 1] * (dy[..., 0] * dz[..., 2] - dy[..., 2] * dz[..., 0])
+        Jdet2 = dx[..., 2] * (dy[..., 0] * dz[..., 1] - dy[..., 1] * dz[..., 0])
+
+        return Jdet0 - Jdet1 + Jdet2
+
+    else:  # must be 2
+
+        dfdx = J[0]
+        dfdy = J[1]
+
+        return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
+    
+
+def fwhm_to_sigma(fwhm):
+    """
+    Convert FWHM to sigma for Gaussian kernel.
+    
+    Parameters:
+        fwhm (float): Full Width at Half Maximum.
+        
+    Returns:
+        float: Corresponding sigma value.
+    """
+    return fwhm / np.sqrt(8 * np.log(2))
+
+
+def apply_gaussian_smoothing(image, fwhm):
+    """
+    Apply Gaussian smoothing to a given image using FWHM.
+    
+    Parameters:
+        image (numpy.ndarray): Input image to smooth.
+        fwhm (float): Full Width at Half Maximum for Gaussian kernel.
+        
+    Returns:
+        numpy.ndarray: Smoothed image.
+    """
+    sigma = fwhm_to_sigma(fwhm)
+    smoothed_image = gaussian_filter(image, sigma=sigma)
+    return smoothed_image
