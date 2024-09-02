@@ -134,11 +134,6 @@ def main():
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
     parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
-    # Autoencoding weights converted from 
-    # Pinaya, Walter HL, et al. "Brain imaging generation with latent diffusion models." 
-    # MICCAI Workshop on Deep Generative Models. Springer, Cham, 2022.
-    # https://github.com/Project-MONAI/GenerativeModels
-
     args = parser.parse_args()
     run_args(args)
 
@@ -217,10 +212,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    #omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
-    #omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
-    
+    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'    
     omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
