@@ -134,11 +134,6 @@ def main():
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
     parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
-    # Autoencoding weights converted from 
-    # Pinaya, Walter HL, et al. "Brain imaging generation with latent diffusion models." 
-    # MICCAI Workshop on Deep Generative Models. Springer, Cham, 2022.
-    # https://github.com/Project-MONAI/GenerativeModels
-
     args = parser.parse_args()
     run_args(args)
 
@@ -217,10 +212,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    #omodel['bet'] = 'mprage_bet_v004_anisofocal.onnx'
-    #omodel['aseg'] = 'mprage_aseg43_v006_16k.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
-    
+    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'    
     omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
@@ -231,18 +223,12 @@ def run_args(args):
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
     omodel['reg'] = 'mprage_reg_v002_train.onnx'
+    omodel['encode'] = 'mprage_encode_v2.onnx'
+    omodel['decode'] = 'mprage_decode_v2.onnx'
     omodel['affine'] = 'mprage_affine_v001_train.onnx'
     omodel['rigid'] = 'mprage_rigid_v001_train.onnx'
-    omodel['encode'] = 'mprage_encode_v1.onnx'
-    omodel['decode'] = 'mprage_decode_v1.onnx'
-    
-    if run_d['encode'] or run_d['decode']:
-        print('#Autoencoding weights converted from')
-        print('#Pinaya, Walter HL, et al. Brain imaging generation with latent diffusion models.')
-        print('#https://github.com/Project-MONAI/GenerativeModels')
-    
 
-
+ 
     # if you want to use other models
     if isinstance(args.model, dict):
         for mm in args.model.keys():
@@ -297,7 +283,9 @@ def run_args(args):
             npz = ftemplate.replace('.nii','').replace('.gz', '')
             npz = npz.replace('@@@@', f'encode.npz')
             np.savez_compressed(npz, z_mu=z_mu, z_sigma=z_sigma,
-                                affine=input_nib.affine, header=input_nib.header)
+                                affine=input_nib.affine,
+                                header=input_nib.header,
+                                shape=input_nib.shape)
             
             result_dict['encode'] = np.load(npz)
             result_filedict['encode'] = npz
