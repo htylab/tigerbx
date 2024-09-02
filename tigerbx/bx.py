@@ -233,6 +233,8 @@ def run_args(args):
     omodel['reg'] = 'mprage_reg_v002_train.onnx'
     omodel['encode'] = 'mprage_encode_v2.onnx'
     omodel['decode'] = 'mprage_decode_v2.onnx'
+    omodel['affine'] = 'mprage_affine_v001_train.onnx'
+    omodel['rigid'] = 'mprage_rigid_v001_train.onnx'
 
  
     # if you want to use other models
