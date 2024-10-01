@@ -13,6 +13,8 @@ from tigerbx import lib_tool
 from tigerbx import lib_bx
 import copy
 from nilearn.image import resample_to_img, reorder_img, resample_img
+from itertools import product
+import concurrent.futures
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
@@ -126,6 +128,7 @@ def main():
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
+    parser.add_argument('-F', '--fuse_registration', action='store_true', help='Registering images to template(FuseMorph)')
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
@@ -170,6 +173,7 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.gz = 'z' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
+    args.fusemorph = 'F' in argstring
     args.rigid = 'R' in argstring
     args.patch = 'p' in argstring
     args.vbm = 'v' in argstring
@@ -184,10 +188,14 @@ def run_args(args):
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
                     run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'], run_d['affine'], run_d['registration'],
-                    run_d['rigid'], run_d['template'], run_d['encode'], 
-                    run_d['decode'], run_d['patch'], run_d['vbm']]:
+                    run_d['fusemorph'], run_d['rigid'], run_d['template'],
+                    run_d['encode'], run_d['decode'], run_d['patch'], 
+                    run_d['vbm']]:
         run_d['bet'] = True
         # Producing extracted brain by default
+        
+    if run_d['fusemorph']:
+        run_d['aseg'] = True
         
     if run_d['vbm']:
         run_d['registration'] = run_d['cgw'] = True
@@ -352,9 +360,10 @@ def run_args(args):
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
-                fn = save_nib(result_nib, ftemplate, seg_str)
+                if not run_d['fusemorph']:
+                    fn = save_nib(result_nib, ftemplate, seg_str)
+                    result_filedict[seg_str] = fn
                 result_dict[seg_str] = result_nib
-                result_filedict[seg_str] = fn
         if run_d['bam']:
             model_ff = lib_tool.get_model(omodel['bam'])
             #input_nib = nib.load(f)
@@ -427,7 +436,7 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
-        if run_d['affine'] or run_d['rigid'] or run_d['registration']:            
+        if run_d['affine'] or run_d['rigid'] or run_d['registration'] or run_d['fusemorph']:            
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
@@ -463,7 +472,7 @@ def run_args(args):
                 result_dict['rigid'] = rigid_nib
                 result_filedict['rigid'] = fn
             
-            if run_d['affine'] or run_d['registration']: 
+            if run_d['affine'] or run_d['registration'] or run_d['fusemorph']: 
                 
                 model_ff = lib_tool.get_model(omodel['affine'])
                 output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
@@ -508,7 +517,93 @@ def run_args(args):
                     #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
                     result_dict['dense_warp'] = warp_nib
                     #result_filedict['dense_warp'] = fn 
-            
+                if run_d['fusemorph']:
+                    model_affine_transform = lib_tool.get_model('mprage_affine_transform_v001_train.onnx')
+                    model_transform = lib_tool.get_model('mprage_transform.onnx')
+                    model_transform_bili = lib_tool.get_model('mprage_transform_bili.onnx')
+                    
+                    template_data = template_nib.get_fdata()
+                    fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
+                    fixed_image = lib_bx.min_max_norm(fixed_image)
+
+                                        
+                    template_seg_nib = lib_tool.get_template_seg(run_d['template'])
+                    template_seg_nib = reorder_img(template_seg_nib, resample='continuous')
+                    template_seg_data = template_seg_nib.get_fdata()
+                    fixed_seg_image = template_seg_data.astype(np.float32)[None, ...][None, ...]
+
+                    
+                    Af_data = affine_nib.get_fdata()
+                    moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
+                    
+                    moving_seg_nib = result_dict['aseg']
+                    moving_seg_nib = reorder_img(moving_seg_nib, resample='nearest')
+                    moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
+                    moving_seg_data, _ = lib_bx.pad_to_shape(moving_seg_data, (256, 256, 256))
+                    moving_seg_data, _ = lib_bx.crop_image(moving_seg_data, target_shape=(256, 256, 256))
+                    moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
+                                
+                    affine_matrix= np.expand_dims(affine_matrix, axis=0)
+                    output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
+                    moving_seg = np.squeeze(output[0])
+                    
+                    moving_seg = lib_bx.remove_padding(moving_seg, pad_width)
+
+                    
+                    model_ff = lib_tool.get_model(omodel['reg'])
+                    moving_image_current = moving_image
+                    moving_seg_current = np.expand_dims(np.expand_dims(moving_seg, axis=0), axis=1)
+                    warps = []
+                    
+                    for i in range(1, 4):
+                        output = lib_tool.predict(model_ff, [moving_image_current, fixed_image], GPU=args.gpu, mode='reg')
+                        moved = output[0]
+                        warp = output[1]
+                        
+                        warps.append(warp)                    
+                        output = lib_tool.predict(model_transform, [moving_seg_current, warp], GPU=args.gpu, mode='reg')
+                        moved_seg = output[0]                        
+                        moving_image_current = moved
+                        moving_seg_current = moved_seg                    
+                        # moving_nib = nib.Nifti1Image(np.squeeze(moved_seg), fixed_affine, template_nib.header)
+                        # fn = save_nib(moving_nib, ftemplate, str(i))
+                    
+                    x_values = [0.9, 1.0]
+                    y_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                    z_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                    param_combinations = list(product(x_values, y_values, z_values))
+                    
+                    best_dice = float('-inf')
+                    best_warp = None                    
+                    moving_seg = np.expand_dims(np.expand_dims(moving_seg, axis=0), axis=1)     
+                    
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        futures = [executor.submit(lib_bx.FuseMorph_evaluate_params, params, warps, moving_seg, model_transform, fixed_seg_image, args.gpu) for params in param_combinations]
+                        
+                        for future in concurrent.futures.as_completed(futures):
+                            x, y, z, dice_score, warp = future.result()
+                            if dice_score > best_dice:
+                                best_dice = dice_score
+                                best_warp = warp
+                            
+                    output = lib_tool.predict(model_transform_bili, [moving_image, best_warp], GPU=args.gpu, mode='reg')
+                    
+                    moved = np.squeeze(output[0])
+                    warp = np.squeeze(best_warp)
+                    moved_nib = nib.Nifti1Image(moved,
+                                             fixed_affine, template_nib.header)
+                    warp_nib = nib.Nifti1Image(warp,
+                                             fixed_affine, template_nib.header)
+                    
+                    #if not run_d['vbm']:
+                    fn = save_nib(moved_nib, ftemplate, 'Fuse')
+                    result_filedict['Fuse'] = fn
+                    result_dict['Fuse'] = moved_nib        
+                    
+                    #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
+                    result_dict['dense_warp'] = warp_nib
+                    #result_filedict['dense_warp'] = fn 
+                    
             if run_d['vbm']:
                 raw_GM_nib = reorder_img(result_dict['cgw'][1], resample='continuous')
                 raw_GM = raw_GM_nib.get_fdata().astype(np.float32)

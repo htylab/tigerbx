@@ -449,3 +449,39 @@ def apply_gaussian_smoothing(image, fwhm):
     sigma = fwhm_to_sigma(fwhm)
     smoothed_image = gaussian_filter(image, sigma=sigma)
     return smoothed_image
+
+def dice(array1, array2, labels=None, include_zero=False):
+    """
+    Computes the dice overlap between two arrays for a given set of integer labels.
+
+    Parameters:
+        array1: Input array 1.
+        array2: Input array 2.
+        labels: List of labels to compute dice on. If None, all labels will be used.
+        include_zero: Include label 0 in label list. Default is False.
+    """
+    if labels is None:
+        labels = np.concatenate([np.unique(a) for a in [array1, array2]])
+        labels = np.sort(np.unique(labels))
+    if not include_zero:
+        labels = np.delete(labels, np.argwhere(labels == 0)) 
+
+    dicem = np.zeros(len(labels))
+    for idx, label in enumerate(labels):
+        top = 2 * np.sum(np.logical_and(array1 == label, array2 == label))
+        bottom = np.sum(array1 == label) + np.sum(array2 == label)
+        bottom = np.maximum(bottom, np.finfo(float).eps)  # add epsilon
+        dicem[idx] = top / bottom
+    return dicem
+
+def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_seg_image, gpu):
+    x, y, z = params
+    warp = warps[0]*x + warps[1]*y + warps[2]*z
+    output = lib_tool.predict(model_transform, [moving_seg, warp], GPU=gpu, mode='reg')
+    #dice_output = lib_tool.predict(model_dice, [output[0], fixed_seg_image], GPU=gpu, mode='reg')
+    #dice_score = np.mean(dice_output[0])
+    output_np = output[0]
+    fixed_seg_image_np = fixed_seg_image
+    dice_scores = dice(output_np, fixed_seg_image_np)
+    #return (x, y, z, dice_score, warp)
+    return (x, y, z, np.mean(dice_scores), warp)
