@@ -34,6 +34,7 @@ https://github.com/htylab/tigerbx/releases
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
     tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
     tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz') # registers images to template
+    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir') # registers images to template using the FuseMorph method
     tigerbx.run('clean_onnx') #Clean downloaded ONNX file
     tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
     tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
@@ -64,6 +65,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -z: Forces storing in nii.gz format.
 -A: Affines images to template(default is MNI152).
 -r: Registers images to template(default is MNI152).
+-F: Registers images to template using the FuseMorph method(default is MNI152).
 -T: The template filename.
 -R: Rigid transforms images to template(default is MNI152).
 ```
