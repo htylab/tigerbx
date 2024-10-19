@@ -320,9 +320,11 @@ def run_args(args):
             tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
             input_nib = nib.load(f)
             tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
-            tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
-            tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
-                            input_nib.header)
+
+            if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
+                tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
+
+            tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
             tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 
