@@ -128,7 +128,7 @@ def main():
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
-    parser.add_argument('-F', '--fuse_registration', action='store_true', help='Registering images to template(FuseMorph)')
+    parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
