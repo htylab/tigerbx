@@ -47,6 +47,7 @@
     | Mean       | L   | 0.833 | 0.846| 0.820| R   | 0.829 | 0.841| 0.807|
 #### Registration:
     mean dice: 0.797
+    mean dice: 0.804(FuseMorph)
 
 #### Skull Stripping
     bet_NFBS: 0.973

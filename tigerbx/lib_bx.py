@@ -5,6 +5,8 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
+import pystrum.pynd.ndutils as nd
+from scipy.ndimage import gaussian_filter
 
 from tigerbx import lib_tool
 
@@ -372,3 +374,114 @@ def remove_padding(padded_img, pad_width):
     slices = [slice(p[0], -p[1] if p[1] != 0 else None) for p in pad_width]
     cropped_img = padded_img[tuple(slices)]
     return cropped_img
+
+
+def jacobian_determinant(disp):
+    """
+    jacobian determinant of a displacement field.
+    NB: to compute the spatial gradients, we use np.gradient.
+
+    Parameters:
+        disp: 2D or 3D displacement field of size [*vol_shape, nb_dims], 
+              where vol_shape is of len nb_dims
+
+    Returns:
+        jacobian determinant (scalar)
+    """
+
+    # check inputs
+    volshape = disp.shape[:-1]
+    nb_dims = len(volshape)
+    assert len(volshape) in (2, 3), 'flow has to be 2D or 3D'
+
+    # compute grid
+    grid_lst = nd.volsize2ndgrid(volshape)
+    grid = np.stack(grid_lst, len(volshape))
+
+    # compute gradients
+    J = np.gradient(disp + grid)
+
+    # 3D glow
+    if nb_dims == 3:
+        dx = J[0]
+        dy = J[1]
+        dz = J[2]
+
+        # compute jacobian components
+        Jdet0 = dx[..., 0] * (dy[..., 1] * dz[..., 2] - dy[..., 2] * dz[..., 1])
+        Jdet1 = dx[..., 1] * (dy[..., 0] * dz[..., 2] - dy[..., 2] * dz[..., 0])
+        Jdet2 = dx[..., 2] * (dy[..., 0] * dz[..., 1] - dy[..., 1] * dz[..., 0])
+
+        return Jdet0 - Jdet1 + Jdet2
+
+    else:  # must be 2
+
+        dfdx = J[0]
+        dfdy = J[1]
+
+        return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
+    
+
+def fwhm_to_sigma(fwhm):
+    """
+    Convert FWHM to sigma for Gaussian kernel.
+    
+    Parameters:
+        fwhm (float): Full Width at Half Maximum.
+        
+    Returns:
+        float: Corresponding sigma value.
+    """
+    return fwhm / np.sqrt(8 * np.log(2))
+
+
+def apply_gaussian_smoothing(image, fwhm):
+    """
+    Apply Gaussian smoothing to a given image using FWHM.
+    
+    Parameters:
+        image (numpy.ndarray): Input image to smooth.
+        fwhm (float): Full Width at Half Maximum for Gaussian kernel.
+        
+    Returns:
+        numpy.ndarray: Smoothed image.
+    """
+    sigma = fwhm_to_sigma(fwhm)
+    smoothed_image = gaussian_filter(image, sigma=sigma)
+    return smoothed_image
+
+def dice(array1, array2, labels=None, include_zero=False):
+    """
+    Computes the dice overlap between two arrays for a given set of integer labels.
+
+    Parameters:
+        array1: Input array 1.
+        array2: Input array 2.
+        labels: List of labels to compute dice on. If None, all labels will be used.
+        include_zero: Include label 0 in label list. Default is False.
+    """
+    if labels is None:
+        labels = np.concatenate([np.unique(a) for a in [array1, array2]])
+        labels = np.sort(np.unique(labels))
+    if not include_zero:
+        labels = np.delete(labels, np.argwhere(labels == 0)) 
+
+    dicem = np.zeros(len(labels))
+    for idx, label in enumerate(labels):
+        top = 2 * np.sum(np.logical_and(array1 == label, array2 == label))
+        bottom = np.sum(array1 == label) + np.sum(array2 == label)
+        bottom = np.maximum(bottom, np.finfo(float).eps)  # add epsilon
+        dicem[idx] = top / bottom
+    return dicem
+
+def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_seg_image, gpu):
+    x, y, z = params
+    warp = warps[0]*x + warps[1]*y + warps[2]*z
+    output = lib_tool.predict(model_transform, [moving_seg, warp], GPU=gpu, mode='reg')
+    #dice_output = lib_tool.predict(model_dice, [output[0], fixed_seg_image], GPU=gpu, mode='reg')
+    #dice_score = np.mean(dice_output[0])
+    output_np = output[0]
+    fixed_seg_image_np = fixed_seg_image
+    dice_scores = dice(output_np, fixed_seg_image_np)
+    #return (x, y, z, dice_score, warp)
+    return (x, y, z, np.mean(dice_scores), warp)
