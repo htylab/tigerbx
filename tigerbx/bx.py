@@ -128,7 +128,7 @@ def main():
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
-    parser.add_argument('-F', '--fuse_registration', action='store_true', help='Registering images to template(FuseMorph)')
+    parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
@@ -320,9 +320,11 @@ def run_args(args):
             tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
             input_nib = nib.load(f)
             tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
-            tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
-            tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine,
-                            input_nib.header)
+
+            if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
+                tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
+
+            tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
             tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 

@@ -396,3 +396,27 @@ def clean_onnx():
     for f in ffs:
         print('Removing ', f)
         os.remove(f)
+
+
+def check_dtype(data, dtype):
+    value_range = [data.min(), data.max() ]
+    
+    # Get the min and max allowable values for the specified data type
+    if dtype == np.int8:
+        min_val, max_val = np.iinfo(np.int8).min, np.iinfo(np.int8).max
+    elif dtype == np.int16:
+        min_val, max_val = np.iinfo(np.int16).min, np.iinfo(np.int16).max
+    elif dtype == np.int32:
+        min_val, max_val = np.iinfo(np.int32).min, np.iinfo(np.int32).max
+    elif dtype == np.uint8:
+        min_val, max_val = np.iinfo(np.uint8).min, np.iinfo(np.uint8).max
+    elif dtype == np.uint16:
+        min_val, max_val = np.iinfo(np.uint16).min, np.iinfo(np.uint16).max
+    elif dtype == np.uint32:
+        min_val, max_val = np.iinfo(np.uint32).min, np.iinfo(np.uint32).max
+    else:
+        #raise ValueError(f"Unsupported data type: {dtype}")
+        return True
+
+    # Check if the value range is within the allowable range for the data type
+    return min_val <= value_range[0] <= max_val and min_val <= value_range[1] <= max_val
