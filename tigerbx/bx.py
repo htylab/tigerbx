@@ -199,6 +199,7 @@ def run_args(args):
         
     if run_d['vbm']:
         run_d['registration'] = run_d['cgw'] = True
+        #run_d['fusemorph'] = run_d['cgw'] = run_d['aseg'] = True
         
     if run_d['clean_onnx']:
         lib_tool.clean_onnx()
@@ -547,6 +548,7 @@ def run_args(args):
                                 
                     affine_matrix= np.expand_dims(affine_matrix, axis=0)
                     output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
+                    affine_matrix = np.squeeze(affine_matrix, axis=0)
                     moving_seg = np.squeeze(output[0])
                     
                     moving_seg = lib_bx.remove_padding(moving_seg, pad_width)
@@ -639,7 +641,7 @@ def run_args(args):
                 result_dict['Modulated_GM'] = Modulated_GM_nib
                 result_filedict['Modulated_GM'] = fn
                 
-                fwhm_value = 8.0
+                fwhm_value = 7.065
                 Smoothed_GM = lib_bx.apply_gaussian_smoothing(Modulated_GM, fwhm=fwhm_value)
                 Smoothed_GM_nib = nib.Nifti1Image(Smoothed_GM, template_nib.affine, template_nib.header)
                 fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')
