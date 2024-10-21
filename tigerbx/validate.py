@@ -207,8 +207,8 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             f_list.append(f)
             result = tigerbx.run(gpu_str + 'F', f, output_dir, model=model, template=template)
                 
-            model_transform = lib_tool.get_model('mprage_transform_custom.onnx')
-            model_affine_transform = lib_tool.get_model('mprage_affine_transform_v001_train_custom.onnx')
+            model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
+            model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
             
             template_nib = lib_tool.get_template(template)
             template_nib = reorder_img(template_nib, resample='continuous')
