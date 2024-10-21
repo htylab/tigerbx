@@ -5,7 +5,6 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-import pystrum.pynd.ndutils as nd
 from scipy.ndimage import gaussian_filter
 
 from tigerbx import lib_tool
@@ -379,7 +378,7 @@ def remove_padding(padded_img, pad_width):
 def jacobian_determinant(disp):
     """
     jacobian determinant of a displacement field.
-    NB: to compute the spatial gradients, we use np.gradient.
+    to compute the spatial gradients, we use np.gradient.
 
     Parameters:
         disp: 2D or 3D displacement field of size [*vol_shape, nb_dims], 
@@ -395,11 +394,11 @@ def jacobian_determinant(disp):
     assert len(volshape) in (2, 3), 'flow has to be 2D or 3D'
 
     # compute grid
-    grid_lst = nd.volsize2ndgrid(volshape)
-    grid = np.stack(grid_lst, len(volshape))
+    grid_lst = np.meshgrid(*[np.arange(s) for s in volshape], indexing='ij')
+    grid = np.stack(grid_lst, axis=-1)
 
     # compute gradients
-    J = np.gradient(disp + grid)
+    J = np.gradient(disp + grid, axis=tuple(range(nb_dims)))
 
     # 3D glow
     if nb_dims == 3:
@@ -415,12 +414,11 @@ def jacobian_determinant(disp):
         return Jdet0 - Jdet1 + Jdet2
 
     else:  # must be 2
-
         dfdx = J[0]
         dfdy = J[1]
 
         return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
-    
+
 
 def fwhm_to_sigma(fwhm):
     """
