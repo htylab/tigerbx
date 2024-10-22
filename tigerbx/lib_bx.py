@@ -5,7 +5,6 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from nilearn.image import reorder_img, resample_to_img, resample_img
-import pystrum.pynd.ndutils as nd
 from scipy.ndimage import gaussian_filter
 
 from tigerbx import lib_tool
@@ -253,87 +252,6 @@ def resample_voxel(data_nib, voxelsize,
     return new_nib
 
 
-
-def affine_reg(mni152_sitk, bet_sitk, mode=None):
-    import SimpleITK as sitk
-    #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
-    #moving_image = sitk.GetImageFromArray(bet.astype(np.float32))
-    fixed_image = mni152_sitk
-    moving_image = bet_sitk
-    if mode=='rigid': 
-        initial_transform = sitk.CenteredTransformInitializer(fixed_image,
-                                                            moving_image,
-                                                            sitk.Euler3DTransform(),
-                                                            sitk.CenteredTransformInitializerFilter.GEOMETRY)
-    else:
-        initial_transform = sitk.CenteredTransformInitializer(fixed_image,
-                                                        moving_image,
-                                                        sitk.AffineTransform(3),
-                                                        sitk.CenteredTransformInitializerFilter.GEOMETRY)
-    # Set up the registration framework
-    registration_method = sitk.ImageRegistrationMethod()
-    # Similarity metric setting
-    registration_method.SetMetricAsCorrelation()
-    registration_method.SetMetricSamplingStrategy(registration_method.NONE)
-    # Interpolator
-    registration_method.SetInterpolator(sitk.sitkLinear)
-    # Optimizer settings
-    #if mode=='rigid':
-    #    registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
-    #else:
-    registration_method.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0, numberOfIterations=100, convergenceMinimumValue=1e-6, convergenceWindowSize=10)
-    registration_method.SetOptimizerScalesFromPhysicalShift()
-    # Optionally, set up the multi-resolution framework
-    registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4,2,1])
-    registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2,1,0])
-    registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
-    registration_method.SetInitialTransform(initial_transform)
-    # Execute the registration
-    final_transform = registration_method.Execute(fixed_image, moving_image)
-    
-    # Apply the final transform to the moving image
-    resampled = sitk.Resample(moving_image, fixed_image, final_transform, sitk.sitkLinear, 0.0, moving_image.GetPixelID())
-    #sitk.WriteImage(resampled, '/NFS/PeiMao/tigerbx-main/output/test.nii.gz')
-    #Af_data = sitk.GetArrayFromImage(resampled)
-
-    return resampled, final_transform
-
-
-def affine_transform(mni152_sitk, moving_seg_sitk, final_transform):
-    import SimpleITK as sitk
-    #fixed_image = sitk.GetImageFromArray(mni152_data.astype(np.float32))
-    #moving_seg = sitk.GetImageFromArray(seg_bet.astype(np.float32))
-
-    resampled_segmentation = sitk.Resample(moving_seg_sitk, mni152_sitk, final_transform, sitk.sitkNearestNeighbor, 0.0, moving_seg_sitk.GetPixelID())
-    #sitk.WriteImage(resampled_segmentation, '/NFS/PeiMao/tigerbx-main/output/sitk.nii.gz')
-    #Af_seg_data = sitk.GetArrayFromImage(resampled_segmentation)
-    
-    return resampled_segmentation
-
-
-def from_nib_get_sitk(nii_image):
-    import tempfile
-    import SimpleITK as sitk
-    with tempfile.NamedTemporaryFile(suffix='.nii') as temp_file:
-        nib.save(nii_image, temp_file.name)
-        temp_file.seek(0)
-        sitk_image = sitk.ReadImage(temp_file.name, sitk.sitkFloat32)
-        
-    return sitk_image
-
-
-def from_sitk_get_nib(sitk_image):
-    import tempfile
-    import SimpleITK as sitk
-    with tempfile.NamedTemporaryFile(suffix='.nii') as temp_file:
-        sitk.WriteImage(sitk_image, temp_file.name)
-        temp_file.seek(0)       
-        nii_image = nib.load(temp_file.name)
-        nii_image_copy = nib.Nifti1Image(nii_image.get_fdata().copy(), nii_image.affine.copy())
-        
-    return nii_image_copy
-
-
 def pad_to_shape(img, target_shape):
     """
     Pads the input image with zeros to match the target shape.
@@ -379,7 +297,7 @@ def remove_padding(padded_img, pad_width):
 def jacobian_determinant(disp):
     """
     jacobian determinant of a displacement field.
-    NB: to compute the spatial gradients, we use np.gradient.
+    to compute the spatial gradients, we use np.gradient.
 
     Parameters:
         disp: 2D or 3D displacement field of size [*vol_shape, nb_dims], 
@@ -395,11 +313,11 @@ def jacobian_determinant(disp):
     assert len(volshape) in (2, 3), 'flow has to be 2D or 3D'
 
     # compute grid
-    grid_lst = nd.volsize2ndgrid(volshape)
-    grid = np.stack(grid_lst, len(volshape))
+    grid_lst = np.meshgrid(*[np.arange(s) for s in volshape], indexing='ij')
+    grid = np.stack(grid_lst, axis=-1)
 
     # compute gradients
-    J = np.gradient(disp + grid)
+    J = np.gradient(disp + grid, axis=tuple(range(nb_dims)))
 
     # 3D glow
     if nb_dims == 3:
@@ -415,12 +333,11 @@ def jacobian_determinant(disp):
         return Jdet0 - Jdet1 + Jdet2
 
     else:  # must be 2
-
         dfdx = J[0]
         dfdy = J[1]
 
         return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
-    
+
 
 def fwhm_to_sigma(fwhm):
     """
