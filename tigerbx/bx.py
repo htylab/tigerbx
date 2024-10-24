@@ -199,6 +199,7 @@ def run_args(args):
         
     if run_d['vbm']:
         run_d['registration'] = run_d['cgw'] = True
+        #run_d['fusemorph'] = run_d['cgw'] = run_d['aseg'] = True
         
     if run_d['clean_onnx']:
         lib_tool.clean_onnx()
@@ -230,11 +231,11 @@ def run_args(args):
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
-    omodel['reg'] = 'mprage_reg_v002_train.onnx'
+    omodel['reg'] = 'mprage_reg_v003_train.onnx'
     omodel['encode'] = 'mprage_encode_v2.onnx'
     omodel['decode'] = 'mprage_decode_v2.onnx'
-    omodel['affine'] = 'mprage_affine_v001_train.onnx'
-    omodel['rigid'] = 'mprage_rigid_v001_train.onnx'
+    omodel['affine'] = 'mprage_affine_v002_train.onnx'
+    omodel['rigid'] = 'mprage_rigid_v002_train.onnx'
 
  
     # if you want to use other models
@@ -520,9 +521,9 @@ def run_args(args):
                     result_dict['dense_warp'] = warp_nib
                     #result_filedict['dense_warp'] = fn 
                 if run_d['fusemorph']:
-                    model_affine_transform = lib_tool.get_model('mprage_affine_transform_v001_train.onnx')
-                    model_transform = lib_tool.get_model('mprage_transform.onnx')
-                    model_transform_bili = lib_tool.get_model('mprage_transform_bili.onnx')
+                    model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
+                    model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
+                    model_transform_bili = lib_tool.get_model('mprage_transform_v002_bili.onnx')
                     
                     template_data = template_nib.get_fdata()
                     fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
@@ -547,6 +548,7 @@ def run_args(args):
                                 
                     affine_matrix= np.expand_dims(affine_matrix, axis=0)
                     output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
+                    affine_matrix = np.squeeze(affine_matrix, axis=0)
                     moving_seg = np.squeeze(output[0])
                     
                     moving_seg = lib_bx.remove_padding(moving_seg, pad_width)
@@ -613,8 +615,8 @@ def run_args(args):
                 raw_GM, _ = lib_bx.crop_image(raw_GM, target_shape=(256, 256, 256))
                 raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
                 
-                model_transform = lib_tool.get_model('mprage_transform_bili.onnx')
-                model_affine_transform = lib_tool.get_model('mprage_affine_transform_v001_train_bili.onnx')
+                model_transform = lib_tool.get_model('mprage_transform_v002_bili.onnx')
+                model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_bili.onnx')
                 
                 Affine_matrix= np.expand_dims(affine_matrix, axis=0)
                 output = lib_tool.predict(model_affine_transform, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
@@ -639,7 +641,7 @@ def run_args(args):
                 result_dict['Modulated_GM'] = Modulated_GM_nib
                 result_filedict['Modulated_GM'] = fn
                 
-                fwhm_value = 8.0
+                fwhm_value = 7.065
                 Smoothed_GM = lib_bx.apply_gaussian_smoothing(Modulated_GM, fwhm=fwhm_value)
                 Smoothed_GM_nib = nib.Nifti1Image(Smoothed_GM, template_nib.affine, template_nib.header)
                 fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')

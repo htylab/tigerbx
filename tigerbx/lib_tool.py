@@ -17,6 +17,7 @@ from nilearn.image import resample_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)
+ort.set_default_logger_severity(3)
 nib.Nifti1Header.quaternion_threshold = -100
 
 model_servers = ['https://github.com/htylab/tigerbx/releases/download/modelhub/',
