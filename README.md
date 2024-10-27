@@ -68,6 +68,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -F: Registers images to template using the FuseMorph method(default is MNI152).
 -T: The template filename.
 -R: Rigid transforms images to template(default is MNI152).
+-v: Generate results for VBM (Voxel-Based Morphometry).
 ```
 ## Citation
 
