@@ -75,8 +75,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 * If you use this application, cite the following paper:
 
 1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
-2. Chen CS, Huang TY "Accelerated Cortical Thickness Mapping Using Deep Learning", ISMRM 2024
-3. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
+2. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW, ADNI (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
 
 ## Label definitions
 
