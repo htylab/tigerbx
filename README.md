@@ -33,13 +33,14 @@ https://github.com/htylab/tigerbx/releases
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
     tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
-    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz') # registers images to template
-    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir') # registers images to template using the FuseMorph method
+    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement='False') # Registers images to template, and use save_displacement='True' to save displacement fields.
+    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement='False') # Registers images to template using the FuseMorph method, and use save_displacement='True' to save displacement fields.
     tigerbx.run('clean_onnx') #Clean downloaded ONNX file
     tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
     tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
     tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir') # Run vbm analysis
-
+    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') # Transforms moving image with warp field, saves to output directory with nearest interpolation.
+    
 
 ** Mac and Windows  are supported.**
 

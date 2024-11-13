@@ -137,11 +137,12 @@ def main():
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
     parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
+    parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
     args = parser.parse_args()
     run_args(args)
 
 
-def run(argstring, input=None, output=None, model=None, template=None):
+def run(argstring, input=None, output=None, model=None, template=None, save_displacement=False):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -178,6 +179,7 @@ def run(argstring, input=None, output=None, model=None, template=None):
     args.patch = 'p' in argstring
     args.vbm = 'v' in argstring
     args.template = template
+    args.save_displacement = save_displacement
     return run_args(args)   
 
 
@@ -190,7 +192,7 @@ def run_args(args):
                     run_d['syn'], run_d['affine'], run_d['registration'],
                     run_d['fusemorph'], run_d['rigid'], run_d['template'],
                     run_d['encode'], run_d['decode'], run_d['patch'], 
-                    run_d['vbm']]:
+                    run_d['vbm'], run_d['save_displacement']]:
         run_d['bet'] = True
         # Producing extracted brain by default
         
@@ -439,7 +441,15 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
-        if run_d['affine'] or run_d['rigid'] or run_d['registration'] or run_d['fusemorph']:            
+        if run_d['affine'] or run_d['rigid'] or run_d['registration'] or run_d['fusemorph']:
+            displacement_dict = {
+                "init_flow": None,
+                "rigid_matrix": None,
+                "affine_matrix": None,
+                "dense_warp": None, 
+                "Fuse_dense_warp": None
+            }
+            
             bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
@@ -467,7 +477,11 @@ def run_args(args):
             if run_d['rigid']:
                 model_ff = lib_tool.get_model(omodel['rigid'])
                 output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
-                rigided, regid_matrix = np.squeeze(output[0]), np.squeeze(output[1])
+                rigided, rigid_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
+                
+                displacement_dict["init_flow"] = init_flow
+                displacement_dict["rigid_matrix"] = rigid_matrix
+                
                 rigided = lib_bx.remove_padding(rigided, pad_width)
                 
                 rigid_nib = nib.Nifti1Image(rigided, fixed_affine)
@@ -481,11 +495,15 @@ def run_args(args):
                 output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
                 affined, affine_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
                 initflow_nib = nib.Nifti1Image(init_flow, ori_affine)
+                
+                displacement_dict["init_flow"] = init_flow
+                displacement_dict["affine_matrix"] = affine_matrix
+                
                 result_dict['init_flow'] = initflow_nib
+                result_dict['Affine_matrix'] = affine_matrix
                 affined = lib_bx.remove_padding(affined, pad_width)
                 affine_nib = nib.Nifti1Image(affined, fixed_affine)
 
-                result_dict['Affine_matrix'] = affine_matrix
                 if run_d['affine']:
                     fn = save_nib(affine_nib, ftemplate, 'Af')
                     result_dict['Af'] = affine_nib
@@ -517,9 +535,10 @@ def run_args(args):
                         result_filedict['reg'] = fn
                     result_dict['reg'] = moved_nib        
                     
-                    #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
+                    
+                    displacement_dict["dense_warp"] = warp
                     result_dict['dense_warp'] = warp_nib
-                    #result_filedict['dense_warp'] = fn 
+                        
                 if run_d['fusemorph']:
                     model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
                     model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
@@ -602,11 +621,11 @@ def run_args(args):
                     #if not run_d['vbm']:
                     fn = save_nib(moved_nib, ftemplate, 'Fuse')
                     result_filedict['Fuse'] = fn
-                    result_dict['Fuse'] = moved_nib        
+                    result_dict['Fuse'] = moved_nib
                     
-                    #fn = save_nib(warp_nib, ftemplate, 'dense_warp')
+                    
+                    displacement_dict["Fuse_dense_warp"] = warp
                     result_dict['dense_warp'] = warp_nib
-                    #result_filedict['dense_warp'] = fn 
                     
             if run_d['vbm']:
                 raw_GM_nib = reorder_img(result_dict['cgw'][1], resample='continuous')
@@ -616,10 +635,10 @@ def run_args(args):
                 raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
                 
                 model_transform = lib_tool.get_model('mprage_transform_v002_bili.onnx')
-                model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_bili.onnx')
+                model_affine_transform_bili = lib_tool.get_model('mprage_affinetransform_v002_bili.onnx')
                 
                 Affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                output = lib_tool.predict(model_affine_transform, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
+                output = lib_tool.predict(model_affine_transform_bili, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
                 affined_GM = np.squeeze(output[0])
                 affined_GM = lib_bx.remove_padding(affined_GM, pad_width)
                 
@@ -647,8 +666,9 @@ def run_args(args):
                 fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')
                 result_dict['Smoothed_GM'] = Smoothed_GM_nib
                 result_filedict['Smoothed_GM'] = fn
-                
-                
+            if run_d['save_displacement']:
+                np.savez(ftemplate.replace('@@@@.nii.gz', 'warp') + '.npz', **displacement_dict)
+               
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
