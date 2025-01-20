@@ -8,6 +8,8 @@ from nilearn.image import reorder_img, resample_to_img, resample_img
 from scipy.ndimage import gaussian_filter
 
 from tigerbx import lib_tool
+import optuna
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 label_all = dict()
 label_all['aseg43'] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,
@@ -402,3 +404,29 @@ def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_
     dice_scores = dice(output_np, fixed_seg_image_np)
     #return (x, y, z, dice_score, warp)
     return (x, y, z, np.mean(dice_scores), warp)
+
+def optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args):
+
+    def objective(trial):
+        x = trial.suggest_float("x", 0.9, 1.0)
+        y = trial.suggest_float("y", 0.1, 1.0)
+        z = trial.suggest_float("z", 0.1, 1.0)
+        params = (x, y, z)
+        x, y, z, dice_score, warp = FuseMorph_evaluate_params(
+            params, warps, moving_seg, model_transform, fixed_seg_image, args.gpu
+        )
+        nonlocal best_dice, best_warp
+        if dice_score > best_dice:
+            best_dice = dice_score
+            best_warp = warp
+
+        return dice_score
+    best_dice = float("-inf")
+    best_warp = None
+    moving_seg = np.expand_dims(np.expand_dims(moving_seg, axis=0), axis=1)
+    sampler = optuna.samplers.TPESampler(seed=42) 
+    study = optuna.create_study(direction="maximize", sampler=sampler)
+    study.optimize(objective, n_trials=100)  # Number of trials can be adjusted
+    best_params = study.best_params
+    best_dice = study.best_value
+    return best_params, best_dice, best_warp

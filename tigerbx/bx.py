@@ -590,25 +590,8 @@ def run_args(args):
                         moving_seg_current = moved_seg                    
                         # moving_nib = nib.Nifti1Image(np.squeeze(moved_seg), fixed_affine, template_nib.header)
                         # fn = save_nib(moving_nib, ftemplate, str(i))
-                    
-                    x_values = [0.9, 1.0]
-                    y_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-                    z_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-                    param_combinations = list(product(x_values, y_values, z_values))
-                    
-                    best_dice = float('-inf')
-                    best_warp = None                    
-                    moving_seg = np.expand_dims(np.expand_dims(moving_seg, axis=0), axis=1)     
-                    
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        futures = [executor.submit(lib_bx.FuseMorph_evaluate_params, params, warps, moving_seg, model_transform, fixed_seg_image, args.gpu) for params in param_combinations]
-                        
-                        for future in concurrent.futures.as_completed(futures):
-                            x, y, z, dice_score, warp = future.result()
-                            if dice_score > best_dice:
-                                best_dice = dice_score
-                                best_warp = warp
-                            
+
+                    _, _, best_warp = lib_bx.optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args)
                     output = lib_tool.predict(model_transform_bili, [moving_image, best_warp], GPU=args.gpu, mode='reg')
                     
                     moved = np.squeeze(output[0])
