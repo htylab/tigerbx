@@ -33,13 +33,14 @@ https://github.com/htylab/tigerbx/releases
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
     tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
-    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz') # registers images to template
-    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir') # registers images to template using the FuseMorph method
+    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False) # Registers images to template, and use save_displacement=True to save displacement fields.
+    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False) # Registers images to template using the FuseMorph method, and use save_displacement=True to save displacement fields.
     tigerbx.run('clean_onnx') #Clean downloaded ONNX file
     tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
     tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
     tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir') # Run vbm analysis
-
+    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') # Transforms moving image with warp field, saves to output directory with nearest interpolation.
+    
 
 ** Mac and Windows  are supported.**
 
@@ -68,14 +69,14 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -F: Registers images to template using the FuseMorph method(default is MNI152).
 -T: The template filename.
 -R: Rigid transforms images to template(default is MNI152).
+-v: Generate results for VBM (Voxel-Based Morphometry).
 ```
 ## Citation
 
 * If you use this application, cite the following paper:
 
 1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
-2. Chen CS, Huang TY "Accelerated Cortical Thickness Mapping Using Deep Learning", ISMRM 2024
-3. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
+2. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW, ADNI (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
 
 ## Label definitions
 
