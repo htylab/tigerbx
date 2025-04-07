@@ -299,7 +299,7 @@ def patch_inference_3d_lite(session,
             output_patch = logits.squeeze(0)*gaussian_map
         none_zero_mask1 = prob_tensor[:, p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]]!= 0 
         none_zero_mask2 = output_patch != 0
-        none_zero_num = np.clip(none_zero_mask1 + none_zero_mask2, a_min=1, a_max=None)
+        none_zero_num = np.clip(none_zero_mask1.astype(int) + none_zero_mask2.astype(int), a_min=1, a_max=None)
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += output_patch
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] /= none_zero_num
     return prob_tensor[np.newaxis, :]
