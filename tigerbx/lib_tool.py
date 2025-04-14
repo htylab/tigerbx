@@ -288,7 +288,7 @@ def patch_inference_3d_lite(session,
                        vol_d: np.ndarray, 
                        patch_size : Tuple[int, ...] = (128,)*3, 
                        tile_step_size: float = 0.5, 
-                       gaussian = False ):
+                       gaussian = True ):
     patches, point_list = img_to_patches(vol_d, patch_size, tile_step_size)#patches.shape = (patch_num, 1, 1, 128, 128, 128)  
     gaussian_map = compute_gaussian(patch_size)
     patch_logits_shape = session.run(None, {session.get_inputs()[0].name: patches[0]}, )[0].shape
