@@ -293,15 +293,19 @@ def patch_inference_3d_lite(session,
     gaussian_map = compute_gaussian(patch_size)
     patch_logits_shape = session.run(None, {session.get_inputs()[0].name: patches[0]}, )[0].shape
     prob_tensor = np.zeros(((patch_logits_shape[1],) + vol_d.shape[-3:]))
+    weight_tensor = np.zeros(vol_d.shape[-3:])
+    if gaussian:
+        weight_patch = gaussian_map
+    else:
+        weight_patch = torch.ones(patch_size, device=vol_d.device)
+    for p in point_list:
+        weight_tensor[p[0]:p[0]+patch_size[0], p[1]:p[1]+patch_size[1], p[2]:p[2]+patch_size[2]] += weight_patch
     for patch, p in zip(patches, point_list):
         logits = session.run(None, {session.get_inputs()[0].name: patch}, )[0]#logits.shape = (1, c, 128, 128, 128)      
         if gaussian:    
             output_patch = logits.squeeze(0)*gaussian_map
-        none_zero_mask1 = prob_tensor[:, p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]]!= 0 
-        none_zero_mask2 = output_patch != 0
-        none_zero_num = np.clip(none_zero_mask1.astype(int) + none_zero_mask2.astype(int), a_min=1, a_max=None)
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += output_patch
-        prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] /= none_zero_num
+    prob_tensor= prob_tensor/weight_tensor
     return prob_tensor[np.newaxis, :]
 
 
