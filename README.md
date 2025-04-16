@@ -1,4 +1,5 @@
 ### TigerBx: Tissue Mask Generation for Brain Extration
+<img src="./doc/team.png" alt="tigerbx" width="400">
 
 ## Background
 
@@ -7,8 +8,7 @@
 * The software has been exclusively designed for research purposes and is not intended for any commercial application.
 * The software should not be used in clinical applications.
 
-![tigerbet](./doc/tigerbx.png)
-
+<img src="./doc/tigerbx.png" alt="tigerbx" width="800">
 ### Install stand-alone version
 https://github.com/htylab/tigerbx/releases
 
