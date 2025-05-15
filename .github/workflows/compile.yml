@@ -45,11 +45,23 @@ jobs:
         pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerbx/${{ matrix.py }}.py
 
     # build 完成後先打包 artifact
-    - name: Package artifacts
+    - name: Package artifacts (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
-        mkdir -p release
-        cp dist/* release/
-        zip -r release-${{ github.run_number }}.zip release/
+        mkdir release
+        copy dist\* release\
+        powershell -Command "Compress-Archive -Path release\* -DestinationPath release-${{ github.run_number }}.zip"
+
+    - name: Package artifacts (Linux/macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        zip -r release-${{ github.run_number }}.zip dist/
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-${{ matrix.os }}
+        path: release-${{ github.run_number }}.zip
 
   release:
     needs: build
