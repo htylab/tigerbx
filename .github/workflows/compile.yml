@@ -74,6 +74,8 @@ jobs:
     - name: Create Draft Release
       uses: actions/create-release@v1
       id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         token: ${{ secrets.GITHUB_TOKEN }} 
         tag_name: v${{ github.run_number }}        # 你可以按需改成 semver
@@ -83,8 +85,9 @@ jobs:
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        token: ${{ secrets.GITHUB_TOKEN }} 
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: release-${{ github.run_number }}.zip
         asset_name: python-main-${{ github.run_number }}.zip
