@@ -58,7 +58,7 @@ def read_file(model_ff, input_file):
     return nib.load(input_file)
 
 
-def write_file(model_ff, input_file, output_dir, vol_out, inmem=False, postfix='vdmi'):
+def write_file(model_ff, input_file, output_dir, vol_out, inmem=False, postfix='gdmi'):
 
     if not isdir(output_dir):
         print('Output dir does not exist.')
