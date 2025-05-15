@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['windows-latest', 'Ubuntu 22.04', 'macos-latest']
+        os: ['windows-latest', 'Ubuntu 24.04', 'macos-latest']
         #os: ['windows-latest']
         py: ['bx']
 
