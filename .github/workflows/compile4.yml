@@ -18,6 +18,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    
+    - name: Get short SHA
+      id: short_sha
+      run: echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+
     - name: Set up Python 3.9
       uses: actions/setup-python@v5
       with:
@@ -61,8 +66,8 @@ jobs:
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: release-${{ matrix.os }}-${{ github.sha }}
-        path: release-${{ matrix.os }}-${{ github.sha }}.zip
+        name: release-${{ matrix.os }}-${{ env.SHORT_SHA }}
+        path: release-${{ matrix.os }}-${{ env.SHORT_SHA }}.zip
 
   release:
     needs: build
@@ -85,8 +90,8 @@ jobs:
         draft: true
         prerelease: false
         files: |
-          artifacts/release-windows-latest-${{ github.sha }}/release-windows-latest-${{ github.sha }}.zip
-          artifacts/release-ubuntu-latest-${{ github.sha }}/release-ubuntu-latest-${{ github.sha }}.zip
-          artifacts/release-macos-latest-${{ github.sha }}/release-macos-latest-${{ github.sha }}.zip
+          artifacts/release-windows-latest-${{ env.SHORT_SHA }}/release-windows-latest-${{ env.SHORT_SHA }}.zip
+          artifacts/release-ubuntu-latest-${{ env.SHORT_SHA }}/release-ubuntu-latest-${{ env.SHORT_SHA }}.zip
+          artifacts/release-macos-latest-${{ env.SHORT_SHA }}/release-macos-latest-${{ env.SHORT_SHA }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
