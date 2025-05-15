@@ -45,6 +45,7 @@ jobs:
 
     - name: Package artifacts (Windows)
       if: matrix.os == 'windows-latest'
+      shell: bash
       run: |
         mkdir release
         copy dist\* release\
