@@ -13,12 +13,12 @@ classifiers = [
 setup(
      name='tigerbx',
 
-     version='0.1.18',
+     version='0.1.19',
      description='Processing MRI images based on deep-learning',
      long_description_content_type='text/markdown',
      url='https://github.com/htylab/tigerbx',
 
-     author='Biomedical Imaging Lab, Taiwan Tech',
+     author='AI & Scientific Computing Lab, Taiwan Tech',
      author_email='',
      License='MIT',
      classifiers=classifiers,
@@ -33,6 +33,7 @@ setup(
      entry_points={
         'console_scripts': [
             'tigerbx = tigerbx.bx:main',
+            'gdm = tigerbx.gdm:main',
 
         ]
     },
