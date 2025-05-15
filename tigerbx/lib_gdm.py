@@ -118,7 +118,9 @@ def resample_to_new_resolution(data_nii, target_resolution, target_shape=None, i
         factor[i] = target_resolution[i] / np.sqrt(affine[0, i]**2 + affine[1, i]**2 + affine[2, i]**2)
         target_affine[:3, i] = target_affine[:3, i]*factor[i]
         
-    new_nii = resample_img(data_nii, target_affine=target_affine, target_shape=target_shape, interpolation=interpolation)
+    new_nii = resample_img(data_nii, target_affine=target_affine,
+                            target_shape=target_shape, interpolation=interpolation,
+                            force_resample=True)
     return new_nii
 
 
