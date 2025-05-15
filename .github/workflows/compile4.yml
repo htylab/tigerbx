@@ -23,11 +23,10 @@ jobs:
       id: short_sha
       shell: bash
       run: |
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          echo "SHORT_SHA=${{ github.sha }}" | head -c7 >> $GITHUB_ENV
-        else
-          echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
-        fi
+        # 取前 7 碼
+        SHORT_SHA=${GITHUB_SHA:0:7}
+        # 寫入環境變數
+        echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
 
     - name: Set up Python 3.9
       uses: actions/setup-python@v5
