@@ -250,7 +250,7 @@ def resample_voxel(data_nib, voxelsize,
 
     new_nib = resample_img(data_nib, target_affine=target_affine,
                            target_shape=target_shape, interpolation=interpolation,
-                           force_resample=True, copy_header=True)
+                           force_resample=True)
 
     return new_nib
 

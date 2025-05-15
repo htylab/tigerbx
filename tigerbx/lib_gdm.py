@@ -120,7 +120,7 @@ def resample_to_new_resolution(data_nii, target_resolution, target_shape=None, i
         
     new_nii = resample_img(data_nii, target_affine=target_affine,
                             target_shape=target_shape, interpolation=interpolation,
-                            force_resample=True, copy_header=True)
+                            force_resample=True)
     return new_nii
 
 

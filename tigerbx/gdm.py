@@ -8,6 +8,9 @@ from scipy.io import savemat
 import nibabel as nib
 import numpy as np
 import time
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 
 
 from tigerbx import lib_tool

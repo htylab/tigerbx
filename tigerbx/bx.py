@@ -15,6 +15,9 @@ import copy
 from nilearn.image import resample_to_img, reorder_img, resample_img
 from itertools import product
 import concurrent.futures
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
