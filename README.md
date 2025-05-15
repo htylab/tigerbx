@@ -36,13 +36,17 @@ https://github.com/htylab/tigerbx/releases
 
 #### Registration and VBM
     import tigerbx
-    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False) # Registers images to template, and use save_displacement=True to save displacement fields.
-    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False) # Registers images to template using the FuseMorph method, and use save_displacement=True to save displacement fields.
+    # Registers images to template, and use save_displacement=True to save displacement fields.
+    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False) 
+    # Registers images to template using the FuseMorph method, and use save_displacement=True to save displacement fields.
+    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False) 
     tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir') # Run vbm analysis
-    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') # Transforms moving image with warp field, saves to output directory with nearest interpolation.
+    # Transforms moving image with warp field, saves to output directory with nearest interpolation.
+    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') 
 
 #### Generative Displacement Mapping
     import tigerbx
+    tigerbx.gdm('dti.nii.gz')
     tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) #b0_index: the index of b0 slice
 
 #### Tools
