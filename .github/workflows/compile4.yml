@@ -54,14 +54,14 @@ jobs:
       run: |
         mkdir release
         copy dist\* release\
-        powershell -Command "Compress-Archive -Path release\* -DestinationPath release-${{ matrix.os }}-${{ github.sha }}.zip"
+        powershell -Command "Compress-Archive -Path release\* -DestinationPath release-${{ matrix.os }}-${{ env.SHORT_SHA }}.zip"
 
     - name: Package artifacts (Linux/macOS)
       if: matrix.os != 'windows-latest'
       run: |
         mkdir release
         mv dist/* release/
-        zip -r release-${{ matrix.os }}-${{ github.sha}}.zip release/
+        zip -r release-${{ matrix.os }}-${{ env.SHORT_SHA }}.zip release/
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
