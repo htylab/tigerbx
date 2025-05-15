@@ -1,4 +1,4 @@
-name: Python Main
+name: Compile
 
 on:
   workflow_dispatch:    # 手動觸發
