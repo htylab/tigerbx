@@ -21,7 +21,13 @@ jobs:
     
     - name: Get short SHA
       id: short_sha
-      run: echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+      shell: bash
+      run: |
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          echo "SHORT_SHA=${{ github.sha }}" | head -c7 >> $GITHUB_ENV
+        else
+          echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+        fi
 
     - name: Set up Python 3.9
       uses: actions/setup-python@v5
