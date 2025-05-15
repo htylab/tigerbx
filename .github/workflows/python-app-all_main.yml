@@ -40,7 +40,7 @@ jobs:
       run: |
         pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data "./tigerbx/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerbx/${{ matrix.py }}.py
     - name: Run Pyinstaller  2
-      if: matrix.os == 'ubuntu-22.04'
+      if: matrix.os == 'ubuntu-latest'
       run: |
         pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerbx/${{ matrix.py }}.py
     - name: Run Pyinstaller 3
