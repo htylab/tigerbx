@@ -1,10 +1,6 @@
-name: Compile2
+name: Compile4
 
 on:
-  push:
-    branches: [ "temp" ]
-  pull_request:
-    branches: [ "temp" ]
   workflow_dispatch:    # Manual trigger
 
 permissions:
@@ -53,20 +49,20 @@ jobs:
       run: |
         mkdir release
         copy dist\* release\
-        powershell -Command "Compress-Archive -Path release\* -DestinationPath release-${{ matrix.os }}-${{ github.run_number }}.zip"
+        powershell -Command "Compress-Archive -Path release\* -DestinationPath release-${{ matrix.os }}-${{ github.sha }}.zip"
 
     - name: Package artifacts (Linux/macOS)
       if: matrix.os != 'windows-latest'
       run: |
         mkdir release
         mv dist/* release/
-        zip -r release-${{ matrix.os }}-${{ github.run_number }}.zip release/
+        zip -r release-${{ matrix.os }}-${{ github.sha}}.zip release/
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: release-${{ matrix.os }}-${{ github.run_number }}
-        path: release-${{ matrix.os }}-${{ github.run_number }}.zip
+        name: release-${{ matrix.os }}-${{ github.sha }}
+        path: release-${{ matrix.os }}-${{ github.sha }}.zip
 
   release:
     needs: build
@@ -89,8 +85,8 @@ jobs:
         draft: true
         prerelease: false
         files: |
-          artifacts/release-windows-latest-${{ github.run_number }}/release-windows-latest-${{ github.run_number }}.zip
-          artifacts/release-ubuntu-latest-${{ github.run_number }}/release-ubuntu-latest-${{ github.run_number }}.zip
-          artifacts/release-macos-latest-${{ github.run_number }}/release-macos-latest-${{ github.run_number }}.zip
+          artifacts/release-windows-latest-${{ github.sha }}/release-windows-latest-${{ github.sha }}.zip
+          artifacts/release-ubuntu-latest-${{ github.sha }}/release-ubuntu-latest-${{ github.sha }}.zip
+          artifacts/release-macos-latest-${{ github.sha }}/release-macos-latest-${{ github.sha }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
