@@ -107,8 +107,16 @@ def get_template(f, output_dir, get_z, common_folder=None):
 
     return ftemplate, f_output_dir
 
+
+
 def main():
     parser = argparse.ArgumentParser()
+    setup_parser(parser)
+    args = parser.parse_args()
+    run_args(args)
+
+def setup_parser(parser):
+    #parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
@@ -138,8 +146,8 @@ def main():
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
     parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
     parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
-    args = parser.parse_args()
-    run_args(args)
+    #args = parser.parse_args()
+    #run_args(args)
 
 
 def run(argstring, input=None, output=None, model=None, template=None, save_displacement=False):

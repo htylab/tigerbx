@@ -32,9 +32,7 @@ setup(
 
      entry_points={
         'console_scripts': [
-            'tigerbx = tigerbx.bx:main',
-            'gdm = tigerbx.gdm:main',
-
+            'tiger = tigerbx.tiger:main',
         ]
     },
      python_requires='>=3.8',

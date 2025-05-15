@@ -14,9 +14,10 @@ https://github.com/htylab/tigerbx/releases
 
 ### Usage
 
-    tigerbx -bmad c:\data\*.nii.gz -o c:\output
-    tigerbx -c c:\data\*.nii.gz -o c:\output
-    tigerbx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
+    tiger bx -bmad c:\data\*.nii.gz -o c:\output
+    tiger bx -c c:\data\*.nii.gz -o c:\output
+    tiger bx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
+    tiger gdm DTI.nii.gz -o c:\outputdir
 
 ### As a python package
 
@@ -46,14 +47,16 @@ https://github.com/htylab/tigerbx/releases
 
 #### Generative Displacement Mapping
     import tigerbx
-    tigerbx.gdm('dti.nii.gz')
-    tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) #b0_index: the index of b0 slice
+    tigerbx.run_gdm('dti.nii.gz')
+    tigerbx.run_gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) 
+    #b0_index: the index of b0 slice
 
 #### Tools
     import tigerbx
     tigerbx.run('clean_onnx') #Clean downloaded ONNX file
     tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
     tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
+
 
 ** Mac and Windows  are supported.**
 
@@ -62,11 +65,10 @@ https://github.com/htylab/tigerbx/releases
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
 ```
-tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
+tiger bx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -m: Produces the brain mask.
 -a: Produces the aseg mask.
 -b: Produces the extracted brain.
--B: Produces brain age mapping (WIP).
 -d: Produces the deep gray matter mask.
 -k: Produces the DKT mask (WIP).
 -c: Produces the cortical thickness map.
@@ -84,6 +86,7 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -R: Rigid transforms images to template(default is MNI152).
 -p: Enable segmentation models to use patch inference with patch size 160×160×160.
 -v: Generate results for VBM (Voxel-Based Morphometry).
+
 ```
 ## Citation
 
