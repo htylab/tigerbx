@@ -47,8 +47,8 @@ https://github.com/htylab/tigerbx/releases
 
 #### Generative Displacement Mapping
     import tigerbx
-    tigerbx.run_gdm('dti.nii.gz')
-    tigerbx.run_gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) 
+    tigerbx.gdm('dti.nii.gz')
+    tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) 
     #b0_index: the index of b0 slice
 
 #### Tools

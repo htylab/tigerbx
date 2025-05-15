@@ -35,7 +35,7 @@ def setup_parser(parser):
     #args = parser.parse_args()
     #run_args(args)
 
-def run_gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False):
+def gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False):
 
     from argparse import Namespace
     args = Namespace()

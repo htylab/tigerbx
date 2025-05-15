@@ -1,7 +1,7 @@
 import argparse
 import sys
 from tigerbx import bx
-from tigerbx import gdm
+from tigerbx import gdmi
 
 def main():
     parser = argparse.ArgumentParser(prog="tiger", description="Tiger CLI tool")
@@ -13,7 +13,7 @@ def main():
 
     # GDM subcommand
     gdm_parser = subparsers.add_parser("gdm", help="Run gdm module")
-    gdm.setup_parser(gdm_parser)
+    gdmi.setup_parser(gdm_parser)
 
 
     args = parser.parse_args()
@@ -21,7 +21,7 @@ def main():
     if args.command == "bx":
         bx.run_args(args)
     elif args.command == "gdm":
-        gdm.run_args(args)
+        gdmi.run_args(args)
 
 if __name__ == "__main__":
     main()
