@@ -1,10 +1,10 @@
 name: Compile
 
 on:
-  workflow_dispatch:    # 手動觸發
+  workflow_dispatch:
 
 permissions:
-  contents: write       # 必須可寫入 release
+  contents: write
 
 jobs:
   build:
@@ -32,19 +32,17 @@ jobs:
     - name: PyInstaller (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data "./tigerbx/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerbx/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico \
+          --add-data "./tigerbx/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" \
+          -F ./tigerbx/${{ matrix.py }}.py
 
-    - name: PyInstaller (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+    - name: PyInstaller (Linux/macOS)
+      if: matrix.os != 'windows-latest'
       run: |
-        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerbx/${{ matrix.py }}.py
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico \
+          --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi \
+          -F ./tigerbx/${{ matrix.py }}.py
 
-    - name: PyInstaller (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data ./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi -F ./tigerbx/${{ matrix.py }}.py
-
-    # build 完成後先打包 artifact
     - name: Package artifacts (Windows)
       if: matrix.os == 'windows-latest'
       run: |
@@ -65,11 +63,18 @@ jobs:
 
   release:
     needs: build
-    if: github.event_name == 'workflow_dispatch'   # 只有手動觸發時才執行
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+
+    # 先下載 build job 的 artifact
+    - name: Download built zip (choose the OS you want)
+      uses: actions/download-artifact@v3
+      with:
+        name: release-ubuntu-latest   # 或 windows-latest/macOS-latest
+        path: ./release
 
     - name: Create Draft Release
       uses: actions/create-release@v1
@@ -77,7 +82,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ github.run_number }}        # 你可以按需改成 semver
+        tag_name: v${{ github.run_number }}
         release_name: Release ${{ github.run_number }}
         draft: true
         prerelease: false
@@ -88,6 +93,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: release-${{ github.run_number }}.zip
+        asset_path: ./release/release-${{ github.run_number }}.zip
         asset_name: python-main-${{ github.run_number }}.zip
         asset_content_type: application/zip
