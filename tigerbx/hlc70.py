@@ -195,8 +195,12 @@ def run_args(args):
 
         if 'm' in args.save:            
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+            result_dict['tbetmask'] = tbetmask_nib
+            result_filedict['tbetmask'] = fn
         if 'b' in args.save:
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
+            result_dict['tbet'] = tbet_nib
+            result_filedict['tbet'] = fn
         if 'h' in args.save:
             all_arg = get_argmax(logits, 0, 60)
             lr_arg = get_argmax(logits, 60, 63)
@@ -206,6 +210,8 @@ def run_args(args):
             hlc_nib = resample_to_img(hlc_nib,
             input_nib, interpolation="nearest")
             fn = save_nib(hlc_nib, ftemplate, 'hlc')
+            result_dict['hlc'] = hlc_nib
+            result_filedict['hlc'] = fn
 
         if 'c' in args.save:
             ct = logits[0,66,...].squeeze()
@@ -220,6 +226,8 @@ def run_args(args):
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
+            result_dict['ct'] = ct_nib
+            result_filedict['ct'] = fn
 
         if 'C' in args.save:
             cgw = logits[0,67:70,...].squeeze()
@@ -232,7 +240,9 @@ def run_args(args):
                     pve_nib, input_nib, interpolation="linear")
 
                 pve_nib.header.set_data_dtype(float)
-                fn = save_nib(pve_nib, ftemplate, f'cgw{kk+1}')           
+                fn = save_nib(pve_nib, ftemplate, f'cgw{kk+1}')
+                result_dict[f'cgw{kk+1}'] = pve_nib
+                result_filedict[f'cgw{kk+1}'] = fn
      
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
