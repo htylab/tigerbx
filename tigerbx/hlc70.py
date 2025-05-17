@@ -33,12 +33,13 @@ def setup_parser(parser):
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--save', default='all', type=str, help='Specifying the model name')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
+    parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
 
     #args = parser.parse_args()
     #run_args(args)
 
 
-def hlc(input=None, output=None, model=None, save_str='all', GPU=False, gz=True):
+def hlc(input=None, output=None, model=None, save_str='all', GPU=False, gz=True, patch=False):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -50,6 +51,7 @@ def hlc(input=None, output=None, model=None, save_str='all', GPU=False, gz=True)
     args.gpu = GPU
     args.gz = gz
     args.save = save_str
+    args.patch = patch
     return run_args(args)
 
 def get_argmax(logits, start, end):
@@ -197,7 +199,10 @@ def run_args(args):
         image = tbet_image[None, ...][None, ...]
         image = image/np.max(image)
         model_ff = lib_tool.get_model(omodel['HLC'])
-        logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
+        if args.patch:
+            logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
+        else:
+            logits = lib_tool.predict(model_ff, image, args.gpu)
 
 
         if 'm' in args.save:            
