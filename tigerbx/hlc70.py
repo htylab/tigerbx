@@ -31,21 +31,25 @@ def setup_parser(parser):
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
+    parser.add_argument('--save', default='all', type=str, help='Specifying the model name')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
+
     #args = parser.parse_args()
     #run_args(args)
 
 
-def hlc(argstring, input=None, output=None, model=None, gz=True):
+def hlc(input=None, output=None, model=None, save_str='all', GPU=False, gz=True):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
+    
     args.input = input
     args.output = output
     args.model = model
-    args.gpu = 'g' in argstring
+    args.gpu = GPU
     args.gz = gz
+    args.save = save_str
     return run_args(args)
 
 def get_argmax(logits, start, end):
@@ -121,6 +125,8 @@ def HLC_decoder(out, lrseg, dwseg):
 def run_args(args):
 
     run_d = vars(args) #store all arg in dict
+
+    if args.save == 'all': args.save = 'cCbmh'
  
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
@@ -186,40 +192,47 @@ def run_args(args):
         model_ff = lib_tool.get_model(omodel['HLC'])
         logits = lib_tool.predict(model_ff, image, args.gpu)
 
-        all_arg = get_argmax(logits, 0, 60)
-        lr_arg = get_argmax(logits, 60, 63)
-        dw_arg = get_argmax(logits, 63, 66)
-        HLCparc = HLC_decoder(all_arg, lr_arg, dw_arg)
-        ct = logits[0,66,...].squeeze()
-        cgw = logits[0,67:70,...].squeeze()
-        hlc_nib = nib.Nifti1Image(HLCparc, tbet_nib111.affine, tbet_nib111.header)
-        hlc_nib = resample_to_img(hlc_nib,
+
+        if 'm' in args.save:            
+            fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+        if 'b' in args.save:
+            fn = save_nib(tbet_nib, ftemplate, 'tbet')
+        if 'h' in args.save:
+            all_arg = get_argmax(logits, 0, 60)
+            lr_arg = get_argmax(logits, 60, 63)
+            dw_arg = get_argmax(logits, 63, 66)
+            HLCparc = HLC_decoder(all_arg, lr_arg, dw_arg)
+            hlc_nib = nib.Nifti1Image(HLCparc, tbet_nib111.affine, tbet_nib111.header)
+            hlc_nib = resample_to_img(hlc_nib,
             input_nib, interpolation="nearest")
-        fn = save_nib(hlc_nib, ftemplate, 'hlc')
+            fn = save_nib(hlc_nib, ftemplate, 'hlc')
 
-        ct[ct < 0.2] = 0
-        ct[ct > 5] = 5
-        ct = ct * (tbet_image > 0)
+        if 'c' in args.save:
+            ct = logits[0,66,...].squeeze()
+            ct[ct < 0.2] = 0
+            ct[ct > 5] = 5
+            ct = ct * (tbet_image > 0)
 
-        ct_nib = nib.Nifti1Image(ct, tbet_nib111.affine, tbet_nib111.header)
-        ct_nib = resample_to_img(
-            ct_nib, input_nib, interpolation="nearest")
+            ct_nib = nib.Nifti1Image(ct, tbet_nib111.affine, tbet_nib111.header)
+            ct_nib = resample_to_img(
+                ct_nib, input_nib, interpolation="nearest")
 
-        ct_nib.header.set_data_dtype(float)
-        
-        fn = save_nib(ct_nib, ftemplate, 'ct')
+            ct_nib.header.set_data_dtype(float)
+            
+            fn = save_nib(ct_nib, ftemplate, 'ct')
 
+        if 'C' in args.save:
+            cgw = logits[0,67:70,...].squeeze()
+            for kk in range(3):
+                pve = cgw[kk]
+                pve = pve* (tbet_image>0)
 
-        for kk in range(3):
-            pve = cgw[kk]
-            pve = pve* (tbet_image>0)
+                pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
+                pve_nib = resample_to_img(
+                    pve_nib, input_nib, interpolation="linear")
 
-            pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
-            pve_nib = resample_to_img(
-                pve_nib, input_nib, interpolation="linear")
-
-            pve_nib.header.set_data_dtype(float)
-            fn = save_nib(pve_nib, ftemplate, f'cgw{kk+1}')           
+                pve_nib.header.set_data_dtype(float)
+                fn = save_nib(pve_nib, ftemplate, f'cgw{kk+1}')           
      
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
