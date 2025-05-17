@@ -182,8 +182,15 @@ def run_args(args):
             tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
-        tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
-        tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+
+
+        zoom = tbet_nib.header.get_zooms() 
+
+        if max(zoom) > 1.1 or min(zoom) < 0.9:
+            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+        else:
+            tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
 
         tbet_image = lib_bx.read_nib(tbet_nib111)
             
