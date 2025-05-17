@@ -197,7 +197,7 @@ def run_args(args):
         image = tbet_image[None, ...][None, ...]
         image = image/np.max(image)
         model_ff = lib_tool.get_model(omodel['HLC'])
-        logits = lib_tool.predict(model_ff, image, args.gpu)
+        logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
 
 
         if 'm' in args.save:            
