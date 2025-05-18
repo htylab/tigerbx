@@ -65,7 +65,7 @@ def get_argmax(logits, start, end):
     
     return argmax_output
 
-def HLC_decoder(out, lrseg, dwseg):
+def HLC_decoderX(out, lrseg, dwseg):
     # Label transformation dictionary with integer values
     reverse_transform = {
         0: 0, 11: 43, 12: 44, 13: 46, 14: 47, 15: 49,
@@ -123,6 +123,66 @@ def HLC_decoder(out, lrseg, dwseg):
 
     return reversed_out
 
+
+#import numpy as np
+
+# Precompute constants
+REVERSE_TRANSFORM = {
+    0: 0, 11: 43, 12: 44, 13: 46, 14: 47, 15: 49,
+    16: 50, 17: 51, 18: 52, 1: 14, 2: 15, 3: 16,
+    19: 53, 20: 54, 4: 24, 21: 58, 22: 60, 23: 62,
+    24: 63, 5: 85, 6: 251, 7: 252, 8: 253, 9: 254,
+    10: 255, 52: 4002, 53: 4003, 25: 4005, 26: 4006,
+    27: 4007, 28: 4008, 29: 4009, 30: 4010, 31: 4011,
+    32: 4012, 33: 4013, 34: 4014, 35: 4015, 36: 4016,
+    37: 4017, 38: 4018, 39: 4019, 40: 4020, 41: 4021,
+    42: 4022, 43: 4023, 44: 4024, 45: 4025, 46: 4026,
+    47: 4027, 48: 4028, 49: 4029, 50: 4030, 51: 4031,
+    54: 4034, 55: 4035, 58: 4001, 56: 4032, 57: 4033
+}
+
+ASEG_LEFT_INDEXS = np.array([4, 5, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28, 30, 31], dtype=np.int32)
+ASEG_RIGHT_INDEXS = np.array([43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60, 62, 63], dtype=np.int32)
+DKT_LEFT_INDEXS = np.array(list(range(1005, 1032)) + [1002, 1003, 1034, 1035], dtype=np.int32)
+WMP_LEFT_INDEXS = np.array(list(range(3005, 3036)) + [3001, 3002, 3003], dtype=np.int32)
+DKT_RIGHT_INDEXS = DKT_LEFT_INDEXS + 1000
+WMP_RIGHT_INDEXS = WMP_LEFT_INDEXS + 1000
+WMP_DKT_RIGHT_INDEXS = DKT_RIGHT_INDEXS + 2000
+WMP_DKT_LEFT_INDEXS = DKT_LEFT_INDEXS + 2000
+LEFT_INDEXS = np.concatenate([ASEG_LEFT_INDEXS, DKT_LEFT_INDEXS, WMP_LEFT_INDEXS])
+RIGHT_INDEXS = np.concatenate([ASEG_RIGHT_INDEXS, DKT_RIGHT_INDEXS, WMP_RIGHT_INDEXS])
+
+def HLC_decoder(out, lrseg, dwseg):
+    # Ensure optimal data types
+    out = out.astype(np.int32)
+    lrseg = lrseg.astype(np.int32)
+    dwseg = dwseg.astype(np.int32)
+    
+    # Create lookup array
+    lookup = np.zeros(max(REVERSE_TRANSFORM.keys()) + 1, dtype=np.int32)
+    for key, value in REVERSE_TRANSFORM.items():
+        lookup[key] = value
+    
+    # Apply basic transformation
+    reversed_out = lookup[out]
+    
+    # Vectorized transformation for right_indexs
+    right_to_left_map = np.zeros(max(RIGHT_INDEXS) + 1, dtype=np.int32)
+    for idx, label in enumerate(RIGHT_INDEXS):
+        right_to_left_map[label] = LEFT_INDEXS[idx]
+    mask_right = np.isin(reversed_out, RIGHT_INDEXS) & (lrseg == 1) & (dwseg == 0)
+    reversed_out[mask_right] = right_to_left_map[reversed_out[mask_right]]
+    
+    # Conditional transformations for wmp_dkt_right_indexs
+    for idx, label in enumerate(WMP_DKT_RIGHT_INDEXS):
+        mask1 = (reversed_out == label) & (lrseg == 1) & (dwseg == 1)
+        reversed_out[mask1] = DKT_LEFT_INDEXS[idx]
+        mask2 = (reversed_out == label) & (lrseg == 2) & (dwseg == 1)
+        reversed_out[mask2] = DKT_RIGHT_INDEXS[idx]
+        mask3 = (reversed_out == label) & (lrseg == 1) & (dwseg == 2)
+        reversed_out[mask3] = WMP_DKT_LEFT_INDEXS[idx]
+    
+    return reversed_out
 
 def run_args(args):
 
