@@ -65,65 +65,6 @@ def get_argmax(logits, start, end):
     
     return argmax_output
 
-def HLC_decoderX(out, lrseg, dwseg):
-    # Label transformation dictionary with integer values
-    reverse_transform = {
-        0: 0, 11: 43, 12: 44, 13: 46, 14: 47, 15: 49,
-        16: 50, 17: 51, 18: 52, 1: 14, 2: 15, 3: 16,
-        19: 53, 20: 54, 4: 24, 21: 58, 22: 60, 23: 62,
-        24: 63, 5: 85, 6: 251, 7: 252, 8: 253, 9: 254,
-        10: 255, 52: 4002, 53: 4003, 25: 4005, 26: 4006,
-        27: 4007, 28: 4008, 29: 4009, 30: 4010, 31: 4011,
-        32: 4012, 33: 4013, 34: 4014, 35: 4015, 36: 4016,
-        37: 4017, 38: 4018, 39: 4019, 40: 4020, 41: 4021,
-        42: 4022, 43: 4023, 44: 4024, 45: 4025, 46: 4026,
-        47: 4027, 48: 4028, 49: 4029, 50: 4030, 51: 4031,
-        54: 4034, 55: 4035, 58: 4001, 56: 4032, 57: 4033
-    }
-
-    # Define index lists
-    aseg_left_indexs = [4, 5, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28, 30, 31]
-    aseg_right_indexs = [43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60, 62, 63]
-    dkt_left_indexs = list(range(1005, 1032)) + [1002, 1003, 1034, 1035]
-    wmp_left_indexs = list(range(3005, 3036)) + [3001, 3002, 3003]
-    
-    dkt_right_indexs = [i + 1000 for i in dkt_left_indexs]
-    wmp_right_indexs = [i + 1000 for i in wmp_left_indexs]
-    wmp_dkt_right_indexs = [i + 2000 for i in dkt_right_indexs]
-    wmp_dkt_left_indexs = [i + 2000 for i in dkt_left_indexs]
-    
-    left_indexs = aseg_left_indexs + dkt_left_indexs + wmp_left_indexs
-    right_indexs = aseg_right_indexs + dkt_right_indexs + wmp_right_indexs
-
-    # Initialize output array
-    reversed_out = np.zeros_like(out)
-
-    # Apply basic transformation
-    for key, value in reverse_transform.items():
-        reversed_out[out == key] = value
-
-    # Apply conditional transformations based on hemisphere and gray/white matter
-    for label in np.unique(reversed_out):
-        if label in right_indexs:
-            idx = np.where(right_indexs == label)[0][0]
-            mask = (reversed_out == label) & (lrseg == 1) & (dwseg == 0)
-            reversed_out[mask] = left_indexs[idx]
-
-        if label in wmp_dkt_right_indexs:
-            idx = np.where(wmp_dkt_right_indexs == label)[0][0]
-            # Left hemisphere, gray matter
-            mask1 = (reversed_out == label) & (lrseg == 1) & (dwseg == 1)
-            reversed_out[mask1] = dkt_left_indexs[idx]
-            # Right hemisphere, gray matter
-            mask2 = (reversed_out == label) & (lrseg == 2) & (dwseg == 1)
-            reversed_out[mask2] = dkt_right_indexs[idx]
-            # Left hemisphere, white matter parcellation
-            mask3 = (reversed_out == label) & (lrseg == 1) & (dwseg == 2)
-            reversed_out[mask3] = wmp_dkt_left_indexs[idx]
-
-    return reversed_out
-
-
 #import numpy as np
 
 # Precompute constants
