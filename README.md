@@ -1,4 +1,4 @@
-### TigerBx: Tissue Mask Generation for Brain Extration
+### TigerBx: Tissue Mask Generation for Brain Extraction
 <img src="./doc/team.png" alt="tigerbx" width="400">
 
 ## Background
