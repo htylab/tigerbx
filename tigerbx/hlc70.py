@@ -39,18 +39,17 @@ def setup_parser(parser):
     #run_args(args)
 
 
-def hlc(input=None, output=None, model=None, save_str='all', GPU=False, gz=True, patch=False):
+def hlc(input=None, output=None, model=None, save='all', GPU=False, gz=True, patch=False):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
-    
     args.input = input
     args.output = output
     args.model = model
     args.gpu = GPU
     args.gz = gz
-    args.save = save_str
+    args.save = save
     args.patch = patch
     return run_args(args)
 
@@ -172,7 +171,7 @@ def run_args(args):
         result_dict = dict()
         result_filedict = dict()
 
-        print(f'{count} Processing (2~5 minutes per MPRAGE):', os.path.basename(f))
+        print(f'{count} Preprocessing :', os.path.basename(f))
         t = time.time()
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
@@ -200,6 +199,7 @@ def run_args(args):
         image = tbet_image[None, ...][None, ...]
         image = image/np.max(image)
         model_ff = lib_tool.get_model(omodel['HLC'])
+        print('Perform HLC model....')
         if args.patch:
             logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
         else:
