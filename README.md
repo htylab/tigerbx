@@ -9,8 +9,9 @@
 * The software should not be used in clinical applications.
 
 <img src="./doc/tigerbx.png" alt="tigerbx" width="800">
+
 ### Install stand-alone version
-https://github.com/htylab/tigerbx/releases
+    https://github.com/htylab/tigerbx/releases
 
 ### Usage
 
