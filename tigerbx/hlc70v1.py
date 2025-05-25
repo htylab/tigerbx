@@ -66,142 +66,63 @@ def get_argmax(logits, start, end):
 
 #import numpy as np
 
+# Precompute constants
+REVERSE_TRANSFORM = {
+    0: 0, 11: 43, 12: 44, 13: 46, 14: 47, 15: 49,
+    16: 50, 17: 51, 18: 52, 1: 14, 2: 15, 3: 16,
+    19: 53, 20: 54, 4: 24, 21: 58, 22: 60, 23: 62,
+    24: 63, 5: 85, 6: 251, 7: 252, 8: 253, 9: 254,
+    10: 255, 52: 4002, 53: 4003, 25: 4005, 26: 4006,
+    27: 4007, 28: 4008, 29: 4009, 30: 4010, 31: 4011,
+    32: 4012, 33: 4013, 34: 4014, 35: 4015, 36: 4016,
+    37: 4017, 38: 4018, 39: 4019, 40: 4020, 41: 4021,
+    42: 4022, 43: 4023, 44: 4024, 45: 4025, 46: 4026,
+    47: 4027, 48: 4028, 49: 4029, 50: 4030, 51: 4031,
+    54: 4034, 55: 4035, 58: 4001, 56: 4032, 57: 4033
+}
 
-ASEG_NLR = np.array([14, 15, 16, 24, 251, 252, 253, 254, 255], dtype=np.int32)
-ASEG_LEFT = np.array([4, 5, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28], dtype=np.int32)
-ASEG_RIGHT = np.array([43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60], dtype=np.int32)
-
-base_index = np.array([ii for ii in range(1, 36) if ii !=4], dtype=np.int32)
-
-DKT_LEFT = base_index + 1000
-DKT_RIGHT = base_index + 2000
-WMP_LEFT = base_index + 3000
-WMP_RIGHT = base_index + 4000
-
-WMP_LEFT = np.append(WMP_LEFT, 5001)
-WMP_RIGHT = np.append(WMP_RIGHT, 5002)
-
-
-DKT = np.concatenate([DKT_LEFT, DKT_RIGHT])
-#WMP_DKT = np.concatenate([DKT_LEFT + 2000, DKT_RIGHT + 2000])
-WMP = np.concatenate([WMP_LEFT, WMP_RIGHT])
-#WMP_ONLY = np.array([ 5001, 5002], dtype=np.int32)
-
-# 明確定義 LEFT 和 RIGHT
-LEFT = np.concatenate([ASEG_LEFT, DKT_LEFT, WMP_LEFT])
-RIGHT = np.concatenate([ASEG_RIGHT, DKT_RIGHT, WMP_RIGHT])
-
-# 編碼映射表
-import numpy as np
-
-# 編碼映射表
-ENCODE= {}
-DECODE = {}
-
-# 1. ASEG_NLR 映射
-for idx, value in enumerate(ASEG_NLR, start=1):
-    ENCODE[value] = idx
-    DECODE[idx] = value
-    
-
-# 2. ASEG 左右對應映射
-max_value = max(ENCODE.values())  # 當前最大值
-for idx, (left, right) in enumerate(zip(ASEG_LEFT, ASEG_RIGHT), start=max_value + 1):
-    ENCODE[left] = idx
-    ENCODE[right] = idx
-    DECODE[idx] = left
-
-# 3. DKT 和 WMP 映射
-max_value = max(ENCODE.values())  # 更新最大值
-for ii in base_index:
-    max_value += 1
-    ENCODE[ii + 1000] = max_value  # DKT_LEFT
-    ENCODE[ii + 2000] = max_value  # DKT_RIGHT
-    ENCODE[ii + 3000] = max_value  # WMP_LEFT
-    ENCODE[ii + 4000] = max_value  # WMP_RIGHT
-    DECODE[max_value] = ii + 1000
-
-max_value += 1
-# 4. 最後一對映射
-ENCODE[5001] = max_value
-ENCODE[5002] = max_value
-
-DECODE[max_value] = 5001
-
-DESIRED_LABELS = set(ENCODE.keys())
-
-def HLC_encoder(mask):
-    # 確保輸入資料型別為 int32
-    mask = mask.astype(np.int32)
-    
-    # 初始化輸出陣列
-    out = np.zeros_like(mask, dtype=np.int32)
-    lrseg = np.zeros_like(mask, dtype=np.int8)
-    dwseg = np.zeros_like(mask, dtype=np.int8)
-    
-    # 創建編碼查找表
-    max_label = max(ENCODE.keys()) + 1
-    encode_lookup = np.zeros(max_label, dtype=np.int32)
-    for key, value in ENCODE.items():
-        encode_lookup[key] = value
-    
-    # 應用編碼
-    out = encode_lookup[mask]
-    
-    # 生成 lrseg（左右半球分割）
-    lrseg[np.isin(mask, LEFT)] = 1
-    lrseg[np.isin(mask, RIGHT)] = 2
-    
-    # 生成 dwseg（灰質/白質分割）
-    dwseg[np.isin(mask, DKT)] = 1
-    dwseg[np.isin(mask, WMP)] = 2
-    #dwseg[np.isin(mask, WMP_ONLY)] = 2
-    
-    return out, lrseg, dwseg
+ASEG_LEFT_INDEXS = np.array([4, 5, 7, 8, 10, 11, 12, 13, 17, 18, 26, 28, 30, 31], dtype=np.int32)
+ASEG_RIGHT_INDEXS = np.array([43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60, 62, 63], dtype=np.int32)
+DKT_LEFT_INDEXS = np.array(list(range(1005, 1032)) + [1002, 1003, 1034, 1035], dtype=np.int32)
+WMP_LEFT_INDEXS = np.array(list(range(3005, 3036)) + [3001, 3002, 3003], dtype=np.int32)
+DKT_RIGHT_INDEXS = DKT_LEFT_INDEXS + 1000
+WMP_RIGHT_INDEXS = WMP_LEFT_INDEXS + 1000
+WMP_DKT_RIGHT_INDEXS = DKT_RIGHT_INDEXS + 2000
+WMP_DKT_LEFT_INDEXS = DKT_LEFT_INDEXS + 2000
+LEFT_INDEXS = np.concatenate([ASEG_LEFT_INDEXS, DKT_LEFT_INDEXS, WMP_LEFT_INDEXS])
+RIGHT_INDEXS = np.concatenate([ASEG_RIGHT_INDEXS, DKT_RIGHT_INDEXS, WMP_RIGHT_INDEXS])
 
 def HLC_decoder(out, lrseg, dwseg):
-
-    # 確保輸入資料型別
+    # Ensure optimal data types
     out = out.astype(np.int32)
     lrseg = lrseg.astype(np.int32)
     dwseg = dwseg.astype(np.int32)
-    gray_mask = (dwseg == 1)
-    white_mask = (dwseg == 2)
-    left_mask = (lrseg==1)
-    right_mask = (lrseg ==2)
-
-    output = np.zeros_like(lrseg)
-
     
-    # 創建解碼查找表
-    lookup = np.zeros(max(DECODE.keys()) + 1, dtype=np.int32)
-    for key, value in DECODE.items():
+    # Create lookup array
+    lookup = np.zeros(max(REVERSE_TRANSFORM.keys()) + 1, dtype=np.int32)
+    for key, value in REVERSE_TRANSFORM.items():
         lookup[key] = value
     
-    # 應用基本解碼
+    # Apply basic transformation
     reversed_out = lookup[out]
-
-    for idx in ASEG_NLR:
-        output[reversed_out == idx] = idx
     
-    # 處理左右半球和灰質/白質條件
-    for idx, (left_idx, right_idx) in enumerate(zip(ASEG_LEFT, ASEG_RIGHT)):
-        mask_temp = (reversed_out == left_idx) & left_mask
-        output[mask_temp] = left_idx
-        mask_temp = (reversed_out == left_idx) & right_mask
-        output[mask_temp] = right_idx
-
-    dkt_mask = (reversed_out > 1000) & (reversed_out < 5000)
-    dkt_value = reversed_out * dkt_mask
-    output += dkt_value * gray_mask * left_mask
-    output += (dkt_value + 1000) * gray_mask * right_mask
-    output += (dkt_value + 2000) * white_mask * left_mask
-    output += (dkt_value + 3000) * white_mask * right_mask
-    mask_temp = (reversed_out == 5001) & left_mask
-    output[mask_temp] = 5001
-    mask_temp = (reversed_out == 5001) & right_mask
-    output[mask_temp] = 5002
-    return output
+    # Vectorized transformation for right_indexs
+    right_to_left_map = np.zeros(max(RIGHT_INDEXS) + 1, dtype=np.int32)
+    for idx, label in enumerate(RIGHT_INDEXS):
+        right_to_left_map[label] = LEFT_INDEXS[idx]
+    mask_right = np.isin(reversed_out, RIGHT_INDEXS) & (lrseg == 1) & (dwseg == 0)
+    reversed_out[mask_right] = right_to_left_map[reversed_out[mask_right]]
+    
+    # Conditional transformations for wmp_dkt_right_indexs
+    for idx, label in enumerate(WMP_DKT_RIGHT_INDEXS):
+        mask1 = (reversed_out == label) & (lrseg == 1) & (dwseg == 1)
+        reversed_out[mask1] = DKT_LEFT_INDEXS[idx]
+        mask2 = (reversed_out == label) & (lrseg == 2) & (dwseg == 1)
+        reversed_out[mask2] = DKT_RIGHT_INDEXS[idx]
+        mask3 = (reversed_out == label) & (lrseg == 1) & (dwseg == 2)
+        reversed_out[mask3] = WMP_DKT_LEFT_INDEXS[idx]
+    
+    return reversed_out
 
 def run_args(args):
 
@@ -220,7 +141,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['HLC'] = 'mprage_hlc_v002_resunetplus.onnx'
+    omodel['HLC'] = 'mprage_hlc_v001_init.onnx'
  
     # if you want to use other models
     if isinstance(args.model, dict):
