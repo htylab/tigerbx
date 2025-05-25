@@ -294,9 +294,9 @@ def run_args(args):
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         if 'h' in args.save:
-            all_arg = get_argmax(logits, 0, 60)
-            lr_arg = get_argmax(logits, 60, 63)
-            dw_arg = get_argmax(logits, 63, 66)
+            all_arg = get_argmax(logits, 0, 57)
+            lr_arg = get_argmax(logits, 57, 60)
+            dw_arg = get_argmax(logits, 60, 63)
             HLCparc = HLC_decoder(all_arg, lr_arg, dw_arg)
             hlc_nib = nib.Nifti1Image(HLCparc, tbet_nib111.affine, tbet_nib111.header)
             hlc_nib = resample_to_img(hlc_nib,
@@ -306,7 +306,7 @@ def run_args(args):
             result_filedict['hlc'] = fn
 
         if 'c' in args.save:
-            ct = logits[0,66,...].squeeze()
+            ct = logits[0,63,...].squeeze()
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
             ct = ct * (tbet_image > 0)
@@ -322,7 +322,7 @@ def run_args(args):
             result_filedict['ct'] = fn
 
         if 'C' in args.save:
-            cgw = logits[0,67:70,...].squeeze()
+            cgw = logits[0,64:67,...].squeeze()
             for kk in range(3):
                 pve = cgw[kk]
                 pve = pve* (tbet_image>0)
