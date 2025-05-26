@@ -1,4 +1,5 @@
-### TigerBx: Tissue Mask Generation for Brain Extration
+### TigerBx: Tissue Mask Generation for Brain Extraction
+<img src="./doc/team.png" alt="tigerbx" width="400">
 
 ## Background
 
@@ -7,16 +8,17 @@
 * The software has been exclusively designed for research purposes and is not intended for any commercial application.
 * The software should not be used in clinical applications.
 
-![tigerbet](./doc/tigerbx.png)
+<img src="./doc/tigerbx.png" alt="tigerbx" width="800">
 
 ### Install stand-alone version
-https://github.com/htylab/tigerbx/releases
+    https://github.com/htylab/tigerbx/releases
 
 ### Usage
 
-    tigerbx -bmad c:\data\*.nii.gz -o c:\output
-    tigerbx -c c:\data\*.nii.gz -o c:\output
-    tigerbx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
+    tiger bx -bmad c:\data\*.nii.gz -o c:\output
+    tiger bx -c c:\data\*.nii.gz -o c:\output
+    tiger bx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
+    tiger gdm DTI.nii.gz -o c:\outputdir
 
 ### As a python package
 
@@ -24,23 +26,38 @@ https://github.com/htylab/tigerbx/releases
     pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
 
 ### For archived versions
-    pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.15.tar.gz
+    pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.18.tar.gz
 
 ### As a python package
-
+#### Brain segmentation
     import tigerbx
     tigerbx.run('bmadk', r'C:\T1w_dir', r'C:\output_dir')
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
     tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
     tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
-    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False) # Registers images to template, and use save_displacement=True to save displacement fields.
-    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False) # Registers images to template using the FuseMorph method, and use save_displacement=True to save displacement fields.
+
+#### Registration and VBM
+    import tigerbx
+    # Registers images to template, and use save_displacement=True to save displacement fields.
+    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False) 
+    # Registers images to template using the FuseMorph method, and use save_displacement=True to save displacement fields.
+    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False) 
+    tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir') # Run vbm analysis
+    # Transforms moving image with warp field, saves to output directory with nearest interpolation.
+    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') 
+
+#### Generative Displacement Mapping
+    import tigerbx
+    tigerbx.gdm('dti.nii.gz')
+    tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) 
+    #b0_index: the index of b0 slice
+
+#### Tools
+    import tigerbx
     tigerbx.run('clean_onnx') #Clean downloaded ONNX file
     tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
     tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
-    tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir') # Run vbm analysis
-    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') # Transforms moving image with warp field, saves to output directory with nearest interpolation.
-    
+
 
 ** Mac and Windows  are supported.**
 
@@ -49,11 +66,10 @@ https://github.com/htylab/tigerbx/releases
 ** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
 
 ```
-tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
+tiger bx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -m: Produces the brain mask.
 -a: Produces the aseg mask.
 -b: Produces the extracted brain.
--B: Produces brain age mapping (WIP).
 -d: Produces the deep gray matter mask.
 -k: Produces the DKT mask (WIP).
 -c: Produces the cortical thickness map.
@@ -69,13 +85,16 @@ tigerbx -bmad c:\data\**\*T1w.nii -o c:\outputdir
 -F: Registers images to template using the FuseMorph method(default is MNI152).
 -T: The template filename.
 -R: Rigid transforms images to template(default is MNI152).
+-p: Enable segmentation models to use patch inference with patch size 160×160×160.
 -v: Generate results for VBM (Voxel-Based Morphometry).
+
 ```
 ## Citation
 
 * If you use this application, cite the following paper:
 
 1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
+
 2. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW, ADNI (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
 
 ## Label definitions
