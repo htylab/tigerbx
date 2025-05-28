@@ -1,4 +1,5 @@
 # TigerBx: Tissue Mask Generation for Brain Extraction
+<img src="./doc/team.png" alt="tigerbx" width="400">
 
 ## Overview
 
@@ -9,6 +10,7 @@
 * Python APIs for advanced users and scripting.
 * Designed strictly for **research purposes only**—not for clinical or commercial use.
 
+<img src="./doc/tigerbx.png" alt="tigerbx" width="400">
 ---
 
 ## Quick Start
