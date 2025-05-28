@@ -353,9 +353,9 @@ def run_args(args):
 
             result_dict['QC'] = qc_score
             result_filedict['QC'] = qc_score
-            if qc_score < 30:
-                print('Pay attention to the result with QC < 30. ')
-            if run_d['qc'] or qc_score < 30:
+            if qc_score < 50:
+                print('Pay attention to the result with QC < 50. ')
+            if run_d['qc'] or qc_score < 50:
                 qcfile = ftemplate.replace('.nii','').replace('.gz', '')
                 qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
                 with open(qcfile, 'a') as the_file:

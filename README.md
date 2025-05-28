@@ -1,114 +1,189 @@
-### TigerBx: Tissue Mask Generation for Brain Extraction
-<img src="./doc/team.png" alt="tigerbx" width="400">
+# TigerBx: Tissue Mask Generation for Brain Extraction
 
-## Background
+## Overview
 
-* This repo provides deep learning methods with pretrained models for brain extraction.
-* We also provided the stand-alone application working on Windows, Mac, and Linux.
-* The software has been exclusively designed for research purposes and is not intended for any commercial application.
-* The software should not be used in clinical applications.
+**TigerBx** is a deep learning toolkit for brain extraction and tissue segmentation. It provides:
 
-<img src="./doc/tigerbx.png" alt="tigerbx" width="800">
+* Pretrained models for structural brain segmentation.
+* A stand-alone application for Windows, macOS, and Linux.
+* Python APIs for advanced users and scripting.
+* Designed strictly for **research purposes only**—not for clinical or commercial use.
 
-### Install stand-alone version
-    https://github.com/htylab/tigerbx/releases
+---
 
-### Usage
+## Installation
 
-    tiger bx -bmad c:\data\*.nii.gz -o c:\output
-    tiger bx -c c:\data\*.nii.gz -o c:\output
-    tiger bx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
-    tiger gdm DTI.nii.gz -o c:\outputdir
+### Python Package
 
-### As a python package
-
-    pip install onnxruntime #for gpu version: onnxruntime-gpu
-    pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
-
-### For archived versions
-    pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.18.tar.gz
-
-### As a python package
-#### Brain segmentation
-    import tigerbx
-    tigerbx.run('bmadk', r'C:\T1w_dir', r'C:\output_dir')
-    tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
-    tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz') # storing output in the same dir
-    tigerbx.run('dg', r'C:\T1w_dir') # Producing deep-gray-matter masks with GPU
-
-#### Registration and VBM
-    import tigerbx
-    # Registers images to template, and use save_displacement=True to save displacement fields.
-    tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False) 
-    # Registers images to template using the FuseMorph method, and use save_displacement=True to save displacement fields.
-    tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False) 
-    tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir') # Run vbm analysis
-    # Transforms moving image with warp field, saves to output directory with nearest interpolation.
-    tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', 'C:\output_dir', interpolation='nearest') 
-
-#### Generative Displacement Mapping
-    import tigerbx
-    tigerbx.gdm('dti.nii.gz')
-    tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0) 
-    #b0_index: the index of b0 slice
-
-#### Tools
-    import tigerbx
-    tigerbx.run('clean_onnx') #Clean downloaded ONNX file
-    tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir') # Create latent representation of the T1w image
-    tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir') # Reconstruction image from its latent representation
-
-
-** Mac and Windows  are supported.**
-
-** Ubuntu (version >20.04)  are supported.**
-
-** Typically requires about 1 minute to obtain deep gray matter segmenation without GPU**
-
+```bash
+pip install onnxruntime              # For CPU
+pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
 ```
-tiger bx -bmad c:\data\**\*T1w.nii -o c:\outputdir
--m: Produces the brain mask.
--a: Produces the aseg mask.
--b: Produces the extracted brain.
--d: Produces the deep gray matter mask.
--k: Produces the DKT mask (WIP).
--c: Produces the cortical thickness map.
--C: Produces the FSL-style PVEs of CSF, GM, and WM (WIP).
--S: Produces the aseg mask using the SynthSeg-like method (WIP).
--t: Produces the tumor mask (T1 and T1c) (WIP).
--w: Produces the white matter parcellation (WIP).
--W: Produces the white matter hypointensity mask (WIP).
--q: Saves the QC score. Pay attention to QC scores below 30.
--z: Forces storing in nii.gz format.
--A: Affines images to template(default is MNI152).
--r: Registers images to template(default is MNI152).
--F: Registers images to template using the FuseMorph method(default is MNI152).
--T: The template filename.
--R: Rigid transforms images to template(default is MNI152).
--p: Enable segmentation models to use patch inference with patch size 160×160×160.
--v: Generate results for VBM (Voxel-Based Morphometry).
 
+To install a specific archived version or gpu-enabled onnxruntime:
+
+```bash
+pip install onnxruntime-gpu          # For GPU
+pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.18.tar.gz
 ```
+
+---
+
+## Python API Usage
+
+### Brain Segmentation
+
+```python
+import tigerbx
+
+# Full segmentation pipeline
+tigerbx.run('bmadk', r'C:\T1w_dir', r'C:\output_dir')
+
+# Input using wildcards
+tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
+
+# Output to same directory
+tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz')
+
+# Deep gray matter segmentation (GPU recommended)
+tigerbx.run('dg', r'C:\T1w_dir')
+```
+
+### Hierarchical Label Consolidation (HLC)
+
+This module maps 171 FreeSurfer-style labels to 56 hierarchical regions for improved efficiency and reduced memory use. Also outputs:
+
+* **Cortical thickness (CT)** maps
+* **CSF/GM/WM probability (CGW)** maps
+
+```python
+import tigerbx
+tigerbx.hlc('T1w_dir', 'outputdir')
+```
+
+### Registration and VBM
+
+```python
+# Standard registration
+tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False)
+
+# FuseMorph registration
+tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False)
+
+# Voxel-Based Morphometry (VBM)
+tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
+
+# Apply warp field
+tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', r'C:\output_dir', interpolation='nearest')
+```
+
+### Generative Displacement Mapping (GDM)
+
+GDM is a referenceless method for correcting geometric distortions in EPI scans using a GAN-based displacement field predictor. It improves alignment between diffusion and T1-weighted images without requiring field maps or reversed gradients \[Kuo et al., 2025].
+
+```python
+# Single file
+tigerbx.gdm('dti.nii.gz')
+
+# Directory input with specified b0 index
+tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0)
+```
+
+### Utility Functions
+
+```python
+# Remove downloaded ONNX files
+tigerbx.run('clean_onnx')
+
+# Encode T1w images into latent space
+tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir')
+
+# Decode from latent space back to image
+tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir')
+```
+
+---
+
+## Command-Line Usage
+
+### Installation
+
+Download the latest stand-alone release:
+[https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases)
+
+### Example Commands
+
+```bash
+tiger bx -bmad c:\data\*.nii.gz -o c:\output
+tiger bx -c c:\data\*.nii.gz -o c:\output
+tiger bx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
+tiger gdm DTI.nii.gz -o c:\outputdir
+```
+
+---
+
+## Supported Platforms
+
+* ✅ Windows and macOS
+* ✅ Ubuntu 20.04 or newer
+* ⚠️ Without a GPU, deep gray matter segmentation may take \~1 minute per scan
+
+---
+
+## Command-Line Flag Reference
+
+```text
+-b: Brain mask
+-a: ASEG segmentation
+-d: Deep gray matter mask
+-k: DKT segmentation (WIP)
+-c: Cortical thickness
+-C: CSF/GM/WM PVEs (FSL style, WIP)
+-S: SynthSeg-style ASEG (WIP)
+-t: Tumor segmentation (WIP)
+-w: White matter parcellation (WIP)
+-W: White matter hypointensity mask (WIP)
+-q: Save QC score (watch for scores < 30)
+-z: Output as .nii.gz
+-A: Affine registration to template (default MNI152)
+-r: Nonlinear registration to template (default MNI152)
+-F: FuseMorph registration to template
+-T: Template filename
+-R: Rigid registration
+-p: Enable patch inference (160×160×160)
+-v: Run VBM analysis
+```
+
+---
+
 ## Citation
 
-* If you use this application, cite the following paper:
+If you use TigerBx in your research, please cite the following:
 
-1. Weng JS, Huang TY. Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation. NMR Biomed. 2022 Nov 23:e4880. doi: 10.1002/nbm.4880. (https://doi.org/10.1002/nbm.4880)
+1. \*\*Kuo CC\*\*, et al. (2025).\* *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.*
+   **Magn Reson Med.** 2025; 1–16. [https://doi.org/10.1002/mrm.30577](https://doi.org/10.1002/mrm.30577)
+2. **Weng JS, et al.** *Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation.* **NMR Biomed. 2022; e4880.** [https://doi.org/10.1002/nbm.4880](https://doi.org/10.1002/nbm.4880)
+3. **Wang HC et al. (2024).**
+   *Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis.*
+   **NMR in Biomedicine; e5169.**
+   [https://doi.org/10.1002/nbm.5169](https://doi.org/10.1002/nbm.5169)
 
-2. Wang HC, Chen CS, Kuo CC, Huang TY, Kuo KH, Chuang TC, Lin YR, Chung HW, ADNI (2024) “Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis” NMR in Biomedicine. 2024;e5169. doi:10.1002/nbm.5169
+---
 
-## Label definitions
+## Label Definitions
 
-For label definitions, please check here. [Label definitions](doc/seglabel.md)
+See [Label definitions](doc/seglabel.md) for a full list of anatomical regions used in segmentation.
 
-## Performance evaluation
+---
 
-For performance of this package, please check here. [Validation](doc/validation.md)
+## Validation and Benchmarks
+
+See [Validation](doc/validation.md) for details on accuracy, reproducibility, and comparison against other tools.
+
+---
 
 ## Disclaimer
 
-The software has been exclusively designed for research purposes and has not undergone review or approval by the Food and Drug Administration or any other agency. By using this software, you acknowledge and agree that it is not recommended nor advised for clinical applications.  You also agree to use, reproduce, create derivative works of, display, and distribute the software in compliance with all applicable governmental laws, regulations, and orders, including but not limited to those related to export and import control.
+This software is intended solely for **research use** and has **not** been reviewed or approved by the FDA or any regulatory body. It must **not** be used for diagnostic, treatment, or other clinical purposes.
 
-The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the contributors be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software. Use of the software is at the recipient's own risk.
-
-
+The software is provided **"as is"**, without warranty of any kind. The developers assume no responsibility for any consequences arising from the use of this software.
