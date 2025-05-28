@@ -126,7 +126,6 @@ def setup_parser(parser):
     parser.add_argument('-m', '--betmask', action='store_true', help='Producing BET mask')
     parser.add_argument('-a', '--aseg', action='store_true', help='Producing ASEG mask')
     parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
-    parser.add_argument('-B', '--bam', action='store_true', help='Producing brain age mapping')
     parser.add_argument('-c', '--ct', action='store_true', help='Producing cortical thickness map')
     parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
     parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
@@ -164,7 +163,6 @@ def run(argstring, input=None, output=None, model=None):
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
-    args.bam = 'B' in argstring
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
     args.dgm = 'd' in argstring        
@@ -185,7 +183,7 @@ def run_args(args):
     run_d = vars(args) #store all arg in dict
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
-                    run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
+                    run_d['wmh'], run_d['tumor'], run_d['cgw'], 
                     run_d['syn'],run_d['encode'], run_d['decode'], run_d['patch']]:
         run_d['bet'] = True
         # Producing extracted brain by default
@@ -216,7 +214,6 @@ def run_args(args):
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
     omodel['wmh'] = 'mprage_wmh_v002_betr111.onnx'
-    omodel['bam'] = 'mprage_bam_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
@@ -340,32 +337,10 @@ def run_args(args):
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
-                if not run_d['fusemorph']:
-                    fn = save_nib(result_nib, ftemplate, seg_str)
-                    result_filedict[seg_str] = fn
+                
+                fn = save_nib(result_nib, ftemplate, seg_str)
+                result_filedict[seg_str] = fn
                 result_dict[seg_str] = result_nib
-        if run_d['bam']:
-            model_ff = lib_tool.get_model(omodel['bam'])
-            #input_nib = nib.load(f)
-            
-            bet_img = lib_bx.read_nib(tbet_nib111)
-            
-            image = bet_img[None, ...][None, ...]
-            image = image/np.max(image)
-            bam = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
-            bam[bam < 0.5] = 0
-
-            bam = bam * (bet_img>0)
-
-            bam_nib = nib.Nifti1Image(bam, tbet_nib111.affine, tbet_nib111.header)
-            bam_nib = resample_to_img(
-                bam_nib, input_nib, interpolation="nearest")
-
-            bam_nib.header.set_data_dtype(float)
-            
-            fn = save_nib(bam_nib, ftemplate, 'bam')
-            result_dict['bam'] = bam_nib
-            result_filedict['bam'] = fn
 
         if run_d['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
