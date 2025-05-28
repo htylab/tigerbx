@@ -11,16 +11,23 @@
 
 ---
 
-## Installation
+## Quick Start
 
-### Python Package
+### Install as a Python Package and perform segmentation
 
 ```bash
 pip install onnxruntime              # For CPU
 pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
 ```
 
-To install a specific archived version or gpu-enabled onnxruntime:
+```python
+import tigerbx
+
+# Full segmentation pipeline
+tigerbx.run('bmadk', 'T1w.nii.gz', 'output_dir')
+```
+
+### To install a specific archived version or gpu-enabled onnxruntime:
 
 ```bash
 pip install onnxruntime-gpu          # For GPU
@@ -45,7 +52,7 @@ tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
 # Output to same directory
 tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz')
 
-# Deep gray matter segmentation (GPU recommended)
+# Deep gray matter segmentation (with GPU)
 tigerbx.run('dg', r'C:\T1w_dir')
 ```
 
@@ -160,7 +167,7 @@ tiger gdm DTI.nii.gz -o c:\outputdir
 
 If you use TigerBx in your research, please cite the following:
 
-1. \*\*Kuo CC\*\*, et al. (2025).\* *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.*
+1. **Kuo CC, et al.** (2025).\* *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.*
    **Magn Reson Med.** 2025; 1–16. [https://doi.org/10.1002/mrm.30577](https://doi.org/10.1002/mrm.30577)
 2. **Weng JS, et al.** *Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation.* **NMR Biomed. 2022; e4880.** [https://doi.org/10.1002/nbm.4880](https://doi.org/10.1002/nbm.4880)
 3. **Wang HC et al. (2024).**
