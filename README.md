@@ -169,13 +169,13 @@ tiger gdm DTI.nii.gz -o c:\outputdir
 
 If you use TigerBx in your research, please cite the following:
 
-1. **Kuo CC, et al.** (2025).\* *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.*
-   **Magn Reson Med.** 2025; 1–16. [https://doi.org/10.1002/mrm.30577](https://doi.org/10.1002/mrm.30577)
-2. **Weng JS, et al.** *Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation.* **NMR Biomed. 2022; e4880.** [https://doi.org/10.1002/nbm.4880](https://doi.org/10.1002/nbm.4880)
-3. **Wang HC et al. (2024).**
+1. **Weng JS, et al.** (2022) *Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation.* **NMR Biomed. 2022; e4880.** [https://doi.org/10.1002/nbm.4880](https://doi.org/10.1002/nbm.4880)
+2. **Wang HC et al. .** (2024)
    *Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis.*
    **NMR in Biomedicine; e5169.**
    [https://doi.org/10.1002/nbm.5169](https://doi.org/10.1002/nbm.5169)
+3. **Kuo CC, et al.** (2025).\* *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.*
+   **Magn Reson Med.** 2025; 1–16. [https://doi.org/10.1002/mrm.30577](https://doi.org/10.1002/mrm.30577)
 
 ---
 
