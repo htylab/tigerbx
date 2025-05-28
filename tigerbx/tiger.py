@@ -3,6 +3,7 @@ import sys
 from tigerbx import bx
 from tigerbx import gdmi
 from tigerbx import hlc70
+from tigerbx import reg_vbm
 
 def main():
     parser = argparse.ArgumentParser(prog="tiger", description="Tiger CLI tool")
@@ -16,9 +17,13 @@ def main():
     gdm_parser = subparsers.add_parser("gdm", help="Run gdm module")
     gdmi.setup_parser(gdm_parser)
 
-    # GDM subcommand
+    # HLC subcommand
     hlc_parser = subparsers.add_parser("hlc", help="Run hlc module")
     hlc70.setup_parser(hlc_parser)
+    
+    # REG subcommand
+    reg_parser = subparsers.add_parser("reg", help="Run reg module")
+    reg_vbm.setup_parser(reg_parser)
 
 
 
@@ -30,6 +35,8 @@ def main():
         gdmi.run_args(args)
     elif args.command == "hlc":
         hlc70.run_args(args)
+    elif args.command == "reg":
+        reg_vbm.run_args(args)
 
 if __name__ == "__main__":
     main()

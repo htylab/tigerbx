@@ -44,47 +44,6 @@ def download(url, file_name):
     with urllib.request.urlopen(url,
                                 context=context) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
-
-def get_template(template_ff):
-    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz'))
-    mni_affine = mni_template.affine
-    
-    if template_ff:
-        full_path = join(application_path, 'template', template_ff)
-        if isfile(template_ff):
-            full_path = template_ff
-        
-        if isfile(full_path):
-            user_template_nib = nib.load(full_path)
-            #resampled_template = lib_bx.resample_voxel(user_template_nib, (1, 1, 1), (256, 256, 256))
-            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
-            return resampled_template
-        else:
-            raise FileNotFoundError("Template file does not exist.")
-    else:
-        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
-        return template_nib
-
-
-def get_template_seg(template_ff):
-    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz'))
-    mni_affine = mni_template.affine
-
-    if template_ff:
-        template_seg_ff = template_ff.replace('.nii', '_aseg.nii')
-        full_path = join(application_path, 'template', template_seg_ff)
-        if isfile(template_seg_ff):
-            full_path = template_seg_ff
-        
-        if isfile(full_path):
-            user_template_nib = nib.load(full_path)
-            resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192], interpolation='nearest')
-            return resampled_template
-        else:
-            raise FileNotFoundError("Template file does not exist.")
-    else:
-        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
-        return template_nib
         
 
 def get_model(f):

@@ -5,7 +5,7 @@ import nibabel as nib
 import tigerbx
 import pandas as pd
 from tigerbx import lib_tool
-from tigerbx import lib_bx
+from tigerbx import lib_reg
 from nilearn.image import reorder_img
 import sys
 import os
@@ -205,21 +205,21 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
         for f in ffs:
             count += 1
             f_list.append(f)
-            result = tigerbx.run(gpu_str + 'F', f, output_dir, model=model, template=template)
+            result = tigerbx.reg(gpu_str + 'r', f, output_dir, model=model, template=template)
                 
             model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
             model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
             
-            template_nib = lib_tool.get_template(template)
+            template_nib = lib_reg.get_template(template)
             template_nib = reorder_img(template_nib, resample='continuous')
             template_data = template_nib.get_fdata()
-            template_data, pad_width = lib_bx.pad_to_shape(template_data, (256, 256, 256))
+            template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
             
             moving_seg_nib = nib.load(f.replace('raw60', 'label60'))
             moving_seg_nib = reorder_img(moving_seg_nib, resample='nearest')
             moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
-            moving_seg_data, _ = lib_bx.pad_to_shape(moving_seg_data, (256, 256, 256))
-            moving_seg_data, _ = lib_bx.crop_image(moving_seg_data, target_shape=(256, 256, 256))
+            moving_seg_data, _ = lib_reg.pad_to_shape(moving_seg_data, (256, 256, 256))
+            moving_seg_data, _ = lib_reg.crop_image(moving_seg_data, target_shape=(256, 256, 256))
             moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
 
             init_flow = result['init_flow'].get_fdata().astype(np.float32)
@@ -229,7 +229,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
             output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
             moved_seg = np.squeeze(output[0])
             
-            moved_seg = lib_bx.remove_padding(moved_seg, pad_width)
+            moved_seg = lib_reg.remove_padding(moved_seg, pad_width)
   
             moved_seg = np.expand_dims(np.expand_dims(moved_seg, axis=0), axis=1)
             warp = result['dense_warp'].get_fdata().astype(np.float32)
@@ -240,7 +240,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
                                       template_nib.affine, template_nib.header)
     
             mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
-            template_seg = lib_tool.get_template_seg(template)
+            template_seg = lib_reg.get_template_seg(template)
             mask_gt = reorder_img(template_seg, resample='nearest').get_fdata().astype(int)
   
             dice26 = get_dice26(mask_gt, mask_pred)
