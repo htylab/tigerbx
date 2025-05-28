@@ -11,7 +11,7 @@
 * Python APIs for advanced users and scripting.
 * Designed for **research purposes only**. Not for commercial or clinical use.
 
-<img src="./doc/tigerbx.png" alt="tigerbx" width="800">
+<img src="./doc/tigerbx.png" alt="tigerbx" width="400">
 
 ---
 
