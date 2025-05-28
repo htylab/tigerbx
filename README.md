@@ -11,16 +11,23 @@
 
 ---
 
-## Installation
+## Quick Start
 
-### Python Package
+### Install as a Python Package and perform segmentation
 
 ```bash
 pip install onnxruntime              # For CPU
 pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
 ```
 
-To install a specific archived version or gpu-enabled onnxruntime:
+```python
+import tigerbx
+
+# Full segmentation pipeline
+tigerbx.run('bmadk', 'T1w.nii.gz', 'output_dir')
+```
+
+### To install a specific archived version or gpu-enabled onnxruntime:
 
 ```bash
 pip install onnxruntime-gpu          # For GPU
@@ -45,7 +52,7 @@ tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
 # Output to same directory
 tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz')
 
-# Deep gray matter segmentation (GPU recommended)
+# Deep gray matter segmentation (with GPU)
 tigerbx.run('dg', r'C:\T1w_dir')
 ```
 
