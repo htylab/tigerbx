@@ -65,13 +65,13 @@ tigerbx.hlc('T1w_dir', 'outputdir')
 
 ```python
 # Standard registration
-tigerbx.run('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False)
+tigerbx.reg('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False)
 
 # FuseMorph registration
-tigerbx.run('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False)
+tigerbx.reg('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False)
 
 # Voxel-Based Morphometry (VBM)
-tigerbx.run('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
+tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
 
 # Apply warp field
 tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', r'C:\output_dir', interpolation='nearest')
