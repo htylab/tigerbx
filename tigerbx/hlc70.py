@@ -38,6 +38,65 @@ def setup_parser(parser):
     #args = parser.parse_args()
     #run_args(args)
 
+def crop_cube(ABC, padding=20):
+    """
+    裁剪 3D 圖像中信號大於零的區域，形成 cube，並在各方向擴展 16 像素。
+    回傳裁剪的 cube 以及邊界列表 xyz6。
+    """
+    # 找到信號大於零的區域
+    non_zero = np.where(ABC > 0)
+    if len(non_zero[0]) == 0:
+        raise ValueError("圖像中沒有信號大於零的區域")
+    
+    # 計算最小和最大邊界
+    z_min, z_max = np.min(non_zero[0]), np.max(non_zero[0])
+    y_min, y_max = np.min(non_zero[1]), np.max(non_zero[1])
+    x_min, x_max = np.min(non_zero[2]), np.max(non_zero[2])
+    
+    # 擴展 16 個像素，考慮邊界條件
+    #padding = 16
+    #print(ABC.shape)
+    D, H, W = ABC.shape
+    z_min = max(0, z_min - padding)
+    z_max = min(D - 1, z_max + padding)
+    y_min = max(0, y_min - padding)
+    y_max = min(H - 1, y_max + padding)
+    x_min = max(0, x_min - padding)
+    x_max = min(W - 1, x_max + padding)
+    
+    # 儲存邊界到 xyz6 列表
+    xyz6 = [z_min, z_max, y_min, y_max, x_min, x_max]
+    
+    # 裁剪 cube
+    cube = ABC[z_min:z_max + 1, y_min:y_max + 1, x_min:x_max + 1]
+
+    print(ABC.shape, cube.shape)
+    
+    return cube, xyz6
+
+def restore_result(ABC_shape, result, xyz6):
+    """
+    將處理結果放回與原始圖像相同尺寸的空矩陣中。
+    ABC_shape: 原始圖像的形狀 (D, H, W)
+    result: 處理後的 cube
+    xyz6: 邊界列表 [z_min, z_max, y_min, y_max, x_min, x_max]
+    """
+    # 創建與原始圖像同尺寸的空矩陣
+    output = np.zeros(ABC_shape)
+    
+    # 從 xyz6 提取邊界
+    z_min, z_max, y_min, y_max, x_min, x_max = xyz6
+    
+    # 將 result 放回對應位置
+    output[z_min:z_max + 1, y_min:y_max + 1, x_min:x_max + 1] = result
+    
+    return output
+
+# 使用範例
+# 假設 ABC 是你的 3D NumPy 陣列
+# cube, xyz6 = crop_cube(ABC)
+# result = segseg(cube)  # 假設 segseg 是你的處理函數
+# output = restore_result(ABC.shape, result, xyz6)
 
 def hlc(input=None, output=None, model=None, save='all', GPU=False, gz=True, patch=False):
     from argparse import Namespace
@@ -273,10 +332,17 @@ def run_args(args):
         else:
             tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
 
+        #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        #tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+
         tbet_image = lib_bx.read_nib(tbet_nib111)
             
-        image = tbet_image[None, ...][None, ...]
+        image_orig = tbet_image
+
+        image, xyz6 = crop_cube(image_orig)
+
         image = image/np.max(image)
+        image = image[None, ...][None, ...]
         model_ff = lib_tool.get_model(omodel['HLC'])
         print('Perform HLC model....')
         if args.patch:
@@ -298,6 +364,9 @@ def run_args(args):
             lr_arg = get_argmax(logits, 57, 60)
             dw_arg = get_argmax(logits, 60, 63)
             HLCparc = HLC_decoder(all_arg, lr_arg, dw_arg)
+
+            HLCparc = restore_result(image_orig.shape, HLCparc, xyz6).astype(int)
+
             hlc_nib = nib.Nifti1Image(HLCparc, tbet_nib111.affine, tbet_nib111.header)
             hlc_nib = resample_to_img(hlc_nib,
             input_nib, interpolation="nearest")
@@ -309,8 +378,12 @@ def run_args(args):
             ct = logits[0,63,...].squeeze()
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
+
+            ct = restore_result(image_orig.shape, ct, xyz6)
+
             ct = ct * (tbet_image > 0)
 
+            
             ct_nib = nib.Nifti1Image(ct, tbet_nib111.affine, tbet_nib111.header)
             ct_nib = resample_to_img(
                 ct_nib, input_nib, interpolation="nearest")
@@ -325,6 +398,7 @@ def run_args(args):
             cgw = logits[0,64:67,...].squeeze()
             for kk in range(3):
                 pve = cgw[kk]
+                pve = restore_result(image_orig.shape, pve, xyz6)
                 pve = pve* (tbet_image>0)
 
                 pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
