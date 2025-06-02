@@ -296,9 +296,6 @@ def run_args(args):
             input_nib = nib.load(f)
             tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
 
-            if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
-                tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
-
             tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
             tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
@@ -329,6 +326,11 @@ def run_args(args):
             result_filedict['tbetmask'] = fn
 
         if run_d['bet']:
+
+            imabet = tbet_nib.get_fdata()
+            if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
+                imabet = imabet.astype(input_nib.dataobj.dtype)
+            
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
