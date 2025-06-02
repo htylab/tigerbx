@@ -137,7 +137,7 @@
 | 255 | CC_Anterior |
 
 
-| Left Label Number | Left Label Name | Right Label Number | Right Label Name |
+|  Number | Left Label Name |  Number | Right Label Name |
 |-------------------|-----------------|-------------------|-----------------|
 | 4 | Left-Lateral-Ventricle | 43 | Right-Lateral-Ventricle |
 | 5 | Left-Inf-Lat-Vent | 44 | Right-Inf-Lat-Vent |
