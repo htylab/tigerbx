@@ -70,7 +70,7 @@ def crop_cube(ABC, padding=20):
     # 裁剪 cube
     cube = ABC[z_min:z_max + 1, y_min:y_max + 1, x_min:x_max + 1]
 
-    print(ABC.shape, cube.shape)
+    #print(ABC.shape, cube.shape)
     
     return cube, xyz6
 
@@ -318,9 +318,6 @@ def run_args(args):
         input_nib = nib.load(f)
         tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
 
-        if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
-            tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
-
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
 
 
@@ -356,6 +353,14 @@ def run_args(args):
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
         if 'b' in args.save:
+            imabet = tbet_nib.get_fdata()
+            if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
+                imabet = imabet.astype(input_nib.dataobj.dtype)
+                print(input_nib.dataobj.dtype)
+
+            print(imabet.dtype, input_nib.dataobj.dtype)
+            tbet_nib = nib.Nifti1Image(imabet, input_nib.affine, input_nib.header)
+        
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
