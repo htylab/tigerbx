@@ -16,6 +16,7 @@ from nilearn.image import resample_img, reorder_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 import optuna
+import ants
 warnings.filterwarnings("ignore", category=UserWarning)
 ort.set_default_logger_severity(3)
 nib.Nifti1Header.quaternion_threshold = -100
@@ -250,18 +251,28 @@ def optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args
 
 def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='nearest'):
     
-    displacement_dict = np.load(warp_path, allow_pickle=True)
+    data = np.load(warp_path, allow_pickle=True)
+    displacement_dict = {
+        key: data[key].item() if isinstance(data[key], np.ndarray) and data[key].dtype == object else data[key]
+        for key in data.files
+        }
     
     init_flow = displacement_dict['init_flow']
     rigid_matrix = displacement_dict['rigid_matrix']
     affine_matrix = displacement_dict['affine_matrix']
+    reference_info = displacement_dict['reference_info']
     dense_warp = displacement_dict['dense_warp']
     Fuse_dense_warp = displacement_dict['Fuse_dense_warp']
-    
-    if init_flow is None or (isinstance(init_flow, np.ndarray) and not np.any(init_flow)):
-        raise ValueError("init_flow is None and the program cannot be executed.")    
+
+    if (init_flow is None or (isinstance(init_flow, np.ndarray) and not np.any(init_flow))) and (reference_info is None or (isinstance(reference_info, dict) and not reference_info)):
+        raise ValueError("Both init_flow and reference_info are None or empty. The program cannot proceed.")
+
     if (dense_warp is not None or Fuse_dense_warp is not None) and (affine_matrix is None or (isinstance(affine_matrix, np.ndarray) and not np.any(affine_matrix))):
         raise ValueError("affine_matrix is None or empty, and at least one of dense_warp or Fuse_dense_warp is not None.")
+    
+    method_check = {'affine':'C2FViT', 'nonlinear':'VMnet'}
+    if init_flow is None or init_flow.shape == ():
+        method_check['affine'] = 'ants'
     
     ftemplate, f_output_dir = bx.get_template(image_path, output_dir, None)
     
@@ -278,11 +289,13 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     input_nib = nib.load(image_path)
     input_nib = reorder_img(input_nib, resample=interpolation)
     input_data = input_nib.get_fdata().astype(np.float32)
-    input_data, _ = pad_to_shape(input_data, (256, 256, 256))
-    input_data, _ = crop_image(input_data, target_shape=(256, 256, 256))
-    input_data = np.expand_dims(np.expand_dims(input_data, axis=0), axis=1)
     
-    init_flow = init_flow.astype(np.float32)
+    if method_check['affine'] == 'C2FViT':
+        input_data, _ = pad_to_shape(input_data, (256, 256, 256))
+        input_data, _ = crop_image(input_data, target_shape=(256, 256, 256))
+        input_data = np.expand_dims(np.expand_dims(input_data, axis=0), axis=1)
+        init_flow = init_flow.astype(np.float32)
+    #Rigid    
     if rigid_matrix is not None and rigid_matrix.shape != ():
         rigid_matrix = np.expand_dims(rigid_matrix.astype(np.float32), axis=0)
         model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
@@ -291,14 +304,26 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         rigid_nib = nib.Nifti1Image(rigid,
                                       template_nib.affine, template_nib.header)
         fn = bx.save_nib(rigid_nib, ftemplate, 'rigid')
-    if affine_matrix is not None and affine_matrix.shape != ():
-        affine_matrix = np.expand_dims(affine_matrix.astype(np.float32), axis=0)
-        model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
-        output = lib_tool.predict(model, [input_data, init_flow, affine_matrix], GPU=GPU, mode='affine_transform')
-        affined = remove_padding(np.squeeze(output[0]), pad_width)
-        affined_nib = nib.Nifti1Image(affined,
-                                      template_nib.affine, template_nib.header)
-        fn = bx.save_nib(affined_nib, ftemplate, 'Af')
+    #Affine
+    if method_check['affine'] == 'C2FViT':
+        if affine_matrix is not None and affine_matrix.shape != ():
+            affine_matrix = np.expand_dims(affine_matrix.astype(np.float32), axis=0)
+            model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
+            output = lib_tool.predict(model, [input_data, init_flow, affine_matrix], GPU=GPU, mode='affine_transform')
+            affined = remove_padding(np.squeeze(output[0]), pad_width)
+            affined_nib = nib.Nifti1Image(affined,
+                                          template_nib.affine, template_nib.header)
+            fn = bx.save_nib(affined_nib, ftemplate, 'Af')
+    elif method_check['affine'] == 'ants':
+        print(affine_matrix)
+        if isinstance(affine_matrix["parameters"], np.ndarray) and affine_matrix["parameters"].shape != ():
+            ants_input, _ = get_ants_info(input_data, input_nib.affine)
+            affined = ants_transform(ants_input, displacement_dict, interpolation=interpolation, mode='affine')
+            
+            affined_nib = nib.Nifti1Image(affined,
+                                          template_nib.affine, template_nib.header)
+            fn = bx.save_nib(affined_nib, ftemplate, 'Af')
+    #Nonlinear
     if dense_warp is not None and dense_warp.shape != ():
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         dense_warp = np.expand_dims(dense_warp.astype(np.float32), axis=0)
@@ -308,6 +333,7 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         reged_nib = nib.Nifti1Image(reged,
                                     template_nib.affine, template_nib.header)
         fn = bx.save_nib(reged_nib, ftemplate, 'reg')
+    #Nonlinear(FuseMorph)
     if Fuse_dense_warp is not None and Fuse_dense_warp.shape != ():
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         Fuse_dense_warp = np.expand_dims(Fuse_dense_warp.astype(np.float32), axis=0)
@@ -317,3 +343,62 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         Fused_nib = nib.Nifti1Image(Fused,
                                     template_nib.affine, template_nib.header)
         fn = bx.save_nib(Fused_nib, ftemplate, 'Fuse')
+
+def get_ants_info(image, affine):
+    ants_img = ants.from_numpy(image)
+    
+    rot = affine[:3, :3]
+    spacing = np.linalg.norm(rot, axis=0)
+    direction_matrix = rot / spacing[:, np.newaxis]
+    
+    ants_img.set_origin(affine[:3, 3].tolist())
+    ants_img.set_spacing(spacing.tolist())
+    ants_img.set_direction(direction_matrix.tolist())
+    
+    ants_dict = {
+        "reference_info": {
+            "origin": ants_img.origin,
+            "spacing": ants_img.spacing,
+            "direction": ants_img.direction,
+            "shape": ants_img.shape
+            }
+        }    
+    return ants_img, ants_dict
+
+def apply_ANTs_reg(ants_moving, ants_fixed, mode):
+    registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)
+    aff_tx = ants.read_transform(registration['fwdtransforms'][0])
+    transformed_moving_image = registration['warpedmovout']
+    
+    transformed_array = transformed_moving_image.numpy()
+    
+    ants_dict = {
+        "affine_matrix": {
+        "parameters": aff_tx.parameters,
+        "fixed_parameters": aff_tx.fixed_parameters
+            }
+        }
+    return transformed_array, ants_dict
+
+def ants_transform(ants_moving, displacement_dict, interpolation='nearestNeighbor', mode='affine'):
+    if mode == 'affine':
+        aff_tx = ants.create_ants_transform(dimension=3, transform_type="AffineTransform")
+        aff_tx.set_parameters(displacement_dict["affine_matrix"]["parameters"])
+        aff_tx.set_fixed_parameters(displacement_dict["affine_matrix"]["fixed_parameters"])    
+
+    ref_info = displacement_dict["reference_info"]
+    dummy_array = np.zeros(ref_info["shape"], dtype=np.float32)
+    
+    reference = ants.from_numpy(dummy_array)
+    reference.set_origin(list(ref_info["origin"]))
+    reference.set_spacing(list(ref_info["spacing"]))
+    reference.set_direction(list(ref_info["direction"]))    
+
+    resampled_img = ants.apply_ants_transform_to_image(
+        transform=aff_tx,
+        image=ants_moving,
+        reference=reference,
+        interpolation=interpolation  #linear
+    )
+    resampled_array = resampled_img.numpy()
+    return resampled_array

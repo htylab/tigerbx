@@ -40,6 +40,7 @@ setup(
              'numpy>=1.21.6,<2.0',
              'nilearn>=0.9.2',
              'optuna',
-             'SimpleITK>=2.1.0'
+             'SimpleITK>=2.1.0',
+             'antspyx'
          ]
 )
