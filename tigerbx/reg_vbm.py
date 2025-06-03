@@ -41,7 +41,7 @@ def setup_parser(parser):
     parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
     parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
     parser.add_argument('--affine_type', choices=['C2FViT', 'ANTs'], default='C2FViT', help='Specify affine transformation type')
-
+    
     #args = parser.parse_args()
     #run_args(args)
 
