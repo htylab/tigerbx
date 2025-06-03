@@ -32,6 +32,7 @@ def setup_parser(parser):
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
+    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
     parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
     parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
@@ -39,11 +40,12 @@ def setup_parser(parser):
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
     parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
+    parser.add_argument('--affine_type', choices=['C2FViT', 'ANTs'], default='C2FViT', help='Specify affine transformation type')
 
     #args = parser.parse_args()
     #run_args(args)
 
-def reg(argstring, input=None, output=None, model=None, template=None, save_displacement=False):
+def reg(argstring, input=None, output=None, model=None, template=None, save_displacement=False, affine_type='C2FViT'):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -53,6 +55,7 @@ def reg(argstring, input=None, output=None, model=None, template=None, save_disp
     args.model = model
     args.gpu = 'g' in argstring
     args.gz = 'z' in argstring
+    args.bet = 'b' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
     args.fusemorph = 'F' in argstring
@@ -60,6 +63,7 @@ def reg(argstring, input=None, output=None, model=None, template=None, save_disp
     args.vbm = 'v' in argstring
     args.template = template
     args.save_displacement = save_displacement
+    args.affine_type = affine_type
     return run_args(args)
 
 def run_args(args):
@@ -70,7 +74,6 @@ def run_args(args):
         
     if run_d['vbm']:
         run_d['registration'] = run_d['cgw'] = True
-        run_d['bet'] = False
         #run_d['fusemorph'] = run_d['cgw'] = run_d['aseg'] = True
  
     input_file_list = args.input
@@ -151,7 +154,7 @@ def run_args(args):
         
         print('QC score:', qc_score)
         
-        if run_d.get('bet', True):
+        if run_d.get('bet', False):
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
@@ -197,6 +200,7 @@ def run_args(args):
                 "init_flow": None,
                 "rigid_matrix": None,
                 "affine_matrix": None,
+                "reference_info": None,
                 "dense_warp": None, 
                 "Fuse_dense_warp": None
             }
@@ -208,15 +212,17 @@ def run_args(args):
             bet_nib = reorder_img(bet_nib, resample='continuous')
             ori_affine = bet_nib.affine
             bet_data = bet_nib.get_fdata()
-            bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
-            bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
+            if run_d['affine_type'] != 'ANTs':
+                bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
+                bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
             
             template_nib = lib_reg.get_template(run_d['template'])
             template_nib = reorder_img(template_nib, resample='continuous')
             
             fixed_affine = template_nib.affine
             template_data = template_nib.get_fdata()
-            template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
+            if run_d['affine_type'] != 'ANTs':
+                template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
             
             moving = bet_data.astype(np.float32)[None, ...][None, ...]
             moving = lib_reg.min_max_norm(moving)
@@ -241,18 +247,26 @@ def run_args(args):
                 result_filedict['rigid'] = fn
             
             if run_d['affine'] or run_d['registration'] or run_d['fusemorph']: 
-                
-                model_ff = lib_tool.get_model(omodel['affine'])
-                output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
-                affined, affine_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
-                initflow_nib = nib.Nifti1Image(init_flow, ori_affine)
-                
-                displacement_dict["init_flow"] = init_flow
-                displacement_dict["affine_matrix"] = affine_matrix
-                
-                result_dict['init_flow'] = initflow_nib
+                if run_d['affine_type'] == 'C2FViT':
+                    model_ff = lib_tool.get_model(omodel['affine'])
+                    output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
+                    affined, affine_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
+                    initflow_nib = nib.Nifti1Image(init_flow, ori_affine)
+                    displacement_dict["init_flow"] = init_flow
+                    result_dict['init_flow'] = initflow_nib
+                    displacement_dict["affine_matrix"] = affine_matrix
+                elif run_d['affine_type'] == 'ANTs':
+                    ants_fixed, reference_info  = lib_reg.get_ants_info(template_data, fixed_affine)
+                    ants_moving, _ = lib_reg.get_ants_info(bet_data, ori_affine)
+                    
+                    affined, affine_matrix = lib_reg.apply_ANTs_reg(ants_moving, ants_fixed, 'Affine')
+                    affined = lib_reg.min_max_norm(affined)
+                    displacement_dict.update(reference_info)
+                    displacement_dict.update(affine_matrix)
+                    
                 result_dict['Affine_matrix'] = affine_matrix
-                affined = lib_reg.remove_padding(affined, pad_width)
+                if run_d['affine_type'] != 'ANTs':
+                    affined = lib_reg.remove_padding(affined, pad_width)
                 affine_nib = nib.Nifti1Image(affined, fixed_affine)
 
                 if run_d['affine']:
@@ -312,17 +326,22 @@ def run_args(args):
                     moving_seg_nib = result_dict['aseg']
                     moving_seg_nib = reorder_img(moving_seg_nib, resample='nearest')
                     moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
-                    moving_seg_data, _ = lib_reg.pad_to_shape(moving_seg_data, (256, 256, 256))
-                    moving_seg_data, _ = lib_reg.crop_image(moving_seg_data, target_shape=(256, 256, 256))
-                    moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
+                    if run_d['affine_type'] != 'ANTs':
+                        moving_seg_data, _ = lib_reg.pad_to_shape(moving_seg_data, (256, 256, 256))
+                        moving_seg_data, _ = lib_reg.crop_image(moving_seg_data, target_shape=(256, 256, 256))
+                        moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
                                 
-                    affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                    output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
-                    affine_matrix = np.squeeze(affine_matrix, axis=0)
-                    moving_seg = np.squeeze(output[0])
+                        affine_matrix= np.expand_dims(affine_matrix, axis=0)
+                        output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
+                        affine_matrix = np.squeeze(affine_matrix, axis=0)
+                        moving_seg = np.squeeze(output[0])
                     
-                    moving_seg = lib_reg.remove_padding(moving_seg, pad_width)
-
+                        moving_seg = lib_reg.remove_padding(moving_seg, pad_width)
+                    else:
+                        ants_moving_seg, _ = lib_reg.get_ants_info(moving_seg_data, moving_seg_nib.affine)
+                        moving_seg = lib_reg.ants_transform(ants_moving_seg, displacement_dict, mode='affine')
+                        
+                        
                     
                     model_ff = lib_tool.get_model(omodel['reg'])
                     moving_image_current = moving_image
@@ -362,19 +381,23 @@ def run_args(args):
                     result_dict['dense_warp'] = warp_nib
                     
             if run_d['vbm']:
-                raw_GM_nib = reorder_img(result_dict['cgw'][1], resample='continuous')
-                raw_GM = raw_GM_nib.get_fdata().astype(np.float32)
-                raw_GM, _ = lib_reg.pad_to_shape(raw_GM, (256, 256, 256))
-                raw_GM, _ = lib_reg.crop_image(raw_GM, target_shape=(256, 256, 256))
-                raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
-                
                 model_transform = lib_tool.get_model('mprage_transform_v002_bili.onnx')
                 model_affine_transform_bili = lib_tool.get_model('mprage_affinetransform_v002_bili.onnx')
                 
-                Affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                output = lib_tool.predict(model_affine_transform_bili, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
-                affined_GM = np.squeeze(output[0])
-                affined_GM = lib_reg.remove_padding(affined_GM, pad_width)
+                raw_GM_nib = reorder_img(result_dict['cgw'][1], resample='continuous')
+                raw_GM = raw_GM_nib.get_fdata().astype(np.float32)
+                if run_d['affine_type'] != 'ANTs':
+                    raw_GM, _ = lib_reg.pad_to_shape(raw_GM, (256, 256, 256))
+                    raw_GM, _ = lib_reg.crop_image(raw_GM, target_shape=(256, 256, 256))
+                    raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
+                
+                    Affine_matrix= np.expand_dims(affine_matrix, axis=0)
+                    output = lib_tool.predict(model_affine_transform_bili, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
+                    affined_GM = np.squeeze(output[0])
+                    affined_GM = lib_reg.remove_padding(affined_GM, pad_width)
+                else:
+                    ants_raw_GM, _ = lib_reg.get_ants_info(raw_GM, raw_GM_nib.affine)
+                    affined_GM = lib_reg.ants_transform(ants_raw_GM, displacement_dict, interpolation='linear', mode='affine')
                 
                 affined_GM = np.expand_dims(np.expand_dims(affined_GM, axis=0), axis=1)
                 warp = np.expand_dims(warp, axis=0)

@@ -74,7 +74,8 @@ tigerbx.hlc('T1w_dir', 'outputdir')
 
 ```python
 # Standard registration
-tigerbx.reg('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False)
+# Rigid registration using the ANTs method is not currently supported.
+tigerbx.reg('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False, affine_type='C2FViT')
 
 # FuseMorph registration
 tigerbx.reg('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False)
