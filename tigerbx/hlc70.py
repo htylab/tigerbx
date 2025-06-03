@@ -38,10 +38,13 @@ def setup_parser(parser):
     #args = parser.parse_args()
     #run_args(args)
 
-def crop_cube(ABC, padding=20):
+import numpy as np
+
+def crop_cube(ABC, padding=16):
     """
     裁剪 3D 圖像中信號大於零的區域，形成 cube，並在各方向擴展 16 像素。
-    回傳裁剪的 cube 以及邊界列表 xyz6。
+    輸入陣列形狀為 (W, H, D)，回傳裁剪的 cube 以及邊界列表 xyz6，
+    順序為 [x_min, x_max, y_min, y_max, z_min, z_max]。
     """
     # 找到信號大於零的區域
     non_zero = np.where(ABC > 0)
@@ -49,28 +52,24 @@ def crop_cube(ABC, padding=20):
         raise ValueError("圖像中沒有信號大於零的區域")
     
     # 計算最小和最大邊界
-    z_min, z_max = np.min(non_zero[0]), np.max(non_zero[0])
-    y_min, y_max = np.min(non_zero[1]), np.max(non_zero[1])
-    x_min, x_max = np.min(non_zero[2]), np.max(non_zero[2])
+    x_min, x_max = np.min(non_zero[0]), np.max(non_zero[0])  # x 軸 (W)
+    y_min, y_max = np.min(non_zero[1]), np.max(non_zero[1])  # y 軸 (H)
+    z_min, z_max = np.min(non_zero[2]), np.max(non_zero[2])  # z 軸 (D)
     
     # 擴展 16 個像素，考慮邊界條件
-    #padding = 16
-    #print(ABC.shape)
-    D, H, W = ABC.shape
-    z_min = max(0, z_min - padding)
-    z_max = min(D - 1, z_max + padding)
-    y_min = max(0, y_min - padding)
-    y_max = min(H - 1, y_max + padding)
+    W, H, D = ABC.shape
     x_min = max(0, x_min - padding)
     x_max = min(W - 1, x_max + padding)
+    y_min = max(0, y_min - padding)
+    y_max = min(H - 1, y_max + padding)
+    z_min = max(0, z_min - padding)
+    z_max = min(D - 1, z_max + padding)
     
-    # 儲存邊界到 xyz6 列表
-    xyz6 = [z_min, z_max, y_min, y_max, x_min, x_max]
+    # 儲存邊界到 xyz6 列表，順序為 [x_min, x_max, y_min, y_max, z_min, z_max]
+    xyz6 = [x_min, x_max, y_min, y_max, z_min, z_max]
     
     # 裁剪 cube
-    cube = ABC[z_min:z_max + 1, y_min:y_max + 1, x_min:x_max + 1]
-
-    #print(ABC.shape, cube.shape)
+    cube = ABC[x_min:x_max + 1, y_min:y_max + 1, z_min:z_max + 1]
     
     return cube, xyz6
 
@@ -356,9 +355,7 @@ def run_args(args):
             imabet = tbet_nib.get_fdata()
             if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
                 imabet = imabet.astype(input_nib.dataobj.dtype)
-                print(input_nib.dataobj.dtype)
 
-            print(imabet.dtype, input_nib.dataobj.dtype)
             tbet_nib = nib.Nifti1Image(imabet, input_nib.affine, input_nib.header)
         
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
