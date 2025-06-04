@@ -126,7 +126,7 @@ Download the latest stand-alone release:
 ```bash
 tiger bx -bmad c:\data\*.nii.gz -o c:\output
 tiger bx -c c:\data\*.nii.gz -o c:\output
-tiger bx -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
+tiger reg -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
 tiger gdm DTI.nii.gz -o c:\outputdir
 ```
 
