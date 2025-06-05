@@ -262,6 +262,8 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     affine_matrix = displacement_dict['affine_matrix']
     reference_info = displacement_dict['reference_info']
     dense_warp = displacement_dict['dense_warp']
+    SyN_dense_warp = displacement_dict['SyN_dense_warp']
+    SyNCC_dense_warp = displacement_dict['SyNCC_dense_warp']
     Fuse_dense_warp = displacement_dict['Fuse_dense_warp']
 
     if (init_flow is None or (isinstance(init_flow, np.ndarray) and not np.any(init_flow))) and (reference_info is None or (isinstance(reference_info, dict) and not reference_info)):
@@ -315,7 +317,6 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
                                           template_nib.affine, template_nib.header)
             fn = bx.save_nib(affined_nib, ftemplate, 'Af')
     elif method_check['affine'] == 'ants':
-        print(affine_matrix)
         if isinstance(affine_matrix["parameters"], np.ndarray) and affine_matrix["parameters"].shape != ():
             ants_input, _ = get_ants_info(input_data, input_nib.affine)
             affined = ants_transform(ants_input, displacement_dict, interpolation=interpolation, mode='affine')
@@ -323,7 +324,17 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
             affined_nib = nib.Nifti1Image(affined,
                                           template_nib.affine, template_nib.header)
             fn = bx.save_nib(affined_nib, ftemplate, 'Af')
-    #Nonlinear
+    #Nonlinear(SyN, SyNCC)
+    for ants_reg_str in ['SyN_dense_warp', 'SyNCC_dense_warp']:
+        if displacement_dict[ants_reg_str] is not None and displacement_dict[ants_reg_str].shape != ():
+            input_data = input_nib.get_fdata().astype(np.float32)
+            ants_input, _ = get_ants_info(input_data, input_nib.affine)
+            ants_output = ants_transform(ants_input, displacement_dict, interpolation=interpolation, mode=ants_reg_str)
+            
+            ants_output_nib = nib.Nifti1Image(ants_output,
+                                          template_nib.affine, template_nib.header)
+            fn = bx.save_nib(ants_output_nib, ftemplate, ants_reg_str.split("_")[0])
+    #Nonlinear(VMnet)
     if dense_warp is not None and dense_warp.shape != ():
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         dense_warp = np.expand_dims(dense_warp.astype(np.float32), axis=0)
@@ -366,25 +377,28 @@ def get_ants_info(image, affine):
     return ants_img, ants_dict
 
 def apply_ANTs_reg(ants_moving, ants_fixed, mode):
-    registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)
-    aff_tx = ants.read_transform(registration['fwdtransforms'][0])
-    transformed_moving_image = registration['warpedmovout']
-    
+    if mode != 'Affine':
+        registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)
+    else:
+        registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)    
+    transformed_moving_image = registration['warpedmovout']    
     transformed_array = transformed_moving_image.numpy()
     
-    ants_dict = {
-        "affine_matrix": {
-        "parameters": aff_tx.parameters,
-        "fixed_parameters": aff_tx.fixed_parameters
+    if mode=='Affine':
+        aff_tx = ants.read_transform(registration['fwdtransforms'][0])
+        ants_dict = {
+            "affine_matrix": {
+                "parameters": aff_tx.parameters,
+                "fixed_parameters": aff_tx.fixed_parameters
+                }
             }
-        }
+    else:
+        ants_dict = {mode + "_dense_warp": registration['fwdtransforms']}
     return transformed_array, ants_dict
 
 def ants_transform(ants_moving, displacement_dict, interpolation='nearestNeighbor', mode='affine'):
-    if mode == 'affine':
-        aff_tx = ants.create_ants_transform(dimension=3, transform_type="AffineTransform")
-        aff_tx.set_parameters(displacement_dict["affine_matrix"]["parameters"])
-        aff_tx.set_fixed_parameters(displacement_dict["affine_matrix"]["fixed_parameters"])    
+    if interpolation == 'nearest':
+        interpolation = 'nearestNeighbor'
 
     ref_info = displacement_dict["reference_info"]
     dummy_array = np.zeros(ref_info["shape"], dtype=np.float32)
@@ -393,12 +407,25 @@ def ants_transform(ants_moving, displacement_dict, interpolation='nearestNeighbo
     reference.set_origin(list(ref_info["origin"]))
     reference.set_spacing(list(ref_info["spacing"]))
     reference.set_direction(list(ref_info["direction"]))    
-
-    resampled_img = ants.apply_ants_transform_to_image(
-        transform=aff_tx,
-        image=ants_moving,
-        reference=reference,
-        interpolation=interpolation  #linear
-    )
+    
+    if mode == 'affine':
+        aff_tx = ants.create_ants_transform(dimension=3, transform_type="AffineTransform")
+        aff_tx.set_parameters(displacement_dict["affine_matrix"]["parameters"])
+        aff_tx.set_fixed_parameters(displacement_dict["affine_matrix"]["fixed_parameters"])
+    
+        resampled_img = ants.apply_ants_transform_to_image(
+            transform=aff_tx,
+            image=ants_moving,
+            reference=reference,
+            interpolation=interpolation  #linear
+        )
+    else:
+        resampled_img = ants.apply_transforms(
+        fixed=reference,
+        moving=ants_moving,
+        transformlist=displacement_dict[mode].tolist(),
+        interpolator=interpolation  # segmentation 請務必使用 nearest
+        )
+        
     resampled_array = resampled_img.numpy()
     return resampled_array

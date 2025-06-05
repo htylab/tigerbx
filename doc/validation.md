@@ -27,7 +27,7 @@
 2. Skull Stripping: [Synstrip](https://surfer.nmr.mgh.harvard.edu/docs/synthstrip)
 3. Deep gray matter: [MindBoggle-101](https://mindboggle.info/)
 4. Deep gray matter: [CANDI](https://www.nitrc.org/projects/candi_share/)
-5. Registration: [ABIDE](https://fcon_1000.projects.nitrc.org/indi/abide/)
+5. Registration: [CC359](https://sites.google.com/view/calgary-campinas-dataset/home)
 
 
 ### Internal Validation Sets:
