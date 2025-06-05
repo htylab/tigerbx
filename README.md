@@ -72,7 +72,7 @@ tigerbx.hlc('T1w_dir', 'outputdir')
 
 ### Registration and VBM
 
-See [registration instructions](doc/reginstuction.md) for detailed usage guidelines on the various methods.
+See [registration instructions](doc/reginstruction.md) for detailed usage guidelines on the various methods.
 
 ```python
 # Standard registration
