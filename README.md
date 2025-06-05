@@ -72,9 +72,10 @@ tigerbx.hlc('T1w_dir', 'outputdir')
 
 ### Registration and VBM
 
+See [registration instructions](doc/reginstuction.md) for detailed usage guidelines on the various methods.
+
 ```python
 # Standard registration
-# Rigid registration using the ANTs method is not currently supported.
 tigerbx.reg('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False, affine_type='C2FViT')
 
 # FuseMorph registration
@@ -153,7 +154,7 @@ tiger gdm DTI.nii.gz -o c:\outputdir
 -t: Tumor segmentation (WIP)
 -w: White matter parcellation (WIP)
 -W: White matter hypointensity mask (WIP)
--q: Save QC score (watch for scores < 30)
+-q: Save QC score (watch for scores < 50)
 -z: Output as .nii.gz
 -A: Affine registration to template (default MNI152)
 -r: Nonlinear registration to template (default MNI152)

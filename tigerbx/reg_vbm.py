@@ -34,7 +34,9 @@ def setup_parser(parser):
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
     parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
-    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
+    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template(VoxelMorph)')
+    parser.add_argument('-s', '--syn', action='store_true', help='Registering images to template(SyN)')
+    parser.add_argument('-S', '--syncc', action='store_true', help='Registering images to template(SyNCC)')
     parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
     parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
     parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
@@ -58,6 +60,8 @@ def reg(argstring, input=None, output=None, model=None, template=None, save_disp
     args.bet = 'b' in argstring
     args.affine = 'A' in argstring
     args.registration = 'r' in argstring
+    args.syn = 's' in argstring
+    args.syncc = 'S' in argstring
     args.fusemorph = 'F' in argstring
     args.rigid = 'R' in argstring
     args.vbm = 'v' in argstring
@@ -195,13 +199,15 @@ def run_args(args):
                     result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)
                 
-        if run_d['affine'] or run_d['rigid'] or run_d['registration'] or run_d['fusemorph']:
+        if run_d['affine'] or run_d['rigid'] or run_d['registration'] or run_d['fusemorph'] or run_d['syn'] or run_d['syncc']:
             displacement_dict = {
                 "init_flow": None,
                 "rigid_matrix": None,
                 "affine_matrix": None,
                 "reference_info": None,
-                "dense_warp": None, 
+                "dense_warp": None,
+                "SyN_dense_warp": None,
+                "SyNCC_dense_warp": None,
                 "Fuse_dense_warp": None
             }
             
@@ -246,7 +252,7 @@ def run_args(args):
                 result_dict['rigid'] = rigid_nib
                 result_filedict['rigid'] = fn
             
-            if run_d['affine'] or run_d['registration'] or run_d['fusemorph']: 
+            if run_d['affine'] or run_d['registration'] or run_d['fusemorph'] or run_d['syn'] or run_d['syncc']: 
                 if run_d['affine_type'] == 'C2FViT':
                     model_ff = lib_tool.get_model(omodel['affine'])
                     output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
@@ -288,8 +294,7 @@ def run_args(args):
                     model_ff = lib_tool.get_model(omodel['reg'])
                     
                     output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
-                    moved = np.squeeze(output[0])
-                    warp = np.squeeze(output[1])
+                    moved, warp = np.squeeze(output[0]), np.squeeze(output[1])
                     moved_nib = nib.Nifti1Image(moved,
                                              fixed_affine, template_nib.header)
                     warp_nib = nib.Nifti1Image(warp,
@@ -303,7 +308,26 @@ def run_args(args):
                     
                     displacement_dict["dense_warp"] = warp
                     result_dict['dense_warp'] = warp_nib
+                for ants_reg_str in ['syn', 'syncc']:                    
+                    if run_d[ants_reg_str]:
+                        template_data = template_nib.get_fdata()
+                        ants_fixed, reference_info  = lib_reg.get_ants_info(template_data, template_nib.affine)
+                        bet_data = bet_nib.get_fdata()
+                        ants_moving, _ = lib_reg.get_ants_info(bet_data, bet_nib.affine)
                         
+                        if ants_reg_str == 'syn':
+                            moved, ants_dict = lib_reg.apply_ANTs_reg(ants_moving, ants_fixed, 'SyN')
+                        elif ants_reg_str == 'syncc':
+                            moved, ants_dict = lib_reg.apply_ANTs_reg(ants_moving, ants_fixed, 'SyNCC')
+                        moved = lib_reg.min_max_norm(moved)
+                        displacement_dict.update(reference_info)
+                        displacement_dict.update(ants_dict)
+                        moved_nib = nib.Nifti1Image(moved,
+                                                 fixed_affine, template_nib.header)
+                        fn = save_nib(moved_nib, ftemplate, ants_reg_str)
+                        result_dict[ants_reg_str] = moved_nib
+                        result_dict[ants_reg_str + '_dense_warp'] = ants_dict
+                    
                 if run_d['fusemorph']:
                     model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
                     model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
@@ -350,8 +374,7 @@ def run_args(args):
                     
                     for i in range(1, 4):
                         output = lib_tool.predict(model_ff, [moving_image_current, fixed_image], GPU=args.gpu, mode='reg')
-                        moved = output[0]
-                        warp = output[1]
+                        moved, warp = output[0], output[1]
                         
                         warps.append(warp)                    
                         output = lib_tool.predict(model_transform, [moving_seg_current, warp], GPU=args.gpu, mode='reg')
