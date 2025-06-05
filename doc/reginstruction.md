@@ -24,7 +24,7 @@ This module offers flexible tools for brain image registration and voxel‑based
 ## 🧪 Example Usage
 
 ```python
-# 1. Standard registration with VMnet + C2FViT affine initialization
+# 1. VMnet registration with C2FViT affine initialization
 tigerbx.reg(
     'r',
     r'C:\\T1w_dir',
