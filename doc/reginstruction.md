@@ -12,8 +12,8 @@ This module offers flexible tools for brain image registration and voxel‑based
 | `-z`   | Save output as `.nii.gz`                             |
 | `-A`   | Affine registration to template (default: MNI152)    |
 | `-r`   | **VMnet** registration to template (default: MNI152) |
-| `-s`   | **SyN** registration to template (default: MNI152)   |
-| `-S`   | **SyNCC** registration to template (default: MNI152) |
+| `-s`   | **SyN** registration to template (antspyx‑based, default: MNI152)   |
+| `-S`   | **SyNCC** registration to template (antspyx‑based, default: MNI152) |
 | `-F`   | **FuseMorph** registration to template               |
 | `-T`   | Specify a custom template filename                   |
 | `-R`   | Rigid registration                                   |
