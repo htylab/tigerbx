@@ -218,16 +218,15 @@ def run_args(args):
             bet_nib = reorder_img(bet_nib, resample='continuous')
             ori_affine = bet_nib.affine
             bet_data = bet_nib.get_fdata()
-            if run_d['affine_type'] != 'ANTs':
-                bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
-                bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
             
             template_nib = lib_reg.get_template(run_d['template'])
             template_nib = reorder_img(template_nib, resample='continuous')
-            
             fixed_affine = template_nib.affine
             template_data = template_nib.get_fdata()
+            
             if run_d['affine_type'] != 'ANTs':
+                bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
+                bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
                 template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
             
             moving = bet_data.astype(np.float32)[None, ...][None, ...]
