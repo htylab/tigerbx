@@ -135,7 +135,7 @@ def run_args(args):
             prefix = filename.split('_@@@@')[0]          
             new_dir_path = os.path.join(dir_path, prefix)
             os.makedirs(new_dir_path, exist_ok=True)
-            ftemplate = os.path.join(dir_path, prefix, filename)
+            vbm_ftemplate = os.path.join(dir_path, prefix, filename)
 
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
@@ -195,7 +195,7 @@ def run_args(args):
                 
                 if not run_d['vbm'] or kk==2:
                     print(ftemplate)
-                    fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                    fn = save_nib(pve_nib, vbm_ftemplate, f'cgw_pve{kk-1}')
                     result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)
                 
@@ -427,7 +427,7 @@ def run_args(args):
                 output = lib_tool.predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
                 reg_GM = np.squeeze(output[0])
                 reg_GM_nib = nib.Nifti1Image(reg_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(reg_GM_nib, ftemplate, 'RegGM')                
+                fn = save_nib(reg_GM_nib, vbm_ftemplate, 'RegGM')                
                 result_dict['Reg_GM'] = reg_GM_nib
                 result_filedict['Reg_GM'] = fn
                 
@@ -435,14 +435,14 @@ def run_args(args):
                 warp_Jacobian = lib_reg.jacobian_determinant(warp)
                 Modulated_GM = reg_GM*warp_Jacobian
                 Modulated_GM_nib = nib.Nifti1Image(Modulated_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(Modulated_GM_nib, ftemplate, 'ModulatedGM')                
+                fn = save_nib(Modulated_GM_nib, vbm_ftemplate, 'ModulatedGM')                
                 result_dict['Modulated_GM'] = Modulated_GM_nib
                 result_filedict['Modulated_GM'] = fn
                 
                 fwhm_value = 7.065
                 Smoothed_GM = lib_reg.apply_gaussian_smoothing(Modulated_GM, fwhm=fwhm_value)
                 Smoothed_GM_nib = nib.Nifti1Image(Smoothed_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')
+                fn = save_nib(Smoothed_GM_nib, vbm_ftemplate, 'SmoothedGM')
                 result_dict['Smoothed_GM'] = Smoothed_GM_nib
                 result_filedict['Smoothed_GM'] = fn
             if run_d['save_displacement']:
