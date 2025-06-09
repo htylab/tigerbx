@@ -222,21 +222,20 @@ def run_args(args):
             template_nib = lib_reg.get_template(run_d['template'])
             template_nib = reorder_img(template_nib, resample='continuous')
             fixed_affine = template_nib.affine
-            template_data = template_nib.get_fdata()
-            
-            if run_d['affine_type'] != 'ANTs':
-                bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
-                bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
-                template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
-            
-            moving = bet_data.astype(np.float32)[None, ...][None, ...]
-            moving = lib_reg.min_max_norm(moving)
-            if run_d['template'] == None:
-                template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
-            fixed = template_data.astype(np.float32)[None, ...][None, ...]
-            fixed = lib_reg.min_max_norm(fixed)
             
             if run_d['rigid']:
+                template_data = template_nib.get_fdata()
+                bet_data_R, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
+                bet_data_R, _ = lib_reg.crop_image(bet_data_R, target_shape=(256, 256, 256))
+                template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
+                
+                moving = bet_data_R.astype(np.float32)[None, ...][None, ...]
+                moving = lib_reg.min_max_norm(moving)
+                if run_d['template'] == None:
+                    template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
+                fixed = template_data.astype(np.float32)[None, ...][None, ...]
+                fixed = lib_reg.min_max_norm(fixed)
+                
                 model_ff = lib_tool.get_model(omodel['rigid'])
                 output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
                 rigided, rigid_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
@@ -251,7 +250,20 @@ def run_args(args):
                 result_dict['rigid'] = rigid_nib
                 result_filedict['rigid'] = fn
             
-            if run_d['affine'] or run_d['registration'] or run_d['fusemorph'] or run_d['syn'] or run_d['syncc']: 
+            if run_d['affine'] or run_d['registration'] or run_d['fusemorph'] or run_d['syn'] or run_d['syncc']:
+                template_data = template_nib.get_fdata()
+                if run_d['affine_type'] != 'ANTs':
+                    bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
+                    bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
+                    template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
+                
+                moving = bet_data.astype(np.float32)[None, ...][None, ...]
+                moving = lib_reg.min_max_norm(moving)
+                if run_d['template'] == None:
+                    template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
+                fixed = template_data.astype(np.float32)[None, ...][None, ...]
+                fixed = lib_reg.min_max_norm(fixed)
+                
                 if run_d['affine_type'] == 'C2FViT':
                     model_ff = lib_tool.get_model(omodel['affine'])
                     output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
