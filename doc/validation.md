@@ -1,6 +1,6 @@
 ### TigerBx: Tissue Mask Generation for Brain Extration
 
-### Validation pipeline (after v0.1.16)
+### Validation pipeline
 
     import tigerbx
     import time
