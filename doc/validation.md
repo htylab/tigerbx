@@ -11,7 +11,8 @@
     df, metric3 = tigerbx.val('aseg_123', 'aseg', 'temp', GPU=True)
     df, metric4 = tigerbx.val('dgm_123', 'aseg', 'temp', GPU=True)
     df, metric5 = tigerbx.val('syn_123', 'aseg', 'temp', GPU=True)
-    df, metric6 = tigerbx.val('reg_60', 'aseg', 'temp', GPU=True, template='Template_T1_tbet.nii.gz')
+    df, metric6 = tigerbx.val('hlc_123', 'aseg', 'temp', GPU=True)
+    df, metric7 = tigerbx.val('reg_60', 'aseg', 'temp', GPU=True, template='Template_T1_tbet.nii.gz')
 
     
     print('bet_NFBS', metric1)
@@ -19,7 +20,8 @@
     print('aseg_123', metric3)
     print('dgm_123', metric4)
     print('syn_123', metric5)
-    print('reg_60', metric6)
+    print('hlc_123', metric6)
+    print('reg_60', metric7)
     print('Time', time.time() - t)
 
 ### Validation Datasets
