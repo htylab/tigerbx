@@ -9,6 +9,7 @@ from tigerbx import lib_reg
 from nilearn.image import reorder_img
 import sys
 import os
+import inspect
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
@@ -275,25 +276,49 @@ def val_reg_60(input_dir, output_dir, model=None, GPU=False, debug=False, templa
     return df, mean_per_column
 
 
-def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=False, template=None):
+
+def val(argstring, input_dir, output_dir=None, model=None, GPU=False,
+        debug=False, template=None):
+    """
+    argstring : str   ─ 執行模式（鍵值見 mapping）
+    input_dir : str   ─ 輸入資料根目錄
+    output_dir: str   ─ 輸出目錄，若為 None 則自動建立在 input_dir 下
+    model     : str   ─ 指定模型名稱或路徑（依各子函式需求）
+    GPU       : bool  ─ 是否使用 GPU
+    debug     : bool  ─ 若為 True 只跑少量檔案
+    template  : str   ─ reg_60 模式的對位模板，其餘模式不需要
+    """
     if output_dir is None:
         output_dir = join(input_dir, 'tigerbx_validate_temp')
-
     print('Using output directory:', output_dir)
 
+    # 各模式對應的驗證函式
     mapping = {
         'bet_synstrip': val_bet_synstrip,
-        'bet_NFBS': val_bet_NFBS,
-        'aseg_123': lambda **kw: _val_seg_123('aseg', 'a', **kw),
-        'dgm_123': lambda **kw: _val_seg_123('dgm', 'd', **kw),
-        'syn_123': lambda **kw: _val_seg_123('syn', 'S', **kw),
-        'hlc_123': val_hlc_123,
-        'reg_60': val_reg_60,
+        'bet_NFBS':     val_bet_NFBS,
+        'aseg_123':     lambda **kw: _val_seg_123('aseg', 'a', **kw),
+        'dgm_123':      lambda **kw: _val_seg_123('dgm', 'd', **kw),
+        'syn_123':      lambda **kw: _val_seg_123('syn', 'S', **kw),
+        'hlc_123':      val_hlc_123,
+        'reg_60':       val_reg_60,
     }
 
     if argstring not in mapping:
         raise ValueError(f'Unknown validation mode: {argstring}')
 
     func = mapping[argstring]
-    return func(input_dir=input_dir, output_dir=output_dir, model=model, GPU=GPU, debug=debug, template=template)
 
+    # 先整理共用參數
+    common_kwargs = dict(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        model=model,
+        GPU=GPU,
+        debug=debug,
+    )
+
+    # 動態判斷是否要傳入 template
+    if 'template' in inspect.signature(func).parameters:
+        common_kwargs['template'] = template
+
+    return func(**common_kwargs)
