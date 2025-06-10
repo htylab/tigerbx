@@ -42,21 +42,21 @@ import numpy as np
 
 def crop_cube(ABC, padding=16):
     """
-    裁剪 3D 圖像中信號大於零的區域，形成 cube，並在各方向擴展 16 像素。
-    輸入陣列形狀為 (W, H, D)，回傳裁剪的 cube 以及邊界列表 xyz6，
-    順序為 [x_min, x_max, y_min, y_max, z_min, z_max]。
+    Crop the 3D region with signal > 0, pad 16 voxels in each direction to form a cube.
+    Input array shape is (W, H, D). Returns the cropped cube and boundary list xyz6,
+    ordered as [x_min, x_max, y_min, y_max, z_min, z_max].
     """
-    # 找到信號大於零的區域
+    # Find voxels with signal > 0
     non_zero = np.where(ABC > 0)
     if len(non_zero[0]) == 0:
-        raise ValueError("圖像中沒有信號大於零的區域")
+        raise ValueError("No region with signal > 0 found in the image")
     
-    # 計算最小和最大邊界
-    x_min, x_max = np.min(non_zero[0]), np.max(non_zero[0])  # x 軸 (W)
-    y_min, y_max = np.min(non_zero[1]), np.max(non_zero[1])  # y 軸 (H)
-    z_min, z_max = np.min(non_zero[2]), np.max(non_zero[2])  # z 軸 (D)
+    # Determine minimal and maximal bounds
+    x_min, x_max = np.min(non_zero[0]), np.max(non_zero[0])  # x-axis (W)
+    y_min, y_max = np.min(non_zero[1]), np.max(non_zero[1])  # y-axis (H)
+    z_min, z_max = np.min(non_zero[2]), np.max(non_zero[2])  # z-axis (D)
     
-    # 擴展 16 個像素，考慮邊界條件
+    # Extend by 16 voxels while checking boundaries
     W, H, D = ABC.shape
     x_min = max(0, x_min - padding)
     x_max = min(W - 1, x_max + padding)
@@ -65,36 +65,36 @@ def crop_cube(ABC, padding=16):
     z_min = max(0, z_min - padding)
     z_max = min(D - 1, z_max + padding)
     
-    # 儲存邊界到 xyz6 列表，順序為 [x_min, x_max, y_min, y_max, z_min, z_max]
+    # Save bounds to xyz6 list in [x_min, x_max, y_min, y_max, z_min, z_max] order
     xyz6 = [x_min, x_max, y_min, y_max, z_min, z_max]
     
-    # 裁剪 cube
+    # Crop cube
     cube = ABC[x_min:x_max + 1, y_min:y_max + 1, z_min:z_max + 1]
     
     return cube, xyz6
 
 def restore_result(ABC_shape, result, xyz6):
     """
-    將處理結果放回與原始圖像相同尺寸的空矩陣中。
-    ABC_shape: 原始圖像的形狀 (D, H, W)
-    result: 處理後的 cube
-    xyz6: 邊界列表 [z_min, z_max, y_min, y_max, x_min, x_max]
+    Place the processed result back into a zero array with the original size.
+    ABC_shape: shape of the original image (D, H, W)
+    result: processed cube
+    xyz6: boundary list [z_min, z_max, y_min, y_max, x_min, x_max]
     """
-    # 創建與原始圖像同尺寸的空矩陣
+    # Create an empty array with the original shape
     output = np.zeros(ABC_shape)
     
-    # 從 xyz6 提取邊界
+    # Extract boundaries from xyz6
     z_min, z_max, y_min, y_max, x_min, x_max = xyz6
     
-    # 將 result 放回對應位置
+    # Insert the result back to the corresponding position
     output[z_min:z_max + 1, y_min:y_max + 1, x_min:x_max + 1] = result
     
     return output
 
-# 使用範例
-# 假設 ABC 是你的 3D NumPy 陣列
+# Example usage
+# Assume ABC is your 3D NumPy array
 # cube, xyz6 = crop_cube(ABC)
-# result = segseg(cube)  # 假設 segseg 是你的處理函數
+# result = segseg(cube)  # assume segseg is your processing function
 # output = restore_result(ABC.shape, result, xyz6)
 
 def hlc(input=None, output=None, model=None, save='all', GPU=False, gz=True, patch=False):
@@ -145,32 +145,32 @@ DKT = np.concatenate([DKT_LEFT, DKT_RIGHT])
 WMP = np.concatenate([WMP_LEFT, WMP_RIGHT])
 #WMP_ONLY = np.array([ 5001, 5002], dtype=np.int32)
 
-# 明確定義 LEFT 和 RIGHT
+# Explicitly define LEFT and RIGHT
 LEFT = np.concatenate([ASEG_LEFT, DKT_LEFT, WMP_LEFT])
 RIGHT = np.concatenate([ASEG_RIGHT, DKT_RIGHT, WMP_RIGHT])
 
-# 編碼映射表
+# Encoding lookup table
 import numpy as np
 
-# 編碼映射表
+# Encoding lookup table
 ENCODE= {}
 DECODE = {}
 
-# 1. ASEG_NLR 映射
+# 1. ASEG_NLR mapping
 for idx, value in enumerate(ASEG_NLR, start=1):
     ENCODE[value] = idx
     DECODE[idx] = value
     
 
-# 2. ASEG 左右對應映射
-max_value = max(ENCODE.values())  # 當前最大值
+# 2. ASEG left/right mapping
+max_value = max(ENCODE.values())  # current maximum value
 for idx, (left, right) in enumerate(zip(ASEG_LEFT, ASEG_RIGHT), start=max_value + 1):
     ENCODE[left] = idx
     ENCODE[right] = idx
     DECODE[idx] = left
 
-# 3. DKT 和 WMP 映射
-max_value = max(ENCODE.values())  # 更新最大值
+# 3. DKT and WMP mapping
+max_value = max(ENCODE.values())  # update max value
 for ii in base_index:
     max_value += 1
     ENCODE[ii + 1000] = max_value  # DKT_LEFT
@@ -180,7 +180,7 @@ for ii in base_index:
     DECODE[max_value] = ii + 1000
 
 max_value += 1
-# 4. 最後一對映射
+# 4. Final mapping pair
 ENCODE[5001] = max_value
 ENCODE[5002] = max_value
 
@@ -189,28 +189,28 @@ DECODE[max_value] = 5001
 DESIRED_LABELS = set(ENCODE.keys())
 
 def HLC_encoder(mask):
-    # 確保輸入資料型別為 int32
+    # Ensure input data type is int32
     mask = mask.astype(np.int32)
     
-    # 初始化輸出陣列
+    # Initialize output arrays
     out = np.zeros_like(mask, dtype=np.int32)
     lrseg = np.zeros_like(mask, dtype=np.int8)
     dwseg = np.zeros_like(mask, dtype=np.int8)
     
-    # 創建編碼查找表
+    # Build encoding lookup table
     max_label = max(ENCODE.keys()) + 1
     encode_lookup = np.zeros(max_label, dtype=np.int32)
     for key, value in ENCODE.items():
         encode_lookup[key] = value
     
-    # 應用編碼
+    # Apply encoding
     out = encode_lookup[mask]
     
-    # 生成 lrseg（左右半球分割）
+    # Generate lrseg (left/right hemisphere)
     lrseg[np.isin(mask, LEFT)] = 1
     lrseg[np.isin(mask, RIGHT)] = 2
     
-    # 生成 dwseg（灰質/白質分割）
+    # Generate dwseg (gray/white matter)
     dwseg[np.isin(mask, DKT)] = 1
     dwseg[np.isin(mask, WMP)] = 2
     #dwseg[np.isin(mask, WMP_ONLY)] = 2
@@ -219,7 +219,7 @@ def HLC_encoder(mask):
 
 def HLC_decoder(out, lrseg, dwseg):
 
-    # 確保輸入資料型別
+    # Ensure input data types
     out = out.astype(np.int32)
     lrseg = lrseg.astype(np.int32)
     dwseg = dwseg.astype(np.int32)
@@ -231,18 +231,18 @@ def HLC_decoder(out, lrseg, dwseg):
     output = np.zeros_like(lrseg)
 
     
-    # 創建解碼查找表
+    # Build decoding lookup table
     lookup = np.zeros(max(DECODE.keys()) + 1, dtype=np.int32)
     for key, value in DECODE.items():
         lookup[key] = value
     
-    # 應用基本解碼
+    # Apply basic decoding
     reversed_out = lookup[out]
 
     for idx in ASEG_NLR:
         output[reversed_out == idx] = idx
     
-    # 處理左右半球和灰質/白質條件
+    # Handle hemisphere and tissue conditions
     for idx, (left_idx, right_idx) in enumerate(zip(ASEG_LEFT, ASEG_RIGHT)):
         mask_temp = (reversed_out == left_idx) & left_mask
         output[mask_temp] = left_idx

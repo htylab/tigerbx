@@ -33,3 +33,19 @@ The function returns either a dictionary of NIfTI objects (single file) or a lis
 
 For a list of label IDs used in segmentation, see [Label definitions](seglabel.md). For registration tools and VBM analyses, refer to [registration instructions](reginstruction.md).
 
+
+Additional Examples
+-------------------
+
+```python
+# Process a folder and only save HLC labels
+# All outputs will go to the specified directory
+files = tigerbx.hlc('/data/subj*/T1w.nii.gz', 'hlc_dir', save='h')
+
+# Generate cortical thickness and CSF/GM/WM maps using GPU
+# Patch mode reduces memory usage for large volumes
+results = tigerbx.hlc('T1w.nii.gz', 'out_dir', save='cC', GPU=True, patch=True)
+```
+
+These snippets show how to select outputs, use wildcards and enable
+patch inference when running the HLC module.
