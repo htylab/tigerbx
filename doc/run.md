@@ -41,3 +41,23 @@ result = tigerbx.run('bd', 'T1w.nii.gz', 'out_dir')
 
 If a directory or wildcard pattern is provided as the `input`, all matching files are processed. When `output` is `None`, results are saved next to each input file.
 
+
+Additional Examples
+-------------------
+
+```python
+# Process an entire folder and save outputs next to each input file
+# Wildcard patterns can also be used
+results = tigerbx.run('b', '/path/to/folder/*.nii.gz')
+
+# Run cortical thickness and DKT segmentation on GPU
+results = tigerbx.run('ckg', 'T1w.nii.gz', 'out_dir')
+
+# Encode images into latent space and decode them back
+# Useful for debugging or data augmentation
+results = tigerbx.run('encode', 'T1w.nii.gz', 'latent_dir')
+recon = tigerbx.run('decode', 'latent_dir/encode.npz', 'recon_dir')
+```
+
+These examples illustrate processing multiple inputs, enabling GPU inference,
+and using the encode/decode utilities.

@@ -92,7 +92,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False, debug=Fals
 
         average_dice_per_category = df.groupby('category')['DICE'].mean()
 
-        # 顯示結果
+        # Display results
         print(average_dice_per_category)
         metric = df['DICE'].mean()
         print('mean Dice of all data:', df['DICE'].mean())
