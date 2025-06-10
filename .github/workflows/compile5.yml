@@ -38,22 +38,20 @@ jobs:
         pip install .
         pip install pyinstaller onnxruntime
 
-    - name: Build executable with PyInstaller
-      shell: bash
+    - name: PyInstaller (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
-        # 選擇不同平台的額外動態函式庫
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          EXTRA="--add-data \"./tigerbx/exe/onnxruntime_providers_shared.dll;onnxruntime/capi\""
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then   # macOS 通常為 .dylib；如仍用 .so 可視情況修改
-          EXTRA="--add-data \"./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi\""
-        else
-          EXTRA="--add-data \"./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi\""
-        fi
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data "./tigerbx/exe/onnxruntime_providers_shared.dll;onnxruntime/capi" -F ./tigerbx/${{ matrix.py }}.py
 
-        pyinstaller -c -p ./tigerbx \
-          --icon=./tigerbx/exe/ico.ico \
-          $EXTRA \
-          -F ./tigerbx/${{ matrix.py }}.py
+    - name: PyInstaller (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data "./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi" -F ./tigerbx/${{ matrix.py }}.py
+
+    - name: PyInstaller (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        pyinstaller -c -p ./tigerbx --icon=./tigerbx/exe/ico.ico --add-data "./tigerbx/exe/libonnxruntime_providers_shared.so:onnxruntime/capi" -F ./tigerbx/${{ matrix.py }}.py
 
     - name: Package ZIP
       shell: bash
