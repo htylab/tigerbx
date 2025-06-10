@@ -70,6 +70,8 @@ import tigerbx
 tigerbx.hlc('T1w_dir', 'outputdir')
 ```
 
+See [run usage](doc/run.md) and [HLC usage](doc/hlc.md) for a complete description of these APIs.
+
 ### Registration and VBM
 
 See [registration instructions](doc/reginstruction.md) for detailed usage guidelines on the various methods.
