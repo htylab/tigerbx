@@ -35,7 +35,7 @@
 ### Internal Validation Sets:
 1. aseg: A combination of MindBoggle-101 and CANDI (N = 123) with DGM labels
 
-### Validation Results of Verion 0.1.16
+### Validation Results of Verion 0.1.20
 #### Deep Gray matter: Dice coefficients
 
     | Structure  | L/R | aseg  | dgm  | syn  | hlc  | L/R | aseg  | dgm  | syn  | hlc  |
