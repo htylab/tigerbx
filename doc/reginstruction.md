@@ -77,6 +77,8 @@ tigerbx.transform(
     Methods `-s` and `-S` include their own affine preprocessing and are therefore unaffected.
 * **Interpolation**
   The `transform` function currently supports two modes: `nearest` (default) and `linear`.
+* **Rigid transform compatibility**
+  The `-R` (rigid) option is currently handled independently. When generating displacement fields, do not combine rigid with other methods in the same operation. If you only want to obtain the registered image without saving the displacement field, then combining rigid with other methods is acceptable.
 
 ---
 

@@ -135,7 +135,7 @@ def run_args(args):
             prefix = filename.split('_@@@@')[0]          
             new_dir_path = os.path.join(dir_path, prefix)
             os.makedirs(new_dir_path, exist_ok=True)
-            ftemplate = os.path.join(dir_path, prefix, filename)
+            vbm_ftemplate = os.path.join(dir_path, prefix, filename)
 
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
@@ -195,7 +195,7 @@ def run_args(args):
                 
                 if not run_d['vbm'] or kk==2:
                     print(ftemplate)
-                    fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                    fn = save_nib(pve_nib, vbm_ftemplate, f'cgw_pve{kk-1}')
                     result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)
                 
@@ -218,26 +218,24 @@ def run_args(args):
             bet_nib = reorder_img(bet_nib, resample='continuous')
             ori_affine = bet_nib.affine
             bet_data = bet_nib.get_fdata()
-            if run_d['affine_type'] != 'ANTs':
-                bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
-                bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
             
             template_nib = lib_reg.get_template(run_d['template'])
             template_nib = reorder_img(template_nib, resample='continuous')
-            
             fixed_affine = template_nib.affine
-            template_data = template_nib.get_fdata()
-            if run_d['affine_type'] != 'ANTs':
-                template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
-            
-            moving = bet_data.astype(np.float32)[None, ...][None, ...]
-            moving = lib_reg.min_max_norm(moving)
-            if run_d['template'] == None:
-                template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
-            fixed = template_data.astype(np.float32)[None, ...][None, ...]
-            fixed = lib_reg.min_max_norm(fixed)
             
             if run_d['rigid']:
+                template_data = template_nib.get_fdata()
+                bet_data_R, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
+                bet_data_R, _ = lib_reg.crop_image(bet_data_R, target_shape=(256, 256, 256))
+                template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
+                
+                moving = bet_data_R.astype(np.float32)[None, ...][None, ...]
+                moving = lib_reg.min_max_norm(moving)
+                if run_d['template'] == None:
+                    template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
+                fixed = template_data.astype(np.float32)[None, ...][None, ...]
+                fixed = lib_reg.min_max_norm(fixed)
+                
                 model_ff = lib_tool.get_model(omodel['rigid'])
                 output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
                 rigided, rigid_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
@@ -252,7 +250,20 @@ def run_args(args):
                 result_dict['rigid'] = rigid_nib
                 result_filedict['rigid'] = fn
             
-            if run_d['affine'] or run_d['registration'] or run_d['fusemorph'] or run_d['syn'] or run_d['syncc']: 
+            if run_d['affine'] or run_d['registration'] or run_d['fusemorph'] or run_d['syn'] or run_d['syncc']:
+                template_data = template_nib.get_fdata()
+                if run_d['affine_type'] != 'ANTs':
+                    bet_data, _ = lib_reg.pad_to_shape(bet_data, (256, 256, 256))
+                    bet_data, _ = lib_reg.crop_image(bet_data, target_shape=(256, 256, 256))
+                    template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
+                
+                moving = bet_data.astype(np.float32)[None, ...][None, ...]
+                moving = lib_reg.min_max_norm(moving)
+                if run_d['template'] == None:
+                    template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
+                fixed = template_data.astype(np.float32)[None, ...][None, ...]
+                fixed = lib_reg.min_max_norm(fixed)
+                
                 if run_d['affine_type'] == 'C2FViT':
                     model_ff = lib_tool.get_model(omodel['affine'])
                     output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
@@ -428,7 +439,7 @@ def run_args(args):
                 output = lib_tool.predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
                 reg_GM = np.squeeze(output[0])
                 reg_GM_nib = nib.Nifti1Image(reg_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(reg_GM_nib, ftemplate, 'RegGM')                
+                fn = save_nib(reg_GM_nib, vbm_ftemplate, 'RegGM')                
                 result_dict['Reg_GM'] = reg_GM_nib
                 result_filedict['Reg_GM'] = fn
                 
@@ -436,14 +447,14 @@ def run_args(args):
                 warp_Jacobian = lib_reg.jacobian_determinant(warp)
                 Modulated_GM = reg_GM*warp_Jacobian
                 Modulated_GM_nib = nib.Nifti1Image(Modulated_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(Modulated_GM_nib, ftemplate, 'ModulatedGM')                
+                fn = save_nib(Modulated_GM_nib, vbm_ftemplate, 'ModulatedGM')                
                 result_dict['Modulated_GM'] = Modulated_GM_nib
                 result_filedict['Modulated_GM'] = fn
                 
                 fwhm_value = 7.065
                 Smoothed_GM = lib_reg.apply_gaussian_smoothing(Modulated_GM, fwhm=fwhm_value)
                 Smoothed_GM_nib = nib.Nifti1Image(Smoothed_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')
+                fn = save_nib(Smoothed_GM_nib, vbm_ftemplate, 'SmoothedGM')
                 result_dict['Smoothed_GM'] = Smoothed_GM_nib
                 result_filedict['Smoothed_GM'] = fn
             if run_d['save_displacement']:

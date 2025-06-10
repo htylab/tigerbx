@@ -377,10 +377,7 @@ def get_ants_info(image, affine):
     return ants_img, ants_dict
 
 def apply_ANTs_reg(ants_moving, ants_fixed, mode):
-    if mode != 'Affine':
-        registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)
-    else:
-        registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)    
+    registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)  
     transformed_moving_image = registration['warpedmovout']    
     transformed_array = transformed_moving_image.numpy()
     
