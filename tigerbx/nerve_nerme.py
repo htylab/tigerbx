@@ -136,14 +136,14 @@ def encode_nii(
     if save_patch:
         merged = np.stack(patch_arrays, axis=-1).astype(np.float32)  # (D,H,W,#patch)
         patch_img = nib.Nifti1Image(merged, first_affine)
-        patch_path = os.path.join(f_output_dir, f"{stem}_nervepatch.nii.gz")
+        patch_path = os.path.join(f_output_dir, f"{stem}_nerve_patch.nii.gz")
         nib.save(patch_img, patch_path)
         print(f"Merged patch saved to: {patch_path}")
 
     if decoder and save_patch:
         merged = np.stack(recon_arrays, axis=-1).astype(np.float32)  # (D,H,W,#patch)
         patch_img = nib.Nifti1Image(merged, first_affine)
-        patch_path = os.path.join(f_output_dir, f"{stem}_reconpatch.nii.gz")
+        patch_path = os.path.join(f_output_dir, f"{stem}_nerve_recon.nii.gz")
         nib.save(patch_img, patch_path)
         print(f"Merged recon patch saved to: {patch_path}")
 
