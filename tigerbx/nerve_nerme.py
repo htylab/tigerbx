@@ -169,7 +169,7 @@ def encode_nii(
 
     # --- Temporary workspace (auto-deleted)
     with tempfile.TemporaryDirectory() as tmpdir:
-        result = tigerbx.run("ba", raw_path, tmpdir, silent=True)
+        result = tigerbx.run("ba", raw_path, tmpdir, silent=True, GPU=GPU)
     print('Cleaning up temporary files...')
 
     patches = nerve_preprocess_nib(result["aseg"], result["tbet"])
