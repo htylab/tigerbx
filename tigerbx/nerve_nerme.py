@@ -25,11 +25,13 @@ import nibabel as nib
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-from tigerbx.lib_nerve import nerve_preprocess_nib, encode_npy, decode_npy, _mae, _mse, _psnr, get_ftemplate
 
+from tigerbx.lib_nerve import nerve_preprocess_nib, encode_npy, decode_npy, _mae, _mse, _psnr, get_ftemplate
+from tigerbx.lib_nerve import onnx_encode, onnx_decode
 
 def main():
     parser = argparse.ArgumentParser()
@@ -45,98 +47,7 @@ def setup_parser(parser):
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--method', default='NERVE', type=str, help='Specifying the model name')
     parser.add_argument('-p', '--save_patch', action='store_true', help='Saving patches')
-
-# ------------------------------------------------------------------
-# 1. End-to-end evaluation (encode → decode → QA metrics)
-# ------------------------------------------------------------------
-def evaluate(
-    t1_ff,
-    encoder = "nerve_lp4_encoder.onnx",
-    decoder = "nerve_lp4_decoder.onnx",
-    outdir = "NERVE_output",
-    provider = "CPUExecutionProvider",
-):
-    base = basename(t1_ff).replace(".nii.gz", "").replace(".nii", "")
-    out_root = Path(outdir)
-    out_root.mkdir(exist_ok=True)
-
-    # --- Load ONNX models
-    onnx.checker.check_model(onnx.load(encoder))
-    onnx.checker.check_model(onnx.load(decoder))
-    enc_sess = ort.InferenceSession(encoder, providers=[provider])
-    dec_sess = ort.InferenceSession(decoder, providers=[provider])
-
-    # --- Pre-processing
-    with tempfile.TemporaryDirectory() as tmpdir:
-        result = tigerbx.run("ba", t1_ff, tmpdir)   # BA pipeline
-    patches = nerve_preprocess_nib(result["aseg"], result["tbet"])
-
-    # --- Encode / Decode / Metrics
-    stats = {}
-    for tag, img in patches.items():
-        patch_file = out_root / f"{base}_{tag}_patch.nii.gz"
-        latent_file = out_root / f"{base}_{tag}_latent.npy"
-        recon_file = out_root / f"{base}_{tag}_reconstruction.nii.gz"
-
-        nib.save(img, patch_file)
-        encode_npy(enc_sess, img, latent_file)
-
-        recon_img = decode_npy(dec_sess, latent_file, img.affine, recon_file)
-        vol = img.get_fdata().astype(np.float32)
-        recon = recon_img.get_fdata().astype(np.float32)
-       #stats[tag] = (_mae(vol, recon), _mse(vol, recon), _psnr(vol, recon))
-        stats[tag] = dict(MAE=_mae(vol, recon), MSE= _mse(vol, recon), PSNR=_psnr(vol, recon))
-        print(
-            f"{tag} ▸ MAE:{stats[tag]['MAE']:.4e}  "
-            f"MSE:{stats[tag]['MSE']:.4e}  "
-            f"PSNR:{stats[tag]['PSNR']:.2f} dB"
-        )
-
-    # --- Aggregate metrics
-    mae_avg = np.mean([v['MAE'] for v in stats.values()])
-    mse_avg = np.mean([v['MSE'] for v in stats.values()])
-    psnr_avg = np.mean([v['PSNR'] for v in stats.values()])
-    print("--------------------------------------------------")
-    print(f"Average ▸ MAE:{mae_avg:.4e}  MSE:{mse_avg:.4e}  PSNR:{psnr_avg:.2f} dB")
-    print(f"All files written to: {out_root.resolve()}")
-
-    # --- Return dictionary for later use
-    return {
-        "source":   t1_ff,
-        "encoder":  encoder,
-        "decoder":  decoder,
-        "provider": provider,
-        "outdir":   str(out_root),
-        "patch_stats": stats,               # 每個 tag 的 MAE/MSE/PSNR
-        "MAE_avg":  mae_avg,
-        "MSE_avg":  mse_avg,
-        "PSNR_avg": psnr_avg,
-    }
-
-
-def evaluate_dir(T1w_dir, output_dir='nerve_eval_output'):
-    import pandas as pd
-    import glob
-    from os.path import join
-    ffs = glob.glob(join(T1w_dir, '*.nii.gz'))
-    records = []
-    for vol in ffs:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            rec = evaluate(vol,
-             encoder="nerve_lp4_encoder.onnx",
-             decoder="nerve_lp4_decoder.onnx",
-             outdir=tmpdir)                  # 設 False 可只存 latent
-        
-        for tag, vals in rec["patch_stats"].items():
-            records.append({
-                "Volume":  rec["source"],
-                "Tag":     tag,
-                **vals     # 展開 MAE / MSE / PSNR
-            })
-    
-    df = pd.DataFrame(records)
-    df.to_excel(join(output_dir, "nerve_metrics.xlsx"), index=False)
-
+    parser.add_argument('-r', '--save_recon', action='store_true', help='Saving recon patches')
 
 # ------------------------------------------------------------------
 # 2. Encode-only helper (save all latents into one NPZ; optional patch merge)
@@ -144,6 +55,7 @@ def evaluate_dir(T1w_dir, output_dir='nerve_eval_output'):
 def encode_nii(
     raw_path,
     encoder=None,
+    decoder=None,
     output_dir="NERVE_latent",
     GPU=False,
     save_patch= False,
@@ -166,30 +78,45 @@ def encode_nii(
     # --- Build encoder session
     onnx.checker.check_model(onnx.load(encoder))
     enc_sess = ort.InferenceSession(encoder, providers=provider)
-    input_name = enc_sess.get_inputs()[0].name
-    output_name = enc_sess.get_outputs()[0].name
+
+    if decoder:
+        onnx.checker.check_model(onnx.load(decoder))
+        dec_sess = ort.InferenceSession(decoder, providers=provider)
+    #input_name = enc_sess.get_inputs()[0].name
+    #output_name = enc_sess.get_outputs()[0].name
 
     # --- Temporary workspace (auto-deleted)
     with tempfile.TemporaryDirectory() as tmpdir:
         result = tigerbx.run(bx_string, raw_path, tmpdir, silent=True)
-    print('Cleaning up temporary files...')
+    #print('Cleaning up temporary files...')
 
     patches = nerve_preprocess_nib(result["aseg"], result["tbet"])
 
     # --- Encode each patch
     latent_dict = {}
     patch_arrays = []
+    recon_arrays = []
     first_affine = None
 
+
     for tag, img in patches.items():
-        vol = img.get_fdata().astype(np.float32)[None, None]     # → [1,1,D,H,W]
-        latent = enc_sess.run([output_name], {input_name: vol})[0]
+        #vol = img.get_fdata().astype(np.float32)[None, None]     # → [1,1,D,H,W]
+        #latent = enc_sess.run([output_name], {input_name: vol})[0]
+        latent = onnx_encode(enc_sess, img)[0]
         latent_dict[tag] = latent
         print(f"{tag} ▸ latent shape {latent.shape}")
 
         patch_arrays.append(img.get_fdata())
         if first_affine is None:
             first_affine = img.affine.copy()
+
+        if decoder:            
+            recon = onnx_decode(dec_sess, latent[None, ...])
+            recon_vol = recon.squeeze()
+            recon_arrays.append(recon_vol)
+
+
+
 
     # --- Save latents
     latent_dict["encoder"] = np.array(encoder, dtype=object)
@@ -213,7 +140,14 @@ def encode_nii(
         nib.save(patch_img, patch_path)
         print(f"Merged patch saved to: {patch_path}")
 
-def nerve(input, output=None, model=None, GPU=False, method='NERVE', save_patch=False):
+    if decoder and save_patch:
+        merged = np.stack(recon_arrays, axis=-1).astype(np.float32)  # (D,H,W,#patch)
+        patch_img = nib.Nifti1Image(merged, first_affine)
+        patch_path = os.path.join(f_output_dir, f"{stem}_reconpatch.nii.gz")
+        nib.save(patch_img, patch_path)
+        print(f"Merged recon patch saved to: {patch_path}")
+
+def nerve(input, output=None, model=None, GPU=False, method='NERVE', save_patch=False, save_recon=False):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -224,6 +158,7 @@ def nerve(input, output=None, model=None, GPU=False, method='NERVE', save_patch=
     args.gpu = GPU
     args.method = method
     args.save_patch = save_patch
+    args.save_recon = save_recon
     return run_args(args)
 
 
@@ -248,10 +183,17 @@ def run_args(args):
 
     if args.method == 'NERVE':
         omodel['encode'] = 'nerve_lp4_encoder.onnx'
+        omodel['decode'] = 'nerve_lp4_decoder.onnx'
     else:
         omodel['encode'] = 'nerve_lp4_encoder.onnx'
+        omodel['decode'] = 'nerve_lp4_decoder.onnx'
         #omodel['decoder'] = 'nerve_lp4_decoder.onnx'
     omodel['encode'] = lib_tool.get_model(omodel['encode'])
+    omodel['decode'] = lib_tool.get_model(omodel['decode'])
+
+    if not args.save_recon: omodel['decode'] = None
+
+    print(omodel['decode'])
 
 
     # if you want to use other models
@@ -289,6 +231,7 @@ def run_args(args):
         
         encode_nii(f,
             encoder=omodel['encode'],
+            decoder=omodel['decode'],
             output_dir=f_output_dir,
             GPU=args.gpu,
             save_patch=args.save_patch,
