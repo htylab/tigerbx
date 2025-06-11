@@ -83,7 +83,7 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
 def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace('@@@@', postfix)
     nib.save(data_nib, output_file)
-    print('Writing output file: ', output_file)
+    
     return output_file
 
 def get_template(f, output_dir, get_z, common_folder=None):
@@ -137,6 +137,7 @@ def setup_parser(parser):
     parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
+    parser.add_argument('--silent', action='store_true', help='Silent mode')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
@@ -145,7 +146,8 @@ def setup_parser(parser):
     #run_args(args)
 
 
-def run(argstring, input=None, output=None, model=None):
+def run(argstring, input=None, output=None, model=None, silent=False):
+
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -157,6 +159,8 @@ def run(argstring, input=None, output=None, model=None):
     args.encode = 'encode' in argstring
     args.decode = 'decode' in argstring
     args.gpu = 'g' in argstring
+
+    args.silent = silent
 
     if (args.encode or args.decode or args.clean_onnx):
         argstring = ''
@@ -181,6 +185,10 @@ def run(argstring, input=None, output=None, model=None):
 def run_args(args):
 
     run_d = vars(args) #store all arg in dict
+
+    if run_d.get('silent', 0):
+        def print(*args, **kwargs): pass
+
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
                     run_d['wmh'], run_d['tumor'], run_d['cgw'], 
@@ -286,6 +294,7 @@ def run_args(args):
             output_nib.header.set_data_dtype(np.uint8)
 
             fn = save_nib(output_nib, ftemplate, 'decode')
+            print('Writing output file: ', fn)
             result_dict['decode'] = output_nib
             result_filedict['decode'] = fn            
    
@@ -322,6 +331,7 @@ def run_args(args):
 
         if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+            print('Writing output file: ', fn)
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
 
@@ -332,6 +342,7 @@ def run_args(args):
                 imabet = imabet.astype(input_nib.dataobj.dtype)
             
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
+            print('Writing output file: ', fn)
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
@@ -341,6 +352,7 @@ def run_args(args):
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
                 
                 fn = save_nib(result_nib, ftemplate, seg_str)
+                print('Writing output file: ', fn)
                 result_filedict[seg_str] = fn
                 result_dict[seg_str] = result_nib
 
@@ -369,6 +381,7 @@ def run_args(args):
                 if not run_d['vbm'] or kk==2:
                     print(ftemplate)
                     fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                    print('Writing output file: ', fn)
                     result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)                       
 
@@ -390,6 +403,7 @@ def run_args(args):
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
+            print('Writing output file: ', fn)
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             

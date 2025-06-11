@@ -208,7 +208,7 @@ def predict(model, data, GPU, mode=None):
     if GPU and (ort.get_device() == "GPU"):
 
         session = ort.InferenceSession(model,
-                                       providers=['CUDAExecutionProvider'],
+                                       providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
                                        sess_options=so)
     else:
         session = ort.InferenceSession(model,
