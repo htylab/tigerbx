@@ -280,6 +280,7 @@ def run_args(args):
     fcount = len(input_file_list)
     for f in input_file_list:
         count += 1
+        ftemplate, f_output_dir = get_ftemplate(f, output_dir, common_folder)
 
         print(f'Preprocessing {count}/{fcount}:\n', os.path.basename(f))
         t = time.time()
