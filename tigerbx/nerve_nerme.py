@@ -151,8 +151,10 @@ def encode_nii(
 ):
     if GPU:
         provider = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        bx_string = 'bag'
     else:
         provider = ["CPUExecutionProvider"]
+        bx_string = 'ba'
     
     f_output_dir = output_dir
 
@@ -169,7 +171,7 @@ def encode_nii(
 
     # --- Temporary workspace (auto-deleted)
     with tempfile.TemporaryDirectory() as tmpdir:
-        result = tigerbx.run("ba", raw_path, tmpdir, silent=True, GPU=GPU)
+        result = tigerbx.run(bx_string, raw_path, tmpdir, silent=True)
     print('Cleaning up temporary files...')
 
     patches = nerve_preprocess_nib(result["aseg"], result["tbet"])
