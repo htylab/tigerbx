@@ -22,16 +22,17 @@ import time
 import glob
 import platform
 import nibabel as nib
-
+from tqdm import tqdm
+import pandas as pd
+from skimage.metrics import structural_similarity as ssim_metric
 from tigerbx import lib_tool
-from tigerbx import lib_bx
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-from tigerbx.lib_nerve import nerve_preprocess_nib, encode_npy, decode_npy, _mae, _mse, _psnr, get_ftemplate
-from tigerbx.lib_nerve import onnx_encode, onnx_decode
+from tigerbx.lib_nerve import nerve_preprocess_nib, get_ftemplate
+from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
 
 def main():
     parser = argparse.ArgumentParser()
@@ -47,61 +48,50 @@ def setup_parser(parser):
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--method', default='NERVE', type=str, help='Specifying the model name')
     parser.add_argument('-p', '--save_patch', action='store_true', help='Saving patches')
-    parser.add_argument('-r', '--save_recon', action='store_true', help='Saving recon patches')
+    parser.add_argument('-d', '--decode', action='store_true', help='Decode patches')
+    parser.add_argument('-e', '--encode', action='store_true', help='Encode patches')
+    parser.add_argument('-v', '--evaluate', action='store_true', help='Evaluate models')
 
-# ------------------------------------------------------------------
-# 2. Encode-only helper (save all latents into one NPZ; optional patch merge)
-# ------------------------------------------------------------------
+
+# ------------------------------------------------------------
+# Encode: NIfTI → latent .npz
+# ------------------------------------------------------------
 def encode_nii(
     raw_path,
-    encoder=None,
-    decoder=None,
+    encoder,
     output_dir="NERVE_latent",
     GPU=False,
-    save_patch= False,
-    f_template=None
+    save_patch=False,
+    f_template=None,
 ):
-    if GPU:
-        provider = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        bx_string = 'bag'
-    else:
-        provider = ["CPUExecutionProvider"]
-        bx_string = 'ba'
-    
-    f_output_dir = output_dir
+    """
+    Encode a 3-D NIfTI into latent vectors (.npz).
+    """
+    # Select execution providers
+    providers = (
+        ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if GPU else ["CPUExecutionProvider"]
+    )
+    bx_string = "bag" if GPU else "ba"
 
+    # Prepare I/O
+    os.makedirs(output_dir, exist_ok=True)
+    if f_template is None:
+        f_template = basename(raw_path)
 
-    # --- Output folder
-    if f_template==None: f_template = basename(raw_path)
-    
-
-    # --- Build encoder session
+    # Build encoder session
     onnx.checker.check_model(onnx.load(encoder))
-    enc_sess = ort.InferenceSession(encoder, providers=provider)
+    enc_sess = ort.InferenceSession(encoder, providers=providers)
 
-    if decoder:
-        onnx.checker.check_model(onnx.load(decoder))
-        dec_sess = ort.InferenceSession(decoder, providers=provider)
-    #input_name = enc_sess.get_inputs()[0].name
-    #output_name = enc_sess.get_outputs()[0].name
-
-    # --- Temporary workspace (auto-deleted)
+    # Temporary workspace for tigerbx preprocessing
     with tempfile.TemporaryDirectory() as tmpdir:
         result = tigerbx.run(bx_string, raw_path, tmpdir, silent=True)
-    #print('Cleaning up temporary files...')
 
+    # Patch extraction
     patches = nerve_preprocess_nib(result["aseg"], result["tbet"])
 
-    # --- Encode each patch
-    latent_dict = {}
-    patch_arrays = []
-    recon_arrays = []
-    first_affine = None
-
-
+    latent_dict, patch_arrays, first_affine = {}, [], None
     for tag, img in patches.items():
-        #vol = img.get_fdata().astype(np.float32)[None, None]     # → [1,1,D,H,W]
-        #latent = enc_sess.run([output_name], {input_name: vol})[0]
         latent = onnx_encode(enc_sess, img)[0]
         latent_dict[tag] = latent
         print(f"{tag} ▸ latent shape {latent.shape}")
@@ -110,44 +100,73 @@ def encode_nii(
         if first_affine is None:
             first_affine = img.affine.copy()
 
-        if decoder:            
-            recon = onnx_decode(dec_sess, latent[None, ...])
-            recon_vol = recon.squeeze()
-            recon_arrays.append(recon_vol)
-
-
-
-
-    # --- Save latents
+    # Save latents
     latent_dict["encoder"] = np.array(encoder, dtype=object)
     latent_dict["affine"] = first_affine
 
-    base = f_template
-    stem = (
-        base[:-7]
-        if base.endswith(".nii.gz")
-        else (base[:-4] if base.endswith(".nii") else base)
-    )
-    npz_path = os.path.join(f_output_dir, f"{stem}_nerve.npz")
-    np.savez_compressed(npz_path, **latent_dict)
-    print(f"Latents saved to: {npz_path}")
 
-    # --- Optionally merge and save patches
+    npz_ff = os.path.join(output_dir, f"{f_template}_nerve.npz")
+    np.savez_compressed(npz_ff, **latent_dict)
+    print(f"[Encode] Latents saved → {npz_ff}")
+
+    # Optional: save original patches
+    patch_ff = ''
     if save_patch:
-        merged = np.stack(patch_arrays, axis=-1).astype(np.float32)  # (D,H,W,#patch)
-        patch_img = nib.Nifti1Image(merged, first_affine)
-        patch_path = os.path.join(f_output_dir, f"{stem}_nerve_patch.nii.gz")
-        nib.save(patch_img, patch_path)
-        print(f"Merged patch saved to: {patch_path}")
+        patch_ff = os.path.join(output_dir, f"{f_template}_nerve_patch.nii.gz")
+        merged = np.stack(patch_arrays, axis=-1).astype(np.float32)
+        nib.save(
+            nib.Nifti1Image(merged, first_affine),
+            patch_ff,
+        )
+        print("[Encode] Patch stack saved.")
 
-    if decoder and save_patch:
-        merged = np.stack(recon_arrays, axis=-1).astype(np.float32)  # (D,H,W,#patch)
-        patch_img = nib.Nifti1Image(merged, first_affine)
-        patch_path = os.path.join(f_output_dir, f"{stem}_nerve_recon.nii.gz")
-        nib.save(patch_img, patch_path)
-        print(f"Merged recon patch saved to: {patch_path}")
+    return npz_ff, patch_ff
 
-def nerve(input, output=None, model=None, GPU=False, method='NERVE', save_patch=False, save_recon=False):
+# ------------------------------------------------------------
+# Decode: latent .npz → reconstruction patches
+# ------------------------------------------------------------
+def decode_npz(
+    npz_path,
+    decoder,
+    output_dir="NERVE_recon",
+    GPU=False,
+    f_template=False
+):
+    """
+    Decode latent NPZ back to NIfTI patches or a merged volume.
+    """
+    # Build decoder session
+    providers = (
+        ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if GPU else ["CPUExecutionProvider"]
+    )
+    onnx.checker.check_model(onnx.load(decoder))
+    dec_sess = ort.InferenceSession(decoder, providers=providers)
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    if not f_template: f_template = npz_path
+
+    # Load latent dict
+    data = np.load(npz_path, allow_pickle=True)
+    affine = data["affine"]
+    tags = [k for k in data.files if k not in ("encoder", "affine")]
+    recon_arrays, recon_paths = [], []
+
+    for tag in tags:
+        latent = data[tag]
+        recon = onnx_decode(dec_sess, latent[None, ...]).squeeze()
+        recon_arrays.append(recon)
+
+    merged = np.stack(recon_arrays, axis=-1).astype(np.float32)
+    recon_ff = os.path.join(output_dir, f"{f_template}_nerve_recon.nii.gz")
+    nib.save(nib.Nifti1Image(merged, affine), recon_ff)
+    print(f"[Decode] Merged reconstruction saved → {recon_ff}")
+
+    return recon_ff
+
+
+def nerve(argstring, input, output=None, model=None, method='NERVE'):
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -155,10 +174,11 @@ def nerve(input, output=None, model=None, GPU=False, method='NERVE', save_patch=
     args.input = input
     args.output = output
     args.model = model
-    args.gpu = GPU
     args.method = method
-    args.save_patch = save_patch
-    args.save_recon = save_recon
+    args.save_patch = 'p' in argstring
+    args.encode = 'e' in argstring
+    args.decode = 'd' in argstring
+    args.gpu = 'g' in argstring
     return run_args(args)
 
 
@@ -166,13 +186,22 @@ def nerve(input, output=None, model=None, GPU=False, method='NERVE', save_patch=
 
 def run_args(args):
 
-    run_d = vars(args) #store all arg in dict
+    #run_d = vars(args) #store all arg in dict
 
+    if args.evaluate: 
+        print('[Evaluation mode] Saving patches for encoding and decoding')
+        args.encode = True
+        args.decode = True
+        args.save_patch = True
+    
  
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
-        input_file_list = glob.glob(join(args.input[0], '*.nii'))
-        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
+        if args.recon:
+            input_file_list = glob.glob(join(args.input[0], '*.npz'))
+        else:
+            input_file_list = glob.glob(join(args.input[0], '*.nii'))
+            input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
 
     elif '*' in args.input[0]:
         input_file_list = glob.glob(args.input[0])
@@ -185,16 +214,9 @@ def run_args(args):
         omodel['encode'] = 'nerve_lp4_encoder.onnx'
         omodel['decode'] = 'nerve_lp4_decoder.onnx'
     else:
-        omodel['encode'] = 'nerve_lp4_encoder.onnx'
-        omodel['decode'] = 'nerve_lp4_decoder.onnx'
+        omodel['encode'] = 'nerve_lp4_encoder.onnx' #NERME ONNX not yet implemented
+        omodel['decode'] = 'nerve_lp4_decoder.onnx' #NERME ONNX not yet implemented
         #omodel['decoder'] = 'nerve_lp4_decoder.onnx'
-    omodel['encode'] = lib_tool.get_model(omodel['encode'])
-    omodel['decode'] = lib_tool.get_model(omodel['decode'])
-
-    if not args.save_recon: omodel['decode'] = None
-
-    print(omodel['decode'])
-
 
     # if you want to use other models
     if isinstance(args.model, dict):
@@ -207,7 +229,7 @@ def run_args(args):
             omodel[mm] = model_dict[mm]
 
 
-    print('Total nii files:', len(input_file_list))
+    print('Total files:', len(input_file_list))
 
     #check duplicate basename
     #for detail, check get_template
@@ -222,21 +244,57 @@ def run_args(args):
         
     count = 0
     fcount = len(input_file_list)
+    recon_pairs = []
+    max_value = 0 # for calculating PSNR
     for f in input_file_list:
         count += 1
         ftemplate, f_output_dir = get_ftemplate(f, output_dir, common_folder)
 
         print(f'Preprocessing {count}/{fcount}:\n', os.path.basename(f))
         t = time.time()
-        
-        encode_nii(f,
-            encoder=omodel['encode'],
-            decoder=omodel['decode'],
-            output_dir=f_output_dir,
-            GPU=args.gpu,
-            save_patch=args.save_patch,
-            f_template=ftemplate)
 
+        if args.encode:
+            npz_ff, patch_ff = encode_nii(f,
+                encoder=lib_tool.get_model(omodel['encode']),
+                output_dir=f_output_dir,
+                GPU=args.gpu,
+                save_patch=args.save_patch,
+                f_template=ftemplate)
+        if args.decode:
+            if args.evaluate: f = npz_ff
+            recon_ff = decode_npz(f,
+                    decoder=lib_tool.get_model(omodel['decode']),
+                    output_dir=f_output_dir,
+                    GPU=args.gpu,
+                    f_template=ftemplate)
+        
+            
+        if args.evaluate: # for calculating PSNR
+            recon_pairs.append((f, patch_ff, recon_ff))
+            max_e = nib.load(patch_ff).get_fdata().max()
+            max_value = max(max_e, max_value)
+
+    if args.evaluate:
+        records = []
+        for orig_f, patch_ff, recon_ff in recon_pairs:
+                  
+            mae, mse, p, ssim_val = compute_metrics(patch_ff, recon_ff, max_value)
+            records.append(dict(ID=orig_f, MAE=mae, MSE=mse, PSNR=p, SSIM=ssim_val))
+
+            df = pd.DataFrame(records)
+        if not df.empty:
+            df.loc["Average"] = {
+                "ID": "Average",
+                "MAE": df["MAE"].mean(),
+                "MSE": df["MSE"].mean(),
+                "PSNR": df["PSNR"].mean(),
+                "SSIM": df["SSIM"].mean(),
+            }
+
+            csv_ff = join(f_output_dir, 
+                           f'{omodel["encode"]}_eval.csv')
+            df.to_csv(csv_ff, index=False)
+            print(f'[Evaluation] Saving {csv_ff} report')
     
         print('Processing time: %d seconds' %  (time.time() - t))
     return 1

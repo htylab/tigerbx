@@ -41,6 +41,9 @@ setup(
              'nilearn>=0.9.2',
              'optuna',
              'SimpleITK>=2.1.0',
-             'antspyx'
-         ]
+             'antspyx',
+             'pandas',
+             'scikit-image',
+         ],
+
 )

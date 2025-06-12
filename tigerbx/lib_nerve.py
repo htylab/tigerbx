@@ -7,6 +7,8 @@ import onnx
 import onnxruntime as ort
 from nilearn.image import reorder_img, resample_img
 from os.path import basename, join, isdir, dirname, commonpath, relpath
+from math import log10
+from skimage.metrics import structural_similarity as ssim_metric
 
 # ------------------------------------------------------------
 # 1. tools
@@ -45,7 +47,7 @@ def nerve_preprocess(aseg_path, tbet_path):
     aseg = _resample_voxel(aseg, interpolation="nearest")
     tbet = _resample_voxel(tbet, interpolation="linear")
 
-    roi_map = {"LH": 17, "LA": 53, "RA": 54, "RH": 18}
+    roi_map = {"LH": 17, "LA": 18, "RH": 53, "RA": 54}
     patches = {}
     for tag, lbl in roi_map.items():
         patch = _make_patch(aseg, tbet, lbl)
@@ -56,7 +58,7 @@ def nerve_preprocess_nib(aseg, tbet):
     aseg = _resample_voxel(aseg, interpolation="nearest")
     tbet = _resample_voxel(tbet, interpolation="linear")
 
-    roi_map = {"LH": 17, "LA": 53, "RA": 54, "RH": 18}
+    roi_map = {"LH": 17, "LA": 18, "RH": 53, "RA": 54}
     patches = {}
     for tag, lbl in roi_map.items():
         patch = _make_patch(aseg, tbet, lbl)
@@ -76,33 +78,11 @@ def onnx_decode(dec_sess, latent, affine=None):
     recon_vol = recon.squeeze()
     return recon_vol if affine is None else nib.Nifti1Image(recon_vol, affine)
 
-def encode_npy(enc_sess, patch_img, out_npy):
-    latent = onnx_encode(enc_sess, patch_img)
-    np.save(out_npy, latent)
-    return latent
-
-def decode_npy(dec_sess, latent_npy, affine=None, out_nii=None):
-    latent = np.load(latent_npy)
-    recon = onnx_decode(dec_sess, latent, affine)
-    if out_nii and isinstance(recon, nib.Nifti1Image):
-        nib.save(recon, out_nii)
-    return recon
 
 
 # ------------------------------------------------------------------
 # Utility metrics
 # ------------------------------------------------------------------
-def _mae(a, b):                   # Mean Absolute Error
-    return np.mean(np.abs(a - b))
-
-
-def _mse(a, b):                   # Mean Squared Error
-    return np.mean((a - b) ** 2)
-
-
-def _psnr(a, b):                  # Peak Signal-to-Noise Ratio
-    mse = _mse(a, b)
-    return float("inf") if mse == 0 else 20 * math.log10(a.max() / math.sqrt(mse))
 
 def get_ftemplate(f, output_dir, common_folder=None):
     f_output_dir = output_dir
@@ -121,5 +101,46 @@ def get_ftemplate(f, output_dir, common_folder=None):
         if common_folder is not None:
             header = relpath(dirname(f), common_folder).replace(os.sep, '_')
             ftemplate = header + '_' + ftemplate
+
+    ftemplate = ftemplate.replace('.nii.gz', '').replace('.nii', '')
+    
+    ftemplate = ftemplate.replace("_nerve.npz", "").replace(".npz", "")
     
     return ftemplate, f_output_dir
+
+
+
+
+
+def psnr(mse, peak):
+    return float("inf") if mse == 0 else 20 * log10(peak) - 10 * log10(mse)
+
+
+def compute_metrics(gt_nii, pred_nii, max_value=None):
+    """
+    Compute MAE, MSE, PSNR, SSIM for a pair of ground truth and predicted volumes.
+    """
+    gt = nib.load(gt_nii).get_fdata()
+    pred = nib.load(pred_nii).get_fdata()
+    diff = pred - gt
+    mae = np.mean(np.abs(diff))
+    mse = np.mean(diff**2)
+    peak = np.max(gt) if max_value is None else max_value
+    p = psnr(mse, peak)
+
+    try:
+        if gt.ndim == 4 and gt.shape[-1] <= 10:  # assume last dim is channels
+            ssim_list = []
+            for c in range(gt.shape[-1]):
+                ssim_val_c = ssim_metric(gt[..., c], pred[..., c], data_range=peak)
+                ssim_list.append(ssim_val_c)
+            ssim_val = np.mean(ssim_list)
+        elif gt.ndim in [2, 3]:
+            ssim_val = ssim_metric(gt, pred, data_range=peak)
+        else:
+            ssim_val = np.nan
+    except Exception as e:
+        print(f"[WARN] SSIM computation failed: {e}")
+        ssim_val = np.nan
+
+    return mae, mse, p, ssim_val
