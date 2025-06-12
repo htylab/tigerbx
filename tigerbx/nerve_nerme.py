@@ -179,6 +179,7 @@ def nerve(argstring, input, output=None, model=None, method='NERVE'):
     args.encode = 'e' in argstring
     args.decode = 'd' in argstring
     args.gpu = 'g' in argstring
+    args.evaluate = 'v' in argstring
     return run_args(args)
 
 
