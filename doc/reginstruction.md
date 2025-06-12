@@ -1,6 +1,7 @@
 # TigerBx: Brain Image Registration and VBM Pipeline
 
 This module offers flexible tools for brain image registration and voxel‑based morphometry (VBM). It supports a variety of affine and nonlinear registration approaches, including both deep‑learning and classical algorithms.
+The VBM and registration pipeline was developed by **Pei-Mao Sun**.
 
 ---
 
@@ -58,6 +59,13 @@ tigerbx.transform(
     r'C:\\output_dir',
     interpolation='nearest'
 )
+```
+### CLI Example
+
+```bash
+tiger reg -r C:\T1w_dir -o C:\output_dir -T template.nii.gz --affine_type C2FViT
+tiger reg -F C:\T1w_dir -o C:\output_dir --affine_type ANTs
+tiger reg -v C:\T1w_dir\**\*.nii.gz -o C:\output_dir --affine_type C2FViT
 ```
 
 ---
