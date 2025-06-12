@@ -1,12 +1,10 @@
-import math, os
+import os
 from pathlib import Path
 
 import numpy as np
 import nibabel as nib
-import onnx
-import onnxruntime as ort
 from nilearn.image import reorder_img, resample_img
-from os.path import basename, join, isdir, dirname, commonpath, relpath
+from os.path import basename, join, isdir, dirname, relpath
 from math import log10
 from skimage.metrics import structural_similarity as ssim_metric
 

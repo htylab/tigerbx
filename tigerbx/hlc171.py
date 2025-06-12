@@ -1,6 +1,5 @@
-import sys
 import os
-from os.path import basename, join, isdir, dirname, commonpath, relpath
+from os.path import basename, join, isdir, dirname, commonpath
 import argparse
 import time
 import numpy as np
@@ -12,10 +11,8 @@ import nibabel as nib
 from tigerbx import lib_tool
 from tigerbx import lib_bx
 from tigerbx.bx import produce_mask, save_nib, get_template
-import copy
-from nilearn.image import resample_to_img, reorder_img, resample_img
-from itertools import product
-import concurrent.futures
+from nilearn.image import resample_to_img, reorder_img
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -424,4 +421,3 @@ if __name__ == "__main__":
     main()
     if platform.system() == 'Windows':
         os.system('pause')
-
