@@ -12,7 +12,7 @@ from os.path import basename
 
 import numpy as np
 import nibabel as nib
-import onnx
+#import onnx
 import onnxruntime as ort
 import tempfile
 import tigerbx
@@ -80,7 +80,7 @@ def encode_nii(
         f_template = basename(raw_path)
 
     # Build encoder session
-    onnx.checker.check_model(onnx.load(encoder))
+    #onnx.checker.check_model(onnx.load(encoder))
     enc_sess = ort.InferenceSession(encoder, providers=providers)
 
     # Temporary workspace for tigerbx preprocessing
@@ -140,7 +140,7 @@ def decode_npz(
         ["CUDAExecutionProvider", "CPUExecutionProvider"]
         if GPU else ["CPUExecutionProvider"]
     )
-    onnx.checker.check_model(onnx.load(decoder))
+    #onnx.checker.check_model(onnx.load(decoder))
     dec_sess = ort.InferenceSession(decoder, providers=providers)
 
     os.makedirs(output_dir, exist_ok=True)
