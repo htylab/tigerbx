@@ -160,31 +160,6 @@ tiger gdm DTI.nii.gz -o c:\outputdir
 * ✅ Windows and macOS
 * ✅ Ubuntu 20.04 or newer
 
----
-
-## Command-Line Flag Reference
-
-```text
--b: Brain mask
--a: ASEG segmentation
--d: Deep gray matter mask
--k: DKT segmentation (WIP)
--c: Cortical thickness
--C: CSF/GM/WM PVEs (FSL style, WIP)
--S: SynthSeg-style ASEG (WIP)
--t: Tumor segmentation (WIP)
--w: White matter parcellation (WIP)
--W: White matter hypointensity mask (WIP)
--q: Save QC score (watch for scores < 50)
--z: Output as .nii.gz
--A: Affine registration to template (default MNI152)
--r: Nonlinear registration to template (default MNI152)
--F: FuseMorph registration to template
--T: Template filename
--R: Rigid registration
--p: Enable patch inference (160×160×160)
--v: Run VBM analysis
-```
 
 ---
 
