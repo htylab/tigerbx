@@ -1,0 +1,96 @@
+name: Compile7
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write      # 建立 Release 需要
+
+jobs:
+# ============================================================
+# 1. Build ── 針對三大 OS 編譯並上傳「單一可執行檔」
+# ============================================================
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        py: ['tiger']          # 主要執行入口 (tiger.py)
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Derive short commit SHA
+      shell: bash
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.9"
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+        pip install pyinstaller onnxruntime
+
+    - name: PyInstaller
+      shell: bash
+      run: |
+        pyinstaller -c -p ./tigerbx \
+          --additional-hooks-dir=./pyinstaller_hooks \
+          --icon=./tigerbx/exe/ico.ico \
+          -F ./tigerbx/${{ matrix.py }}.py
+
+    # ── 重新命名可執行檔，避免不同 OS 檔名互相覆寫 ──
+    - name: Rename binary for release
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          SRC="dist/tiger.exe"
+          OUT="tiger-windows-${SHORT_SHA}.exe"
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          SRC="dist/tiger"
+          OUT="tiger-macos-${SHORT_SHA}"
+        else
+          SRC="dist/tiger"
+          OUT="tiger-linux-${SHORT_SHA}"
+        fi
+        mv "$SRC" "$OUT"
+        chmod +x "$OUT"
+        echo "OUTFILE=$OUT" >> $GITHUB_ENV
+
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.OUTFILE }}          # artifact 名就是檔案名
+        path: ${{ env.OUTFILE }}
+
+# ============================================================
+# 2. Release ── 直接將三個執行檔放到 GitHub Release
+# ============================================================
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true    # 直接把檔案扁平化到 artifacts/
+        path: artifacts
+
+    - name: List downloaded files
+      run: ls -lh artifacts
+
+    - name: Create draft GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: v${{ github.run_number }}
+        name: Release ${{ github.run_number }}
+        draft: true
+        artifacts: artifacts/tiger-*      # 只抓三個執行檔
+        token: ${{ secrets.GITHUB_TOKEN }}

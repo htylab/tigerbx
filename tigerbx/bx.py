@@ -187,7 +187,9 @@ def run_args(args):
     run_d = vars(args) #store all arg in dict
 
     if run_d.get('silent', 0):
-        def print(*args, **kwargs): pass
+        printer = lambda *args, **kwargs: None
+    else:
+        printer = print
 
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
@@ -198,7 +200,7 @@ def run_args(args):
         
     if run_d['clean_onnx']:
         lib_tool.clean_onnx()
-        print('Exiting...')
+        printer('Exiting...')
         return 1
 
 
@@ -240,7 +242,7 @@ def run_args(args):
             omodel[mm] = model_dict[mm]
 
 
-    print('Total nii files:', len(input_file_list))
+    printer('Total nii files:', len(input_file_list))
 
     #check duplicate basename
     #for detail, check get_template
@@ -257,7 +259,7 @@ def run_args(args):
         result_dict = dict()
         result_filedict = dict()
 
-        print(f'{count} Processing :', os.path.basename(f))
+        printer(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
@@ -294,7 +296,7 @@ def run_args(args):
             output_nib.header.set_data_dtype(np.uint8)
 
             fn = save_nib(output_nib, ftemplate, 'decode')
-            print('Writing output file: ', fn)
+            printer('Writing output file: ', fn)
             result_dict['decode'] = output_nib
             result_filedict['decode'] = fn            
    
@@ -316,22 +318,22 @@ def run_args(args):
             else:
                 tbet_seg = reorder_img(tbet_nib, resample='continuous')
             
-            print('QC score:', qc_score)
+            printer('QC score:', qc_score)
 
             result_dict['QC'] = qc_score
             result_filedict['QC'] = qc_score
             if qc_score < 50:
-                print('Pay attention to the result with QC < 50. ')
+                printer('Pay attention to the result with QC < 50. ')
             if run_d['qc'] or qc_score < 50:
                 qcfile = ftemplate.replace('.nii','').replace('.gz', '')
                 qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
                 with open(qcfile, 'a') as the_file:
                     the_file.write(f'QC: {qc_score} \n')
-                print('Writing output file: ', qcfile)
+                printer('Writing output file: ', qcfile)
 
         if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
-            print('Writing output file: ', fn)
+            printer('Writing output file: ', fn)
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
 
@@ -342,7 +344,7 @@ def run_args(args):
                 imabet = imabet.astype(input_nib.dataobj.dtype)
             
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
-            print('Writing output file: ', fn)
+            printer('Writing output file: ', fn)
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
@@ -352,7 +354,7 @@ def run_args(args):
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
                 
                 fn = save_nib(result_nib, ftemplate, seg_str)
-                print('Writing output file: ', fn)
+                printer('Writing output file: ', fn)
                 result_filedict[seg_str] = fn
                 result_dict[seg_str] = result_nib
 
@@ -379,9 +381,9 @@ def run_args(args):
                 pve_nib.header.set_data_dtype(float)
                 
                 if not run_d['vbm'] or kk==2:
-                    print(ftemplate)
+                    printer(ftemplate)
                     fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
-                    print('Writing output file: ', fn)
+                    printer('Writing output file: ', fn)
                     result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)                       
 
@@ -403,12 +405,12 @@ def run_args(args):
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
-            print('Writing output file: ', fn)
+            printer('Writing output file: ', fn)
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
                
-        print('Processing time: %d seconds' %  (time.time() - t))
+        printer('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
         else:
