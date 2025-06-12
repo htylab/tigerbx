@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write     # 建立 Release 需要
+  contents: write
 
 jobs:
 # ============================================================
@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        py: ['tiger']           # 主要執行入口 (tiger.py)
+        py: ['tiger']
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -63,7 +63,7 @@ jobs:
         path: release/
 
 # ============================================================
-# 2. Release ── 把各 OS 資料夾一次打包成 ZIP 上傳
+# 2. Release ── 將資料夾壓成 zip 再發布
 # ============================================================
   release:
     needs: build
@@ -73,12 +73,20 @@ jobs:
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        path: artifacts          # 保留各自目錄；不指定 merge-multiple
+        path: artifacts
 
     - name: List downloaded files
       run: |
-        echo "=== artifacts/ 內容 ==="
+        echo "=== artifacts/ ==="
         tree -L 2 artifacts || true
+
+    # ⬇️ 新增：把每個 release-* 資料夾壓成同名 .zip
+    - name: Zip release artifacts
+      run: |
+        sudo apt-get update -y && sudo apt-get install -y zip
+        for dir in artifacts/release-*; do
+          zip -r "${dir}.zip" "$dir"
+        done
 
     - name: Create draft GitHub Release
       uses: ncipollo/release-action@v1
@@ -86,6 +94,5 @@ jobs:
         tag: v${{ github.run_number }}
         name: Release ${{ github.run_number }}
         draft: true
-        # ⬇️ 直接把三個 OS 的目錄交給 release-action；它會各自打成 zip
-        artifacts: artifacts/release-*
+        artifacts: artifacts/release-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}
