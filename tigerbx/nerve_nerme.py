@@ -247,6 +247,7 @@ def run_args(args):
     fcount = len(input_file_list)
     recon_pairs = []
     max_value = 0 # for calculating PSNR
+    results = []
     for f in input_file_list:
         count += 1
         ftemplate, f_output_dir = get_ftemplate(f, output_dir, common_folder)
@@ -261,6 +262,8 @@ def run_args(args):
                 GPU=args.gpu,
                 save_patch=args.save_patch,
                 f_template=ftemplate)
+            results.append(npz_ff)
+            results.append(patch_ff)
         if args.decode:
             if args.evaluate: f = npz_ff
             recon_ff = decode_npz(f,
@@ -268,6 +271,7 @@ def run_args(args):
                     output_dir=f_output_dir,
                     GPU=args.gpu,
                     f_template=ftemplate)
+            results.append(recon_ff)
         
             
         if args.evaluate: # for calculating PSNR
@@ -296,9 +300,10 @@ def run_args(args):
                            f'{omodel["encode"]}_eval.csv')
             df.to_csv(csv_ff, index=False)
             print(f'[Evaluation] Saving {csv_ff} report')
+            results.append(csv_ff)
     
         print('Processing time: %d seconds' %  (time.time() - t))
-    return 1
+    return result_ff
 
 
 if __name__ == "__main__":
