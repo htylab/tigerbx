@@ -70,7 +70,7 @@ import tigerbx
 tigerbx.hlc('T1w_dir', 'outputdir')
 ```
 
-See [run usage](doc/run.md) and [HLC usage](doc/hlc.md) for a complete description of these APIs.
+See [run usage](doc/run.md), [HLC usage](doc/hlc.md), and [NERVE usage](doc/nerve.md) for a complete description of these APIs.
 
 ### Registration and VBM
 
@@ -101,6 +101,17 @@ tigerbx.gdm('dti.nii.gz')
 # Directory input with specified b0 index
 tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0)
 ```
+
+### NERVE Embedding Pipeline
+
+NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. The embeddings were developed by **Pei-Shin Chen** for downstream neuroimaging tasks such as Alzheimer\u2019s disease detection.
+
+```python
+# Encode and decode a T1-weighted image
+tigerbx.nerve('egdp', 'T1w.nii.gz', 'nerve_out')
+```
+
+See [NERVE usage](doc/nerve.md) for more examples.
 
 ### Utility Functions
 
