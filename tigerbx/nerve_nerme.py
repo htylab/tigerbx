@@ -198,7 +198,7 @@ def run_args(args):
  
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
-        if args.decode:
+        if args.decode and (not args.evaluate):
             input_file_list = glob.glob(join(args.input[0], '*.npz'))
         else:
             input_file_list = glob.glob(join(args.input[0], '*.nii'))
