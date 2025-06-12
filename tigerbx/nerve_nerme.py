@@ -300,7 +300,7 @@ def run_args(args):
                            f'{omodel["encode"]}_eval.csv')
             df.to_csv(csv_ff, index=False)
             print(f'[Evaluation] Saving {csv_ff} report')
-            results.append(csv_ff)
+            results = df
     
         print('Processing time: %d seconds' %  (time.time() - t))
     return results
