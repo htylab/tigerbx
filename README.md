@@ -71,6 +71,10 @@ import tigerbx
 tigerbx.hlc('T1w_dir', 'outputdir')
 ```
 
+```bash
+tiger hlc T1w_dir -o outputdir
+```
+
 See [HLC usage](doc/hlc.md) for a complete description of these APIs.
 
 ### Registration and VBM
@@ -88,6 +92,11 @@ tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
 # Apply warp field
 tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', r'C:\output_dir', interpolation='nearest')
 ```
+```bash
+tiger reg -r C:\T1w_dir -o C:\output_dir -T template.nii.gz --affine_type C2FViT
+tiger reg -F C:\T1w_dir -o C:\output_dir --affine_type ANTs
+tiger reg -v C:\T1w_dir\**\*.nii.gz -o C:\output_dir --affine_type C2FViT
+```
 See [registration instructions](doc/reginstruction.md) for detailed usage guidelines on the various methods.
 
 ### Generative Displacement Mapping (GDM)
@@ -104,7 +113,7 @@ tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0)
 
 ### NERVE Embedding Pipeline
 
-NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. The embeddings were developed by **Pei-Shin Chen** for downstream neuroimaging tasks such as Alzheimer\u2019s disease detection.
+NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. These embeddings can be used for downstream neuroimaging tasks such as Alzheimer\u2019s disease detection.
 
 ```python
 # Encode and decode a T1-weighted image

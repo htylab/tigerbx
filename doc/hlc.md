@@ -1,6 +1,7 @@
 # TigerBx: `hlc` Module
 
 This guide describes how to consolidate labels using `tigerbx.hlc`.
+The HLC module was developed by **Pin-Chuan Chen**.
 
 ## Function
 
@@ -25,6 +26,12 @@ import tigerbx
 
 # Run HLC with default settings and save brain mask + HLC labels
 result = tigerbx.hlc('T1w_dir', 'out_dir', save='bh', GPU=True)
+```
+
+### CLI Example
+
+```bash
+tiger hlc T1w_dir -o out_dir --save bh -g
 ```
 
 The function returns either a dictionary of NIfTI objects (single file) or a list of output filenames when processing multiple inputs.
