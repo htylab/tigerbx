@@ -23,11 +23,8 @@ import tigerbx
 
 # Encode and then decode a single T1-weighted scan
 # Output files will be placed in the specified directory
-result = tigerbx.nerve('egdp', 'T1w.nii.gz', 'nerve_out')
+result = tigerbx.nerve('e', 'T1w.nii.gz', 'nerve_out')
 ```
-
-The function returns `1` when processing completes.
-
 ---
 
 Additional Examples
@@ -38,7 +35,7 @@ Additional Examples
 files = tigerbx.nerve('eg', '/data/T1w/*.nii.gz', 'latent_dir')
 
 # Evaluate reconstruction accuracy from NPZ files
-metrics = tigerbx.nerve('dvp', '/data/npz_dir', 'eval_dir')
+metrics = tigerbx.nerve('v', '/data/npz_dir', 'eval_dir')
 ```
 
 These examples show how to process multiple inputs, enable GPU inference, and generate quality metrics.
