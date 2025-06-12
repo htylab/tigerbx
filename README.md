@@ -113,7 +113,7 @@ tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0)
 
 ### NERVE Embedding Pipeline
 
-NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. These embeddings can be used for downstream neuroimaging tasks such as Alzheimer\u2019s disease detection.
+NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. These embeddings can be used for downstream neuroimaging tasks such as Alzheimer's disease detection.
 
 ```python
 # Encode a T1-weighted image and save patches
