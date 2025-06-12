@@ -1,4 +1,4 @@
-name: Compile7
+name: Compile9
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
 
 jobs:
 # ============================================================
-# 1. Build ── 針對三大 OS 編譯並上傳「單一可執行檔」
+# 1. Build ── 針對三大 OS 編譯並產生「單檔 zip」
 # ============================================================
   build:
     strategy:
@@ -45,32 +45,37 @@ jobs:
           --icon=./tigerbx/exe/ico.ico \
           -F ./tigerbx/${{ matrix.py }}.py
 
-    # ── 重新命名可執行檔，避免不同 OS 檔名互相覆寫 ──
-    - name: Rename binary for release
+    # ── 重新命名與壓縮（zip 內只有執行檔本身） ──
+    - name: Package binary into zip
       shell: bash
       run: |
+        mkdir out
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          SRC="dist/tiger.exe"
-          OUT="tiger-windows-${SHORT_SHA}.exe"
+          BIN_SRC="dist/tiger.exe"
+          BIN_NAME="tiger.exe"
+          ZIP_NAME="tiger-windows-${SHORT_SHA}.zip"
+          powershell -Command "Compress-Archive -Path $BIN_SRC -DestinationPath out/$ZIP_NAME"
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          SRC="dist/tiger"
-          OUT="tiger-macos-${SHORT_SHA}"
-        else
-          SRC="dist/tiger"
-          OUT="tiger-linux-${SHORT_SHA}"
+          BIN_SRC="dist/tiger"
+          BIN_NAME="tiger"
+          ZIP_NAME="tiger-macos-${SHORT_SHA}.zip"
+          zip -j "out/$ZIP_NAME" "$BIN_SRC"
+        else   # Linux
+          BIN_SRC="dist/tiger"
+          BIN_NAME="tiger"
+          ZIP_NAME="tiger-linux-${SHORT_SHA}.zip"
+          zip -j "out/$ZIP_NAME" "$BIN_SRC"
         fi
-        mv "$SRC" "$OUT"
-        chmod +x "$OUT"
-        echo "OUTFILE=$OUT" >> $GITHUB_ENV
+        echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
-    - name: Upload binary artifact
+    - name: Upload zip artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.OUTFILE }}          # artifact 名就是檔案名
-        path: ${{ env.OUTFILE }}
+        name: ${{ env.ZIP_NAME }}      # artifact 名就是 zip 檔名
+        path: out/${{ env.ZIP_NAME }}
 
 # ============================================================
-# 2. Release ── 直接將三個執行檔放到 GitHub Release
+# 2. Release ── 直接發布三顆 zip
 # ============================================================
   release:
     needs: build
@@ -80,7 +85,7 @@ jobs:
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        merge-multiple: true    # 直接把檔案扁平化到 artifacts/
+        merge-multiple: true        # 把三顆 zip 平鋪到 artifacts/
         path: artifacts
 
     - name: List downloaded files
@@ -92,5 +97,5 @@ jobs:
         tag: v${{ github.run_number }}
         name: Release ${{ github.run_number }}
         draft: true
-        artifacts: artifacts/tiger-*      # 只抓三個執行檔
+        artifacts: artifacts/tiger-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}
