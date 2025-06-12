@@ -303,7 +303,7 @@ def run_args(args):
             results.append(csv_ff)
     
         print('Processing time: %d seconds' %  (time.time() - t))
-    return result_ff
+    return results
 
 
 if __name__ == "__main__":
