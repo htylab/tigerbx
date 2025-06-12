@@ -57,6 +57,7 @@ tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz')
 # Deep gray matter segmentation (with GPU)
 tigerbx.run('dg', r'C:\T1w_dir')
 ```
+See [run usage](doc/run.md) for a complete description of these APIs.
 
 ### Hierarchical Label Consolidation (HLC)
 
@@ -70,11 +71,9 @@ import tigerbx
 tigerbx.hlc('T1w_dir', 'outputdir')
 ```
 
-See [run usage](doc/run.md) and [HLC usage](doc/hlc.md) for a complete description of these APIs.
+See [HLC usage](doc/hlc.md) for a complete description of these APIs.
 
 ### Registration and VBM
-
-See [registration instructions](doc/reginstruction.md) for detailed usage guidelines on the various methods.
 
 ```python
 # Standard registration
@@ -89,6 +88,7 @@ tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
 # Apply warp field
 tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', r'C:\output_dir', interpolation='nearest')
 ```
+See [registration instructions](doc/reginstruction.md) for detailed usage guidelines on the various methods.
 
 ### Generative Displacement Mapping (GDM)
 
@@ -101,6 +101,17 @@ tigerbx.gdm('dti.nii.gz')
 # Directory input with specified b0 index
 tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0)
 ```
+
+### NERVE Embedding Pipeline
+
+NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. The embeddings were developed by **Pei-Shin Chen** for downstream neuroimaging tasks such as Alzheimer\u2019s disease detection.
+
+```python
+# Encode and decode a T1-weighted image
+tigerbx.nerve('egdp', 'T1w.nii.gz', 'nerve_out')
+```
+
+See [NERVE usage](doc/nerve.md) for more examples.
 
 ### Utility Functions
 
@@ -139,7 +150,6 @@ tiger gdm DTI.nii.gz -o c:\outputdir
 
 * ✅ Windows and macOS
 * ✅ Ubuntu 20.04 or newer
-* ⚠️ Without a GPU, deep gray matter segmentation may take \~1 minute per scan
 
 ---
 
