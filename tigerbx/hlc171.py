@@ -20,6 +20,10 @@ def main():
     parser = argparse.ArgumentParser()
     setup_parser(parser)
     args = parser.parse_args()
+
+    if True not in [args.betmask, args.bet, args.hlc, args.ct, args.cgw]:
+        args.betmask, args.bet, args.hlc, args.ct, args.cgw = [True] * 5
+        #by default produce every thing
     run_args(args)
 
 def setup_parser(parser):
@@ -27,13 +31,58 @@ def setup_parser(parser):
     parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
+    parser.add_argument('-m', '--betmask', action='store_true', help='Producing BET mask')
+    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
+    parser.add_argument('-H', '--hlc', action='store_true', help='Saving HLC mask')
+    parser.add_argument('-c', '--ct', action='store_true', help='Saving cortical thickness map')
+    parser.add_argument('-C', '--cgw', action='store_true', help='Saving probability segmention of CSF, GM and WM.')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('--save', default='all', type=str, help='Specifying the model name')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
 
+
     #args = parser.parse_args()
     #run_args(args)
+
+def hlcX(input=None, output=None, model=None, save='all', GPU=False, gz=True, patch=False):
+    from argparse import Namespace
+    args = Namespace()
+    if not isinstance(input, list):
+        input = [input]
+    args.input = input
+    args.output = output
+    args.model = model
+    args.gpu = GPU
+    args.gz = gz
+    args.save = save
+    args.patch = patch
+    return run_args(args)
+
+def hlc(argstring='', input=None, output=None, model=None):
+    from argparse import Namespace
+    args = Namespace()
+    if not isinstance(input, list):
+        input = [input]
+    args.input = input
+    args.output = output
+    args.model = model
+    args.gpu = 'g' in argstring
+    args.betmask = 'm' in argstring
+    args.bet = 'b' in argstring
+    args.hlc = 'H' in argstring
+    args.ct = 'c' in argstring
+    args.cgw = 'C' in argstring
+    args.gz = 'z' in argstring
+    args.patch = 'p' in argstring
+
+    if (True not in [args.betmask, args.bet,
+                     args.hlc, args.ct, args.cgw]):
+        args.betmask, args.bet, args.hlc, args.ct, args.cgw = [True] * 5
+        #by default produce every thing
+        
+
+    return run_args(args)
+
 
 import numpy as np
 
@@ -94,19 +143,7 @@ def restore_result(ABC_shape, result, xyz6):
 # result = segseg(cube)  # assume segseg is your processing function
 # output = restore_result(ABC.shape, result, xyz6)
 
-def hlc(input=None, output=None, model=None, save='all', GPU=False, gz=True, patch=False):
-    from argparse import Namespace
-    args = Namespace()
-    if not isinstance(input, list):
-        input = [input]
-    args.input = input
-    args.output = output
-    args.model = model
-    args.gpu = GPU
-    args.gz = gz
-    args.save = save
-    args.patch = patch
-    return run_args(args)
+
 
 def get_argmax(logits, start, end):
     import numpy as np
@@ -262,7 +299,8 @@ def run_args(args):
 
     run_d = vars(args) #store all arg in dict
 
-    if args.save == 'all': args.save = 'cCbmh'
+
+
  
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
@@ -344,11 +382,11 @@ def run_args(args):
             logits = lib_tool.predict(model_ff, image, args.gpu)
 
 
-        if 'm' in args.save:            
+        if args.betmask:            
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
-        if 'b' in args.save:
+        if args.bet:
             imabet = tbet_nib.get_fdata()
             if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
                 imabet = imabet.astype(input_nib.dataobj.dtype)
@@ -358,7 +396,7 @@ def run_args(args):
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
-        if 'h' in args.save:
+        if args.hlc:
             all_arg = get_argmax(logits, 0, 57)
             lr_arg = get_argmax(logits, 57, 60)
             dw_arg = get_argmax(logits, 60, 63)
@@ -373,7 +411,7 @@ def run_args(args):
             result_dict['hlc'] = hlc_nib
             result_filedict['hlc'] = fn
 
-        if 'c' in args.save:
+        if args.ct:
             ct = logits[0,63,...].squeeze()
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
@@ -393,8 +431,9 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
 
-        if 'C' in args.save:
+        if args.cgw:
             cgw = logits[0,64:67,...].squeeze()
+            cgwnames = ['CSF', 'GM', 'WM']
             for kk in range(3):
                 pve = cgw[kk]
                 pve = restore_result(image_orig.shape, pve, xyz6)
@@ -405,9 +444,9 @@ def run_args(args):
                     pve_nib, input_nib, interpolation="linear")
 
                 pve_nib.header.set_data_dtype(float)
-                fn = save_nib(pve_nib, ftemplate, f'cgw{kk+1}')
-                result_dict[f'cgw{kk+1}'] = pve_nib
-                result_filedict[f'cgw{kk+1}'] = fn
+                fn = save_nib(pve_nib, ftemplate, f'{cgwnames[kk]}')
+                result_dict[f'{cgwnames[kk]}'] = pve_nib
+                result_filedict[f'{cgwnames[kk]}'] = fn
      
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
