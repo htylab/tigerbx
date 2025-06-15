@@ -246,9 +246,9 @@ def HLC_decoder(out, lrseg, dwseg):
     dkt_mask = (reversed_out > 1000) & (reversed_out < 5000)
     dkt_value = reversed_out * dkt_mask
     output += dkt_value * gray_mask * left_mask
-    output += (dkt_value + 1000) * gray_mask * right_mask
-    output += (dkt_value + 2000) * white_mask * left_mask
-    output += (dkt_value + 3000) * white_mask * right_mask
+    output += (dkt_value + 1000) * gray_mask * right_mask * dkt_mask
+    output += (dkt_value + 2000) * white_mask * left_mask * dkt_mask
+    output += (dkt_value + 3000) * white_mask * right_mask * dkt_mask
     mask_temp = (reversed_out == 5001) & left_mask
     output[mask_temp] = 5001
     mask_temp = (reversed_out == 5001) & right_mask
