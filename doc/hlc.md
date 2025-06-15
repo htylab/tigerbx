@@ -5,7 +5,7 @@ The HLC module was developed by **Pin-Chuan Chen**.
 
 ## Function
 
-`hlc(input, output=None, model=None, save='all', GPU=False, gz=True, patch=False)`
+`hlc(input, output=None, model=None, save='h', GPU=False, gz=True, patch=False)`
 
 The function merges segmentation labels into a hierarchy and can optionally output cortical thickness or CSF/GM/WM probability maps.
 
@@ -14,7 +14,13 @@ The function merges segmentation labels into a hierarchy and can optionally outp
 - **input**: Path to a NIfTI file, directory, or wildcard pattern.
 - **output**: Destination directory for results. Defaults to the input location if not specified.
 - **model**: Custom model overrides in dictionary form. Leave `None` for default weights.
-- **save**: Letters indicating which outputs to save (`b`=brain, `m`=mask, `h`=HLC labels, `c`=cortical thickness, `C`=CSF/GM/WM). Use `'all'` to generate everything.
+- **save**: Letters indicating which outputs to save. Options:
+  - `b` – brain-extracted image
+  - `m` – brain mask
+  - `h` – HLC segmentation labels
+  - `t` – cortical thickness map
+  - `c`, `g`, `w` – CSF, GM and WM probability maps
+  Use `'all'` to generate the whole set (`bmhtcgw`).
 - **GPU**: Use GPU if `True`.
 - **gz**: Save files in `.nii.gz` format.
 - **patch**: Enable patch‑based inference.
@@ -51,7 +57,7 @@ files = tigerbx.hlc('/data/subj*/T1w.nii.gz', 'hlc_dir', save='h')
 
 # Generate cortical thickness and CSF/GM/WM maps using GPU
 # Patch mode reduces memory usage for large volumes
-results = tigerbx.hlc('T1w.nii.gz', 'out_dir', save='cC', GPU=True, patch=True)
+results = tigerbx.hlc('T1w.nii.gz', 'out_dir', save='tcgw', GPU=True, patch=True)
 ```
 
 These snippets show how to select outputs, use wildcards and enable
