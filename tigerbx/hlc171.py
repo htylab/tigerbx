@@ -39,8 +39,8 @@ def hlc(input=None, output=None, model=None, save='hcCbm', GPU=False, gz=True, p
     args.model = model
     args.gpu = GPU
     args.save = save
-    args.patch = patch     
-
+    args.patch = patch
+    args.gz = gz
     return run_args(args)
 
 
