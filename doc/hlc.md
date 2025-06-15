@@ -20,7 +20,7 @@ The function merges segmentation labels into a hierarchy and can optionally outp
   - `h` – HLC segmentation labels
   - `t` – cortical thickness map
   - `c`, `g`, `w` – CSF, GM and WM probability maps
-  Use `'all'` to generate the default set (`hcCbm`).
+  Use `'all'` to generate the whole set (`bmhtcgw`).
 - **GPU**: Use GPU if `True`.
 - **gz**: Save files in `.nii.gz` format.
 - **patch**: Enable patch‑based inference.
