@@ -83,7 +83,7 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
 def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace('@@@@', postfix)
     nib.save(data_nib, output_file)
-    print('Writing output file: ', output_file)
+    
     return output_file
 
 def get_template(f, output_dir, get_z, common_folder=None):
@@ -111,13 +111,13 @@ def get_template(f, output_dir, get_z, common_folder=None):
     return ftemplate, f_output_dir
 
 
-
+'''
 def main():
     parser = argparse.ArgumentParser()
     setup_parser(parser)
     args = parser.parse_args()
     run_args(args)
-
+'''
 def setup_parser(parser):
     #parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
@@ -126,7 +126,6 @@ def setup_parser(parser):
     parser.add_argument('-m', '--betmask', action='store_true', help='Producing BET mask')
     parser.add_argument('-a', '--aseg', action='store_true', help='Producing ASEG mask')
     parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
-    parser.add_argument('-B', '--bam', action='store_true', help='Producing brain age mapping')
     parser.add_argument('-c', '--ct', action='store_true', help='Producing cortical thickness map')
     parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
     parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
@@ -137,23 +136,18 @@ def setup_parser(parser):
     parser.add_argument('-t', '--tumor', action='store_true', help='Producing tumor mask')
     parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
-    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template')
-    parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
-    parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
-    parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
-    parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
+    parser.add_argument('--silent', action='store_true', help='Silent mode')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
     parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
     parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
-    parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
     #args = parser.parse_args()
     #run_args(args)
 
 
-def run(argstring, input=None, output=None, model=None, template=None, save_displacement=False):
+def run(argstring, input=None, output=None, model=None, silent=False):
+
     from argparse import Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -166,12 +160,13 @@ def run(argstring, input=None, output=None, model=None, template=None, save_disp
     args.decode = 'decode' in argstring
     args.gpu = 'g' in argstring
 
+    args.silent = silent
+
     if (args.encode or args.decode or args.clean_onnx):
         argstring = ''
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
-    args.bam = 'B' in argstring
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
     args.dgm = 'd' in argstring        
@@ -183,40 +178,29 @@ def run(argstring, input=None, output=None, model=None, template=None, save_disp
     args.tumor = 't' in argstring
     args.qc = 'q' in argstring
     args.gz = 'z' in argstring
-    args.affine = 'A' in argstring
-    args.registration = 'r' in argstring
-    args.fusemorph = 'F' in argstring
-    args.rigid = 'R' in argstring
     args.patch = 'p' in argstring
-    args.vbm = 'v' in argstring
-    args.template = template
-    args.save_displacement = save_displacement
     return run_args(args)   
 
 
 def run_args(args):
 
     run_d = vars(args) #store all arg in dict
+
+    if run_d.get('silent', 0):
+        printer = lambda *args, **kwargs: None
+    else:
+        printer = print
+
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
-                    run_d['wmh'], run_d['bam'], run_d['tumor'], run_d['cgw'], 
-                    run_d['syn'], run_d['affine'], run_d['registration'],
-                    run_d['fusemorph'], run_d['rigid'], run_d['template'],
-                    run_d['encode'], run_d['decode'], run_d['patch'], 
-                    run_d['vbm'], run_d['save_displacement']]:
+                    run_d['wmh'], run_d['tumor'], run_d['cgw'], 
+                    run_d['syn'],run_d['encode'], run_d['decode'], run_d['patch']]:
         run_d['bet'] = True
         # Producing extracted brain by default
         
-    if run_d['fusemorph']:
-        run_d['aseg'] = True
-        
-    if run_d['vbm']:
-        run_d['registration'] = run_d['cgw'] = True
-        #run_d['fusemorph'] = run_d['cgw'] = run_d['aseg'] = True
-        
     if run_d['clean_onnx']:
         lib_tool.clean_onnx()
-        print('Exiting...')
+        printer('Exiting...')
         return 1
 
 
@@ -240,15 +224,11 @@ def run_args(args):
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
     omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
     omodel['wmh'] = 'mprage_wmh_v002_betr111.onnx'
-    omodel['bam'] = 'mprage_bam_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
-    omodel['reg'] = 'mprage_reg_v003_train.onnx'
     omodel['encode'] = 'mprage_encode_v2.onnx'
     omodel['decode'] = 'mprage_decode_v2.onnx'
-    omodel['affine'] = 'mprage_affine_v002_train.onnx'
-    omodel['rigid'] = 'mprage_rigid_v002_train.onnx'
 
  
     # if you want to use other models
@@ -262,7 +242,7 @@ def run_args(args):
             omodel[mm] = model_dict[mm]
 
 
-    print('Total nii files:', len(input_file_list))
+    printer('Total nii files:', len(input_file_list))
 
     #check duplicate basename
     #for detail, check get_template
@@ -279,19 +259,10 @@ def run_args(args):
         result_dict = dict()
         result_filedict = dict()
 
-        print(f'{count} Processing :', os.path.basename(f))
+        printer(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
-
-        
-
-        if run_d['vbm']:
-            dir_path, filename = os.path.split(ftemplate)           
-            prefix = filename.split('_@@@@')[0]          
-            new_dir_path = os.path.join(dir_path, prefix)
-            os.makedirs(new_dir_path, exist_ok=True)
-            ftemplate = os.path.join(dir_path, prefix, filename)
             
 
         if run_d['encode']:
@@ -325,6 +296,7 @@ def run_args(args):
             output_nib.header.set_data_dtype(np.uint8)
 
             fn = save_nib(output_nib, ftemplate, 'decode')
+            printer('Writing output file: ', fn)
             result_dict['decode'] = output_nib
             result_filedict['decode'] = fn            
    
@@ -334,9 +306,6 @@ def run_args(args):
             tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
             input_nib = nib.load(f)
             tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
-
-            if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
-                tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
 
             tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
             tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
@@ -349,26 +318,33 @@ def run_args(args):
             else:
                 tbet_seg = reorder_img(tbet_nib, resample='continuous')
             
-            print('QC score:', qc_score)
+            printer('QC score:', qc_score)
 
             result_dict['QC'] = qc_score
             result_filedict['QC'] = qc_score
-            if qc_score < 30:
-                print('Pay attention to the result with QC < 30. ')
-            if run_d['qc'] or qc_score < 30:
+            if qc_score < 50:
+                printer('Pay attention to the result with QC < 50. ')
+            if run_d['qc'] or qc_score < 50:
                 qcfile = ftemplate.replace('.nii','').replace('.gz', '')
                 qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
                 with open(qcfile, 'a') as the_file:
                     the_file.write(f'QC: {qc_score} \n')
-                print('Writing output file: ', qcfile)
+                printer('Writing output file: ', qcfile)
 
         if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+            printer('Writing output file: ', fn)
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
 
         if run_d['bet']:
+
+            imabet = tbet_nib.get_fdata()
+            if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
+                imabet = imabet.astype(input_nib.dataobj.dtype)
+            
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
+            printer('Writing output file: ', fn)
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
@@ -376,32 +352,11 @@ def run_args(args):
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
-                if not run_d['fusemorph']:
-                    fn = save_nib(result_nib, ftemplate, seg_str)
-                    result_filedict[seg_str] = fn
+                
+                fn = save_nib(result_nib, ftemplate, seg_str)
+                printer('Writing output file: ', fn)
+                result_filedict[seg_str] = fn
                 result_dict[seg_str] = result_nib
-        if run_d['bam']:
-            model_ff = lib_tool.get_model(omodel['bam'])
-            #input_nib = nib.load(f)
-            
-            bet_img = lib_bx.read_nib(tbet_nib111)
-            
-            image = bet_img[None, ...][None, ...]
-            image = image/np.max(image)
-            bam = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
-            bam[bam < 0.5] = 0
-
-            bam = bam * (bet_img>0)
-
-            bam_nib = nib.Nifti1Image(bam, tbet_nib111.affine, tbet_nib111.header)
-            bam_nib = resample_to_img(
-                bam_nib, input_nib, interpolation="nearest")
-
-            bam_nib.header.set_data_dtype(float)
-            
-            fn = save_nib(bam_nib, ftemplate, 'bam')
-            result_dict['bam'] = bam_nib
-            result_filedict['bam'] = fn
 
         if run_d['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
@@ -423,12 +378,11 @@ def run_args(args):
                 pve_nib = resample_to_img(
                     pve_nib, input_nib, interpolation="linear")
 
-                pve_nib.header.set_data_dtype(float)
-                
-                if not run_d['vbm'] or kk==2:
-                    print(ftemplate)
-                    fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
-                    result_filedict['cgw'].append(fn)
+                pve_nib.header.set_data_dtype(float)                
+
+                fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                printer('Writing output file: ', fn)
+                result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)                       
 
         if run_d['ct']:
@@ -449,221 +403,12 @@ def run_args(args):
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
+            printer('Writing output file: ', fn)
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             
-        if run_d['affine'] or run_d['rigid'] or run_d['registration'] or run_d['fusemorph']:
-            displacement_dict = {
-                "init_flow": None,
-                "rigid_matrix": None,
-                "affine_matrix": None,
-                "dense_warp": None, 
-                "Fuse_dense_warp": None
-            }
-            
-            bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
-            bet = bet.astype(input_nib.dataobj.dtype)
-            bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
-            
-            bet_nib = reorder_img(bet_nib, resample='continuous')
-            ori_affine = bet_nib.affine
-            bet_data = bet_nib.get_fdata()
-            bet_data, _ = lib_bx.pad_to_shape(bet_data, (256, 256, 256))
-            bet_data, _ = lib_bx.crop_image(bet_data, target_shape=(256, 256, 256))
-            
-            template_nib = lib_tool.get_template(run_d['template'])
-            template_nib = reorder_img(template_nib, resample='continuous')
-            
-            fixed_affine = template_nib.affine
-            template_data = template_nib.get_fdata()
-            template_data, pad_width = lib_bx.pad_to_shape(template_data, (256, 256, 256))
-            
-            moving = bet_data.astype(np.float32)[None, ...][None, ...]
-            moving = lib_bx.min_max_norm(moving)
-            if run_d['template'] == None:
-                template_data = np.clip(template_data, a_min=2500, a_max=np.max(template_data))
-            fixed = template_data.astype(np.float32)[None, ...][None, ...]
-            fixed = lib_bx.min_max_norm(fixed)
-            
-            if run_d['rigid']:
-                model_ff = lib_tool.get_model(omodel['rigid'])
-                output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
-                rigided, rigid_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
-                
-                displacement_dict["init_flow"] = init_flow
-                displacement_dict["rigid_matrix"] = rigid_matrix
-                
-                rigided = lib_bx.remove_padding(rigided, pad_width)
-                
-                rigid_nib = nib.Nifti1Image(rigided, fixed_affine)
-                fn = save_nib(rigid_nib, ftemplate, 'rigid')
-                result_dict['rigid'] = rigid_nib
-                result_filedict['rigid'] = fn
-            
-            if run_d['affine'] or run_d['registration'] or run_d['fusemorph']: 
-                
-                model_ff = lib_tool.get_model(omodel['affine'])
-                output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
-                affined, affine_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
-                initflow_nib = nib.Nifti1Image(init_flow, ori_affine)
-                
-                displacement_dict["init_flow"] = init_flow
-                displacement_dict["affine_matrix"] = affine_matrix
-                
-                result_dict['init_flow'] = initflow_nib
-                result_dict['Affine_matrix'] = affine_matrix
-                affined = lib_bx.remove_padding(affined, pad_width)
-                affine_nib = nib.Nifti1Image(affined, fixed_affine)
-
-                if run_d['affine']:
-                    fn = save_nib(affine_nib, ftemplate, 'Af')
-                    result_dict['Af'] = affine_nib
-                    result_filedict['Af'] = fn
-    
-                if run_d['registration']:
-                    template_data = template_nib.get_fdata()
-                    
-                    fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
-                    fixed_image = lib_bx.min_max_norm(fixed_image)
-                    #fixed_image = fixed_image/np.max(fixed_image)
-                    
-                    Af_data = affine_nib.get_fdata()
-                    moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
-                    #moving_image = moving_image/np.max(moving_image)
-                    
-                    model_ff = lib_tool.get_model(omodel['reg'])
-                    
-                    output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
-                    moved = np.squeeze(output[0])
-                    warp = np.squeeze(output[1])
-                    moved_nib = nib.Nifti1Image(moved,
-                                             fixed_affine, template_nib.header)
-                    warp_nib = nib.Nifti1Image(warp,
-                                             fixed_affine, template_nib.header)
-                    
-                    if not run_d['vbm']:
-                        fn = save_nib(moved_nib, ftemplate, 'reg')
-                        result_filedict['reg'] = fn
-                    result_dict['reg'] = moved_nib        
-                    
-                    
-                    displacement_dict["dense_warp"] = warp
-                    result_dict['dense_warp'] = warp_nib
-                        
-                if run_d['fusemorph']:
-                    model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
-                    model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
-                    model_transform_bili = lib_tool.get_model('mprage_transform_v002_bili.onnx')
-                    
-                    template_data = template_nib.get_fdata()
-                    fixed_image = template_data.astype(np.float32)[None, ...][None, ...]
-                    fixed_image = lib_bx.min_max_norm(fixed_image)
-
-                                        
-                    template_seg_nib = lib_tool.get_template_seg(run_d['template'])
-                    template_seg_nib = reorder_img(template_seg_nib, resample='continuous')
-                    template_seg_data = template_seg_nib.get_fdata()
-                    fixed_seg_image = template_seg_data.astype(np.float32)[None, ...][None, ...]
-
-                    
-                    Af_data = affine_nib.get_fdata()
-                    moving_image = Af_data.astype(np.float32)[None, ...][None, ...]
-                    
-                    moving_seg_nib = result_dict['aseg']
-                    moving_seg_nib = reorder_img(moving_seg_nib, resample='nearest')
-                    moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
-                    moving_seg_data, _ = lib_bx.pad_to_shape(moving_seg_data, (256, 256, 256))
-                    moving_seg_data, _ = lib_bx.crop_image(moving_seg_data, target_shape=(256, 256, 256))
-                    moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
-                                
-                    affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                    output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
-                    affine_matrix = np.squeeze(affine_matrix, axis=0)
-                    moving_seg = np.squeeze(output[0])
-                    
-                    moving_seg = lib_bx.remove_padding(moving_seg, pad_width)
-
-                    
-                    model_ff = lib_tool.get_model(omodel['reg'])
-                    moving_image_current = moving_image
-                    moving_seg_current = np.expand_dims(np.expand_dims(moving_seg, axis=0), axis=1)
-                    warps = []
-                    
-                    for i in range(1, 4):
-                        output = lib_tool.predict(model_ff, [moving_image_current, fixed_image], GPU=args.gpu, mode='reg')
-                        moved = output[0]
-                        warp = output[1]
-                        
-                        warps.append(warp)                    
-                        output = lib_tool.predict(model_transform, [moving_seg_current, warp], GPU=args.gpu, mode='reg')
-                        moved_seg = output[0]                        
-                        moving_image_current = moved
-                        moving_seg_current = moved_seg                    
-                        # moving_nib = nib.Nifti1Image(np.squeeze(moved_seg), fixed_affine, template_nib.header)
-                        # fn = save_nib(moving_nib, ftemplate, str(i))
-
-                    _, _, best_warp = lib_bx.optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args)
-                    output = lib_tool.predict(model_transform_bili, [moving_image, best_warp], GPU=args.gpu, mode='reg')
-                    
-                    moved = np.squeeze(output[0])
-                    warp = np.squeeze(best_warp)
-                    moved_nib = nib.Nifti1Image(moved,
-                                             fixed_affine, template_nib.header)
-                    warp_nib = nib.Nifti1Image(warp,
-                                             fixed_affine, template_nib.header)
-                    
-                    #if not run_d['vbm']:
-                    fn = save_nib(moved_nib, ftemplate, 'Fuse')
-                    result_filedict['Fuse'] = fn
-                    result_dict['Fuse'] = moved_nib
-                    
-                    
-                    displacement_dict["Fuse_dense_warp"] = warp
-                    result_dict['dense_warp'] = warp_nib
-                    
-            if run_d['vbm']:
-                raw_GM_nib = reorder_img(result_dict['cgw'][1], resample='continuous')
-                raw_GM = raw_GM_nib.get_fdata().astype(np.float32)
-                raw_GM, _ = lib_bx.pad_to_shape(raw_GM, (256, 256, 256))
-                raw_GM, _ = lib_bx.crop_image(raw_GM, target_shape=(256, 256, 256))
-                raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
-                
-                model_transform = lib_tool.get_model('mprage_transform_v002_bili.onnx')
-                model_affine_transform_bili = lib_tool.get_model('mprage_affinetransform_v002_bili.onnx')
-                
-                Affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                output = lib_tool.predict(model_affine_transform_bili, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
-                affined_GM = np.squeeze(output[0])
-                affined_GM = lib_bx.remove_padding(affined_GM, pad_width)
-                
-                affined_GM = np.expand_dims(np.expand_dims(affined_GM, axis=0), axis=1)
-                warp = np.expand_dims(warp, axis=0)
-                
-                output = lib_tool.predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
-                reg_GM = np.squeeze(output[0])
-                reg_GM_nib = nib.Nifti1Image(reg_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(reg_GM_nib, ftemplate, 'RegGM')                
-                result_dict['Reg_GM'] = reg_GM_nib
-                result_filedict['Reg_GM'] = fn
-                
-                warp = warp.transpose(0, 2, 3, 4, 1).squeeze()
-                warp_Jacobian = lib_bx.jacobian_determinant(warp)
-                Modulated_GM = reg_GM*warp_Jacobian
-                Modulated_GM_nib = nib.Nifti1Image(Modulated_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(Modulated_GM_nib, ftemplate, 'ModulatedGM')                
-                result_dict['Modulated_GM'] = Modulated_GM_nib
-                result_filedict['Modulated_GM'] = fn
-                
-                fwhm_value = 7.065
-                Smoothed_GM = lib_bx.apply_gaussian_smoothing(Modulated_GM, fwhm=fwhm_value)
-                Smoothed_GM_nib = nib.Nifti1Image(Smoothed_GM, template_nib.affine, template_nib.header)
-                fn = save_nib(Smoothed_GM_nib, ftemplate, 'SmoothedGM')
-                result_dict['Smoothed_GM'] = Smoothed_GM_nib
-                result_filedict['Smoothed_GM'] = fn
-            if run_d['save_displacement']:
-                np.savez(ftemplate.replace('@@@@.nii.gz', 'warp') + '.npz', **displacement_dict)
                
-        print('Processing time: %d seconds' %  (time.time() - t))
+        printer('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
         else:
