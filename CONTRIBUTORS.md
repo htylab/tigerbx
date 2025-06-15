@@ -11,3 +11,4 @@ TigerBx began on 2021-08-23 as **tigerseg** (first public release 0.09 on 2021-0
 | X. S. Wang | [@StanleyWangTW](https://github.com/StanleyWangTW) | 2024 | SynthSeg-style segmentation option and its label fix (0.1.14-0.1.15) |
 | JiaShow | [@pengushow](https://github.com/pengushow) | 2023-2025 | Cortical thickness from the brain-extracted input (0.1.13), patch-inference work |
 | Norman960122 | [@Norman960122](https://github.com/Norman960122) | 2024-2025 | Patch-based inference (`-p`, `patch_inference_3d_lite`) and its weighting fix |
+| Pei-Mao Sun | [@Pei-mao](https://github.com/Pei-mao) | 2024-2025 | Registration (0.1.16-0.2.x): affine, rigid and deformable registration, user templates, registration evaluation, C2FViT, FuseMorph, DeepVBM, ONNX transform models, `tigerbx.transform` and warp saving, Optuna tuning, ANTs affine, SyN / SyNCC, the registration guide; fewer dependencies |
