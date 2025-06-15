@@ -21,14 +21,14 @@ def setup_parser(parser):
     parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
     parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--save', default='hcCbm', type=str, help='Selected outputs default:hcCbm')
+    parser.add_argument('--save', default='h', type=str, help='Selected outputs mbhtcgw, default:h')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
 
 
 
-def hlc(input=None, output=None, model=None, save='hcCbm', GPU=False, gz=True, patch=False):
+def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False):
     
     from argparse import Namespace
     args = Namespace()
@@ -371,7 +371,7 @@ def run_args(args):
             result_dict['hlc'] = hlc_nib
             result_filedict['hlc'] = fn
 
-        if 'c' in args.save:
+        if 't' in args.save: #thickness
             ct = logits[0,63,...].squeeze()
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
@@ -391,24 +391,26 @@ def run_args(args):
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
 
-        if 'C' in args.save:
-            cgw = logits[0,64:67,...].squeeze()
-            cgwnames = ['CSF', 'GM', 'WM']
-            for kk in range(3):
-                pve = cgw[kk]
-                pve = restore_result(image_orig.shape, pve, xyz6)
-                pve = np.clip(pve* (tbet_image>0), 0, 1)
+        
+        cgw = logits[0,64:67,...].squeeze()
+        cgwnames = ['CSF', 'GM', 'WM']
+        cgw_short = ['c', 'g', 'w']
+        for kk in range(3):
+            if cgw_short[kk] not in args.save: continue
+            pve = cgw[kk]
+            pve = restore_result(image_orig.shape, pve, xyz6)
+            pve = np.clip(pve* (tbet_image>0), 0, 1)
 
 
-                pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
-                pve_nib = resample_to_img(
-                    pve_nib, input_nib, interpolation="linear")
+            pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
+            pve_nib = resample_to_img(
+                pve_nib, input_nib, interpolation="linear")
 
-                pve_nib.header.set_data_dtype(float)
-                fn = save_nib(pve_nib, ftemplate, f'{cgwnames[kk]}')
-                result_dict[f'{cgwnames[kk]}'] = pve_nib
-                result_filedict[f'{cgwnames[kk]}'] = fn
-     
+            pve_nib.header.set_data_dtype(float)
+            fn = save_nib(pve_nib, ftemplate, f'{cgwnames[kk]}')
+            result_dict[f'{cgwnames[kk]}'] = pve_nib
+            result_filedict[f'{cgwnames[kk]}'] = fn
+    
         print('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
