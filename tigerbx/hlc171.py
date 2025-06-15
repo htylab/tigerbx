@@ -16,16 +16,6 @@ from nilearn.image import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-
-    if True not in [args.betmask, args.bet, args.hlc, args.ct, args.cgw]:
-        args.betmask, args.bet, args.hlc, args.ct, args.cgw = [True] * 5
-        #by default produce every thing
-    run_args(args)
-
 def setup_parser(parser):
     #parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
@@ -41,22 +31,6 @@ def setup_parser(parser):
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
 
 
-    #args = parser.parse_args()
-    #run_args(args)
-
-def hlcX(input=None, output=None, model=None, save='all', GPU=False, gz=True, patch=False):
-    from argparse import Namespace
-    args = Namespace()
-    if not isinstance(input, list):
-        input = [input]
-    args.input = input
-    args.output = output
-    args.model = model
-    args.gpu = GPU
-    args.gz = gz
-    args.save = save
-    args.patch = patch
-    return run_args(args)
 
 def hlc(argstring='', input=None, output=None, model=None):
     from argparse import Namespace
@@ -73,27 +47,21 @@ def hlc(argstring='', input=None, output=None, model=None):
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
     args.gz = 'z' in argstring
-    args.patch = 'p' in argstring
-
-    if (True not in [args.betmask, args.bet,
-                     args.hlc, args.ct, args.cgw]):
-        args.betmask, args.bet, args.hlc, args.ct, args.cgw = [True] * 5
-        #by default produce every thing
-        
+    args.patch = 'p' in argstring      
 
     return run_args(args)
 
 
 import numpy as np
 
-def crop_cube(ABC, padding=16):
+def crop_cube(ABC, tbetmask_image, padding=16):
     """
     Crop the 3D region with signal > 0, pad 16 voxels in each direction to form a cube.
     Input array shape is (W, H, D). Returns the cropped cube and boundary list xyz6,
     ordered as [x_min, x_max, y_min, y_max, z_min, z_max].
     """
     # Find voxels with signal > 0
-    non_zero = np.where(ABC > 0)
+    non_zero = np.where(tbetmask_image > 0)
     if len(non_zero[0]) == 0:
         raise ValueError("No region with signal > 0 found in the image")
     
@@ -297,9 +265,12 @@ def HLC_decoder(out, lrseg, dwseg):
 
 def run_args(args):
 
-    run_d = vars(args) #store all arg in dict
+    #run_d = vars(args) #store all arg in dict
 
-
+    if (True not in [args.betmask, args.bet,
+                    args.hlc, args.ct, args.cgw]):
+        args.betmask, args.bet, args.hlc, args.ct, args.cgw = [True] * 5
+        #by default produce every thing
 
  
     input_file_list = args.input
@@ -363,14 +334,16 @@ def run_args(args):
         else:
             tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
 
-        #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
-        #tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+        tbetmask_nib111 =  resample_to_img(tbetmask_nib, tbet_nib111, interpolation="nearest")
+
+        #print(tbet_nib111.shape, tbet_nib111.get_fdata().dtype, tbet_nib.get_fdata().dtype)
 
         tbet_image = lib_bx.read_nib(tbet_nib111)
+        tbetmask_image = lib_bx.read_nib(tbetmask_nib111)
             
         image_orig = tbet_image
 
-        image, xyz6 = crop_cube(image_orig)
+        image, xyz6 = crop_cube(image_orig, tbetmask_image)
 
         image = image/np.max(image)
         image = image[None, ...][None, ...]
@@ -437,7 +410,8 @@ def run_args(args):
             for kk in range(3):
                 pve = cgw[kk]
                 pve = restore_result(image_orig.shape, pve, xyz6)
-                pve = pve* (tbet_image>0)
+                pve = np.clip(pve* (tbet_image>0), 0, 1)
+
 
                 pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
                 pve_nib = resample_to_img(
@@ -455,8 +429,9 @@ def run_args(args):
             result_all.append(result_filedict) #storing output filenames
     return result_all
 
-
+'''
 if __name__ == "__main__":
     main()
     if platform.system() == 'Windows':
         os.system('pause')
+'''

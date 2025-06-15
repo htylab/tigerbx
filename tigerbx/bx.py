@@ -111,13 +111,13 @@ def get_template(f, output_dir, get_z, common_folder=None):
     return ftemplate, f_output_dir
 
 
-
+'''
 def main():
     parser = argparse.ArgumentParser()
     setup_parser(parser)
     args = parser.parse_args()
     run_args(args)
-
+'''
 def setup_parser(parser):
     #parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
@@ -378,13 +378,11 @@ def run_args(args):
                 pve_nib = resample_to_img(
                     pve_nib, input_nib, interpolation="linear")
 
-                pve_nib.header.set_data_dtype(float)
-                
-                if not run_d['vbm'] or kk==2:
-                    printer(ftemplate)
-                    fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
-                    printer('Writing output file: ', fn)
-                    result_filedict['cgw'].append(fn)
+                pve_nib.header.set_data_dtype(float)                
+
+                fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
+                printer('Writing output file: ', fn)
+                result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)                       
 
         if run_d['ct']:

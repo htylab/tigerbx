@@ -16,13 +16,13 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from tigerbx import lib_tool
 from tigerbx import lib_gdm
 
-
+'''
 def main():
     parser = argparse.ArgumentParser()
     setup_parser(parser)
     args = parser.parse_args()
     run_args(args)
-
+'''
 def setup_parser(parser):
     #def main():      
     #parser = argparse.ArgumentParser()

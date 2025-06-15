@@ -34,11 +34,13 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from tigerbx.lib_nerve import nerve_preprocess_nib, get_ftemplate
 from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
 
+'''
 def main():
     parser = argparse.ArgumentParser()
     setup_parser(parser)
     args = parser.parse_args()
     run_args(args)
+'''
 
 def setup_parser(parser):
     #parser = argparse.ArgumentParser()
