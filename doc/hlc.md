@@ -21,7 +21,7 @@ The function merges segmentation labels into a hierarchy and can optionally outp
   - `t` – cortical thickness map
   - `c`, `g`, `w` – CSF, GM and WM probability maps
   Use `'all'` to generate the whole set (`bmhtcgw`).
-- **GPU**: Use GPU if `True`. Note: 48G required.
+- **GPU**: Use GPU if `True`. Note: at least 32G VRAM required.
 - **gz**: Save files in `.nii.gz` format.
 - **patch**: Enable patch‑based inference.
 
