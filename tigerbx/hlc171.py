@@ -284,7 +284,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['HLC'] = 'mprage_hlc_v002_resunetplus.onnx'
+    omodel['HLC'] = 'mprage_hlc_v003_resunetplus.onnx'
  
     # if you want to use other models
     if isinstance(args.model, dict):
