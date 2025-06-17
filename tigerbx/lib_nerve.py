@@ -68,8 +68,9 @@ def nerve_preprocess_nib(aseg, tbet):
 # ------------------------------------------------------------
 def onnx_encode(enc_sess, patch_img):
     vol = patch_img.get_fdata().astype(np.float32)[None, None]
-    latent = enc_sess.run(None, {enc_sess.get_inputs()[0].name: vol})[0]
-    return latent
+    print(vol.shape)
+    z_mu, z_sigma = enc_sess.run(None, {enc_sess.get_inputs()[0].name: vol})
+    return z_mu, z_sigma
 
 def onnx_decode(dec_sess, latent, affine=None):
     recon = dec_sess.run(None, {dec_sess.get_inputs()[0].name: latent})[0]

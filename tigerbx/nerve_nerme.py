@@ -53,6 +53,7 @@ def setup_parser(parser):
     parser.add_argument('-d', '--decode', action='store_true', help='Decode patches')
     parser.add_argument('-e', '--encode', action='store_true', help='Encode patches')
     parser.add_argument('-v', '--evaluate', action='store_true', help='Evaluate models')
+    parser.add_argument('-s', '--sigma', action='store_true', help='Using variable reconstruction')
 
 
 # ------------------------------------------------------------
@@ -94,9 +95,10 @@ def encode_nii(
 
     latent_dict, patch_arrays, first_affine = {}, [], None
     for tag, img in patches.items():
-        latent = onnx_encode(enc_sess, img)[0]
-        latent_dict[tag] = latent
-        print(f"{tag} ▸ latent shape {latent.shape}")
+        z_mu, z_sigma = onnx_encode(enc_sess, img)
+        latent_dict[tag] = z_mu[0]
+        latent_dict[tag + '_sigma'] = z_sigma[0]
+        print(f"{tag} ▸ latent shape {z_mu.shape}")
 
         patch_arrays.append(img.get_fdata())
         if first_affine is None:
@@ -132,7 +134,8 @@ def decode_npz(
     decoder,
     output_dir="NERVE_recon",
     GPU=False,
-    f_template=False
+    f_template=False,
+    eps=0
 ):
     """
     Decode latent NPZ back to NIfTI patches or a merged volume.
@@ -152,11 +155,13 @@ def decode_npz(
     # Load latent dict
     data = np.load(npz_path, allow_pickle=True)
     affine = data["affine"]
-    tags = [k for k in data.files if k not in ("encoder", "affine")]
+    tags = [k for k in data.files if ('sigma' not in k) and (k not in ("encoder", "affine"))]
     recon_arrays, recon_paths = [], []
 
     for tag in tags:
-        latent = data[tag]
+        mu = data[tag]
+        sigma = data[tag + '_sigma'] 
+        latent = mu + eps*np.random.randn(*mu.shape).astype(np.float32) * sigma
         recon = onnx_decode(dec_sess, latent[None, ...]).squeeze()
         recon_arrays.append(recon)
 
@@ -182,6 +187,7 @@ def nerve(argstring, input, output=None, model=None, method='NERVE'):
     args.decode = 'd' in argstring
     args.gpu = 'g' in argstring
     args.evaluate = 'v' in argstring
+    args.sigma = 's' in argstring
     return run_args(args)
 
 
@@ -214,10 +220,10 @@ def run_args(args):
 
 
     if args.method == 'NERVE':
-        omodel['encode'] = 'nerve_lp4_encoder.onnx'
+        omodel['encode'] = 'nerve_lp4_encoderv2.onnx'
         omodel['decode'] = 'nerve_lp4_decoder.onnx'
     else:
-        omodel['encode'] = 'nerve_lp4_encoder.onnx' #NERME ONNX not yet implemented
+        omodel['encode'] = 'nerve_lp4_encoderv2.onnx' #NERME ONNX not yet implemented
         omodel['decode'] = 'nerve_lp4_decoder.onnx' #NERME ONNX not yet implemented
         #omodel['decoder'] = 'nerve_lp4_decoder.onnx'
 
@@ -272,7 +278,8 @@ def run_args(args):
                     decoder=lib_tool.get_model(omodel['decode']),
                     output_dir=f_output_dir,
                     GPU=args.gpu,
-                    f_template=ftemplate)
+                    f_template=ftemplate,
+                    eps=args.sigma)
             results.append(recon_ff)
         
             

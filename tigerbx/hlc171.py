@@ -399,6 +399,7 @@ def run_args(args):
             if cgw_short[kk] not in args.save: continue
             pve = cgw[kk]
             pve = restore_result(image_orig.shape, pve, xyz6)
+            pve[pve<0.05] = 0
             pve = np.clip(pve* (tbet_image>0), 0, 1)
 
 
