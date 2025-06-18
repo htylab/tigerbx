@@ -128,11 +128,6 @@ See [NERVE usage](doc/nerve.md) for more examples.
 # Remove downloaded ONNX files
 tigerbx.run('clean_onnx')
 
-# Encode T1w images into latent space
-tigerbx.run('encode', r'C:\T1w_dir', r'C:\output_dir')
-
-# Decode from latent space back to image
-tigerbx.run('decode', r'C:\npz_dir', r'C:\output_dir')
 ```
 
 ---
