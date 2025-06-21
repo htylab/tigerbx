@@ -25,6 +25,8 @@ def _make_patch(aseg_nib, tbet_nib, roi_label,
     tbet = tbet_nib.get_fdata()
     mask = (aseg == roi_label)
     if not mask.any():
+        print(f"label {roi_label} not found.")
+        mask = mask * 0 + 1
         raise ValueError(f"label {roi_label} not found.")
 
     nz = np.nonzero(mask)

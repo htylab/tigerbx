@@ -263,27 +263,38 @@ def run_args(args):
         print(f'Preprocessing {count}/{fcount}:\n', os.path.basename(f))
         t = time.time()
 
+        encode_ok = True
+        decode_ok = True
+
         if args.encode:
-            npz_ff, patch_ff = encode_nii(f,
-                encoder=lib_tool.get_model(omodel['encode']),
-                output_dir=f_output_dir,
-                GPU=args.gpu,
-                save_patch=args.save_patch,
-                f_template=ftemplate)
-            results.append(npz_ff)
-            results.append(patch_ff)
-        if args.decode:
-            if args.evaluate: f = npz_ff
-            recon_ff = decode_npz(f,
-                    decoder=lib_tool.get_model(omodel['decode']),
+            try:
+                npz_ff, patch_ff = encode_nii(f,
+                    encoder=lib_tool.get_model(omodel['encode']),
                     output_dir=f_output_dir,
                     GPU=args.gpu,
-                    f_template=ftemplate,
-                    eps=args.sigma)
-            results.append(recon_ff)
+                    save_patch=args.save_patch,
+                    f_template=ftemplate)
+                results.append(npz_ff)
+                results.append(patch_ff)
+            except Exception as e:
+                encode_ok = False
+                print('Encoding error:', e)
+        if args.decode:
+            try:
+                if args.evaluate: f = npz_ff
+                recon_ff = decode_npz(f,
+                        decoder=lib_tool.get_model(omodel['decode']),
+                        output_dir=f_output_dir,
+                        GPU=args.gpu,
+                        f_template=ftemplate,
+                        eps=args.sigma)
+                results.append(recon_ff)
+            except Exception as e:
+                decode_ok = False
+                print('Decoding error:', e)
         
             
-        if args.evaluate: # for calculating PSNR
+        if args.evaluate and encode_ok and decode_ok: # for calculating PSNR
             recon_pairs.append((f, patch_ff, recon_ff))
             max_e = nib.load(patch_ff).get_fdata().max()
             max_value = max(max_e, max_value)
@@ -309,6 +320,12 @@ def run_args(args):
                            f'{omodel["encode"]}_eval.csv')
             df.to_csv(csv_ff, index=False)
             print(f'[Evaluation] Saving {csv_ff} report')
+
+            avg = df[df["ID"] == "Average"].iloc[0]
+            print(f"[Average] MAE = {avg.MAE:.6f}, "
+              f"MSE = {avg.MSE:.6f}, "
+              f"PSNR = {avg.PSNR:.2f}, "
+              f"SSIM = {avg.SSIM:.4f}")
             results = df
     
         print('Processing time: %d seconds' %  (time.time() - t))

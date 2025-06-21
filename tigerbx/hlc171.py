@@ -257,7 +257,7 @@ def HLC_decoder(out, lrseg, dwseg):
 
 def run_args(args):
 
-    if args.save == 'all': args.save = 'hcCbm'
+    if args.save == 'all': args.save = 'mbhtcgw'
 
 
     input_file_list = args.input
@@ -271,7 +271,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['HLC'] = 'mprage_hlc_v003_resunetplus.onnx'
+    omodel['HLC'] = 'mprage_hlc_v004_resunetplusT2.onnx'
  
     # if you want to use other models
     if isinstance(args.model, dict):
