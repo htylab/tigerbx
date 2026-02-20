@@ -14,13 +14,20 @@
 
 ---
 
+## License
+
+TigerBx is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. Commercial use is not permitted. See `LICENSE` for details.
+
 ## Quick Start
 
 ### Install as a Python package
 
 ```bash
-pip install onnxruntime              # CPU inference
-pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
+# CPU runtime
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/release.zip"
+
+# GPU runtime (CUDA 12)
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
 ```
 
 ```python
@@ -30,11 +37,11 @@ import tigerbx
 tigerbx.run('badk', 'T1w.nii.gz', 'output_dir')
 ```
 
-### Install a specific version or GPU-enabled runtime
+### Install a specific version
 
 ```bash
-pip install onnxruntime-gpu          # GPU inference
-pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.18.tar.gz
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.21.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.21.tar.gz"
 ```
 
 ---

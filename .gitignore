@@ -6,6 +6,8 @@ models/
 .ipynb_checkpoints/
 test_output/
 .claude/
+temp/
+venv*/
 # C extensions
 #*.so
 

@@ -6,6 +6,7 @@ import re
 import subprocess
 import onnxruntime as ort
 import shutil
+import tempfile
 import warnings
 from os.path import join, isdir, basename, isfile, dirname
 import nibabel as nib
@@ -20,62 +21,148 @@ ort.set_default_logger_severity(3)
 nib.Nifti1Header.quaternion_threshold = -100
 
 model_servers = ['https://github.com/htylab/tigerbx/releases/download/modelhub/',
-                    'https://data.mrilab.org/onnxmodel/dev/']
+	                    'https://data.mrilab.org/onnxmodel/dev/']
 
-# determine if application is a script file or frozen exe
-if getattr(sys, 'frozen', False):
-    application_path = os.path.dirname(sys.executable)
-elif __file__:
-    application_path = os.path.dirname(os.path.abspath(__file__))
-
-model_path = join(application_path, 'models')
-# print(model_path)
-os.makedirs(model_path, exist_ok=True)
+MODEL_DIR_ENV = 'TIGERBX_MODEL_DIR'
+MODEL_DOWNLOAD_TIMEOUT_S = 60
+MODEL_LOCK_TIMEOUT_S = 60 * 60
+PATCH_SIZE_ENV = 'TIGERBX_PATCH_SIZE'
+DEFAULT_PATCH_SIZE = (128, 128, 128)
+MIN_CROP_SIZE = (160, 160, 160)
 
 
-def download(url, file_name):
+def _parse_patch_size(value: str):
+    value = value.strip()
+    if not value:
+        raise ValueError("empty patch size")
+
+    if value.isdigit():
+        size = int(value)
+        return (size, size, size)
+
+    parts = [p for p in re.split(r"[x, ]+", value) if p]
+    if len(parts) != 3:
+        raise ValueError(f"patch size must be like '128' or '128,128,128' (got {value!r})")
+    return tuple(int(p) for p in parts)
+
+
+def _resolve_patch_size(patch_size):
+    if patch_size is None:
+        env = os.environ.get(PATCH_SIZE_ENV)
+        if env:
+            patch_size = _parse_patch_size(env)
+        else:
+            patch_size = DEFAULT_PATCH_SIZE
+    elif isinstance(patch_size, int):
+        patch_size = (patch_size, patch_size, patch_size)
+
+    if len(patch_size) != 3:
+        raise ValueError("patch_size must be an int or a 3-tuple like (128, 128, 128)")
+
+    patch_size = tuple(int(s) for s in patch_size)
+    if not all(s > 0 for s in patch_size):
+        raise ValueError(f"patch_size must be > 0 (got {patch_size})")
+    if not all(s < MIN_CROP_SIZE[i] for i, s in enumerate(patch_size)):
+        raise ValueError(
+            f"patch_size must be < {MIN_CROP_SIZE} to match MIN_CROP (got {patch_size})."
+        )
+    return patch_size
+
+
+def _bundled_models_dir():
+    if getattr(sys, 'frozen', False):
+        return join(dirname(sys.executable), 'models')
+    return join(dirname(os.path.abspath(__file__)), 'models')
+
+
+def get_model_dir():
+    model_dir = os.environ.get(MODEL_DIR_ENV)
+    if model_dir:
+        return model_dir
+    from platformdirs import user_cache_dir
+    return join(user_cache_dir('tigerbx'), 'models')
+
+
+model_path = get_model_dir()
+
+
+def download(url, file_name, timeout_s=MODEL_DOWNLOAD_TIMEOUT_S):
     import urllib.request
-    import certifi
-    import shutil
     import ssl
-    context = ssl.create_default_context(cafile=certifi.where())
+    try:
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        context = ssl.create_default_context()
     #urllib.request.urlopen(url, cafile=certifi.where())
     with urllib.request.urlopen(url,
-                                context=context) as response, open(file_name, 'wb') as out_file:
+                                context=context,
+                                timeout=timeout_s) as response, open(file_name, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
         
 
-def get_model(f):
-    from os.path import join, isfile
-    import os
+def _atomic_download(url, dst_path, timeout_s=MODEL_DOWNLOAD_TIMEOUT_S):
+    dst_dir = dirname(dst_path)
+    fd, tmp_path = tempfile.mkstemp(prefix=basename(dst_path) + '.', suffix='.tmp', dir=dst_dir)
+    os.close(fd)
+    try:
+        download(url, tmp_path, timeout_s=timeout_s)
+        os.replace(tmp_path, dst_path)
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
 
+
+def get_model(f):
+    from filelock import FileLock, Timeout
 
     if isfile(f):
         return f
 
-    if '.onnx' in f:
-        fn = f
-    else:
-        fn = f + '.onnx'
+    fn = f if f.endswith('.onnx') else f + '.onnx'
     
-    model_file = join(model_path, fn)
-    
-    if not os.path.exists(model_file):
-        
-        for server in model_servers:
-            try:
-                print(f'Downloading model files....')
-                model_url = server + fn
-                print(model_url, model_file)
-                download(model_url, model_file)
-                download_ok = True
-                print('Download finished...')
-                break
-            except:
-                download_ok = False
+    override_dir = os.environ.get(MODEL_DIR_ENV)
+    model_dir = override_dir or get_model_dir()
+    model_file = join(model_dir, fn)
 
-        if not download_ok:
-            raise ValueError('Server error. Please check the model name or internet connection.')
+    if os.path.exists(model_file):
+        return model_file
+
+    if not override_dir:
+        bundled_model_file = join(_bundled_models_dir(), fn)
+        if os.path.exists(bundled_model_file):
+            return bundled_model_file
+    
+    os.makedirs(model_dir, exist_ok=True)
+
+    lock = FileLock(model_file + '.lock')
+    try:
+        with lock.acquire(timeout=MODEL_LOCK_TIMEOUT_S):
+            if os.path.exists(model_file):
+                return model_file
+
+            errors = []
+            for server in model_servers:
+                model_url = server.rstrip('/') + '/' + fn
+                try:
+                    print('Downloading model file....')
+                    print(model_url, model_file)
+                    _atomic_download(model_url, model_file)
+                    print('Download finished...')
+                    return model_file
+                except Exception as e:
+                    errors.append(f'{model_url}: {e}')
+
+            error_detail = '\n'.join(errors) if errors else '(no servers configured)'
+            raise ValueError(
+                'Server error. Please check the model name or internet connection.\n'
+                f'{error_detail}'
+            )
+    except Timeout:
+        raise TimeoutError(f'Timeout waiting for download lock: {model_file}.lock')
                 
     return model_file
 
@@ -194,7 +281,7 @@ def cpu_count():
     raise Exception('Can not determine number of CPUs on this system')
 
 
-def predict(model, data, GPU, mode=None):
+def predict(model, data, GPU, mode=None, patch_size=None, tile_step_size=0.5, gaussian=True):
     #from .tool import cpu_count
     #will reload model file every time
 
@@ -234,11 +321,31 @@ def predict(model, data, GPU, mode=None):
         return result[0]
         
     if mode == 'patch':
-        logits = patch_inference_3d_lite(session, data.astype(data_type), patch_size = (160,)*3, gaussian = True)
-        # print(data.shape)
-        # logits = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
-        # print('logits type', type(logits))
-        
+        patch_size = _resolve_patch_size(patch_size)
+        input_shape = session.get_inputs()[0].shape
+        if input_shape is not None and len(input_shape) >= 5:
+            expected_spatial = input_shape[-3:]
+            if all(isinstance(s, int) for s in expected_spatial):
+                if tuple(expected_spatial) != tuple(patch_size):
+                    raise ValueError(
+                        f"Model expects fixed spatial dims {tuple(expected_spatial)}, "
+                        f"but patch_size is {tuple(patch_size)}. "
+                        f"Set {PATCH_SIZE_ENV} or pass patch_size=({expected_spatial[0]},{expected_spatial[1]},{expected_spatial[2]})"
+                    )
+
+        try:
+            logits = patch_inference_3d_lite(
+                session,
+                data.astype(data_type),
+                patch_size=patch_size,
+                tile_step_size=tile_step_size,
+                gaussian=gaussian,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Patch inference failed (patch_size={patch_size}, tile_step_size={tile_step_size}, gaussian={gaussian})."
+            ) from exc
+
         return logits
         
     return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)}, )[0]
@@ -248,20 +355,22 @@ def patch_inference_3d_lite(session,
                        tile_step_size: float = 0.5, 
                        gaussian = True ):
     patches, point_list = img_to_patches(vol_d, patch_size, tile_step_size)#patches.shape = (patch_num, 1, 1, 128, 128, 128)  
-    gaussian_map = compute_gaussian(patch_size)
+    gaussian_map = compute_gaussian(patch_size) if gaussian else None
     patch_logits_shape = session.run(None, {session.get_inputs()[0].name: patches[0]}, )[0].shape
     prob_tensor = np.zeros(((patch_logits_shape[1],) + vol_d.shape[-3:]))
     weight_tensor = np.zeros(vol_d.shape[-3:])
     if gaussian:
         weight_patch = gaussian_map
     else:
-        weight_patch = torch.ones(patch_size, device=vol_d.device)
+        weight_patch = np.ones(patch_size, dtype=weight_tensor.dtype)
     for p in point_list:
         weight_tensor[p[0]:p[0]+patch_size[0], p[1]:p[1]+patch_size[1], p[2]:p[2]+patch_size[2]] += weight_patch
     for patch, p in zip(patches, point_list):
         logits = session.run(None, {session.get_inputs()[0].name: patch}, )[0]#logits.shape = (1, c, 128, 128, 128)      
         if gaussian:    
-            output_patch = logits.squeeze(0)*gaussian_map
+            output_patch = logits.squeeze(0) * gaussian_map
+        else:
+            output_patch = logits.squeeze(0)
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += output_patch
     prob_tensor= prob_tensor/weight_tensor
     return prob_tensor[np.newaxis, :]
@@ -288,7 +397,7 @@ def patch_inference_3d(session,
 def compute_steps_for_sliding_window(image_size: Tuple[int, ...], 
                                      tile_size: Tuple[int, ...], 
                                      tile_step_size: float) ->  List[List[int]]:
-    assert [i >= j for i, j in zip(image_size, tile_size)], "image size must be as large or larger than patch_size"
+    assert all(i >= j for i, j in zip(image_size, tile_size)), "image size must be as large or larger than patch_size"
     assert 0 < tile_step_size <= 1, 'step_size must be larger than 0 and smaller or equal to 1'
 
     # our step width is patch_size*step_size at most, but can be narrower. For example if we have image size of

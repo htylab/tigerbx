@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 classifiers = [
     'Intended Audience :: Developers',
-    'Programming Language :: Python :: 3.7',
-    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3',
+    'License :: Free for non-commercial use',
     "Operating System :: OS Independent"
 ]
 
@@ -15,12 +15,14 @@ setup(
 
      version='0.1.21',
      description='Processing MRI images based on deep-learning',
+     long_description=long_description,
      long_description_content_type='text/markdown',
      url='https://github.com/htylab/tigerbx',
 
      author='AI & Scientific Computing Lab, Taiwan Tech',
      author_email='',
-     License='MIT',
+     license='CC BY-NC 4.0',
+     license_files=['LICENSE'],
      classifiers=classifiers,
 
      keywords='MRI brain segmentation',
@@ -44,6 +46,13 @@ setup(
              'antspyx',
              'pandas',
              'scikit-image',
+             'platformdirs',
+             'filelock',
          ],
+     extras_require={
+         'cpu': ['onnxruntime>=1.17.0,<1.21.0'],
+         'cu12': ['onnxruntime-gpu>=1.17.0,<1.21.0'],
+         'dev': ['pytest'],
+     },
 
 )
