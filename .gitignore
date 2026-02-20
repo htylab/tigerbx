@@ -5,8 +5,6 @@ models/
 *$py.class
 .ipynb_checkpoints/
 test_output/
-test_compare.py
-test_run.py
 .claude/
 # C extensions
 #*.so
