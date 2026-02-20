@@ -4,6 +4,10 @@ models/
 *.py[cod]
 *$py.class
 .ipynb_checkpoints/
+test_output/
+test_compare.py
+test_run.py
+.claude/
 # C extensions
 #*.so
 
@@ -108,9 +112,14 @@ celerybeat.pid
 .venv
 env/
 venv/
+venv_old/
+venv_new/
 ENV/
 env.bak/
 venv.bak/
+
+# Test outputs
+test_output/
 
 # Spyder project settings
 .spyderproject

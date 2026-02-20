@@ -1,6 +1,5 @@
 import os
 from os.path import basename, join, isdir, dirname, commonpath
-import argparse
 import time
 import numpy as np
 
@@ -16,21 +15,9 @@ from nilearn.image import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def setup_parser(parser):
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--save', default='h', type=str, help='Selected outputs mbhtcgw, default:h')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
-
-
-
 def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False):
     
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]

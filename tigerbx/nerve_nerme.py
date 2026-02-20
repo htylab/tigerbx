@@ -17,7 +17,6 @@ import onnxruntime as ort
 import tempfile
 import tigerbx
 
-import argparse
 import time
 import glob
 import platform
@@ -33,28 +32,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tigerbx.lib_nerve import nerve_preprocess_nib, get_ftemplate
 from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
-
-'''
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-    run_args(args)
-'''
-
-def setup_parser(parser):
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('--method', default='NERVE', type=str, help='Specifying the model name')
-    parser.add_argument('-p', '--save_patch', action='store_true', help='Saving patches')
-    parser.add_argument('-d', '--decode', action='store_true', help='Decode patches')
-    parser.add_argument('-e', '--encode', action='store_true', help='Encode patches')
-    parser.add_argument('-v', '--evaluate', action='store_true', help='Evaluate models')
-    parser.add_argument('-s', '--sigma', action='store_true', help='Using variable reconstruction')
-
 
 # ------------------------------------------------------------
 # Encode: NIfTI → latent .npz
@@ -98,7 +75,7 @@ def encode_nii(
         z_mu, z_sigma = onnx_encode(enc_sess, img)
         latent_dict[tag] = z_mu[0]
         latent_dict[tag + '_sigma'] = z_sigma[0]
-        print(f"{tag} ▸ latent shape {z_mu.shape}")
+        print(f"{tag} > latent shape {z_mu.shape}")
 
         patch_arrays.append(img.get_fdata())
         if first_affine is None:
@@ -174,7 +151,7 @@ def decode_npz(
 
 
 def nerve(argstring, input, output=None, model=None, method='NERVE'):
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
@@ -332,7 +309,3 @@ def run_args(args):
     return results
 
 
-if __name__ == "__main__":
-    main()
-    if platform.system() == 'Windows':
-        os.system('pause')

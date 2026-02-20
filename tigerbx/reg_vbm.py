@@ -1,7 +1,6 @@
 import sys
 import os
 from os.path import basename, join, isdir, commonpath
-import argparse
 import glob
 import platform
 import nibabel as nib
@@ -18,37 +17,8 @@ from tigerbx import lib_reg
 from tigerbx.bx import produce_mask, save_nib, get_template
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-    run_args(args)
-
-def setup_parser(parser):
-    #def main():      
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output image, default: the directory of input files')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
-    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
-    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template(VoxelMorph)')
-    parser.add_argument('-s', '--syn', action='store_true', help='Registering images to template(SyN)')
-    parser.add_argument('-S', '--syncc', action='store_true', help='Registering images to template(SyNCC)')
-    parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
-    parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
-    parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
-    parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
-    parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
-    parser.add_argument('--affine_type', choices=['C2FViT', 'ANTs'], default='C2FViT', help='Specify affine transformation type')
-    
-    #args = parser.parse_args()
-    #run_args(args)
-
 def reg(argstring, input=None, output=None, model=None, template=None, save_displacement=False, affine_type='C2FViT'):
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
@@ -470,7 +440,3 @@ def run_args(args):
     return result_all
 
 
-if __name__ == "__main__":
-    main()
-    if platform.system() == 'Windows':
-        os.system('pause')

@@ -32,7 +32,7 @@ setup(
 
      entry_points={
         'console_scripts': [
-            'tiger = tigerbx.tiger:main',
+            'tiger = tigerbx_cli.tiger:main',
         ]
     },
      python_requires='>=3.8',
