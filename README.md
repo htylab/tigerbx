@@ -209,6 +209,75 @@ See [NERVE usage](doc/nerve.md) for a complete description.
 
 ---
 
+### `eval` — Image Quality and Segmentation Metrics
+
+Computes quantitative metrics between a ground-truth and a predicted image.
+Accepts NIfTI file paths, nibabel images, or numpy arrays.
+
+```python
+import tigerbx
+
+# Segmentation — evaluate ASEG prediction against ground truth
+result = tigerbx.run('a', 'T1w.nii.gz', 'output/')
+scores = tigerbx.eval('gt_aseg.nii.gz', result['aseg'], 'dice',
+                      labels=[10, 11, 17, 18])
+# → {'dice': {'10': 0.91, '11': 0.89, '17': 0.94, '18': 0.92, 'mean': 0.915}}
+
+# Multiple metrics at once
+scores = tigerbx.eval('gt.nii.gz', 'pred.nii.gz', ['dice', 'hd95'],
+                      labels=[1, 2, 3])
+
+# Reconstruction quality (e.g. after GDM)
+scores = tigerbx.eval('ref.nii.gz', 'pred_gdm.nii.gz', ['psnr', 'ssim', 'ncc'])
+```
+
+Supported metrics: `dice`, `iou`, `hd95`, `asd`, `mae`, `mse`, `psnr`, `ssim`, `ncc`, `mi`, `ksg_mi`, `accuracy`, `precision`, `recall`, `f1`.
+
+See [eval usage](doc/eval.md) for the full API reference and examples.
+
+---
+
+## Agent Skills (Claude Code / Codex CLI)
+
+TigerBx ships with a ready-to-use **skill pack** for AI coding assistants that support the skills standard, including [Claude Code](https://claude.ai/code) and Codex CLI.
+
+Once installed, your assistant will automatically know when and how to call `tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.gdm`, `tigerbx.nerve`, and `tigerbx.eval` — without you having to explain the API.
+
+### Install — Claude Code
+
+```bash
+# Project-level (this project only)
+cp -r skills/tigerbx .claude/skills/
+
+# User-level (all your projects)
+cp -r skills/tigerbx ~/.claude/skills/
+```
+
+Reload Claude Code. The `/tigerbx` skill becomes available, and Claude will proactively use it for any brain MRI analysis task.
+
+### Install — Codex CLI
+
+In Codex CLI interactive mode, run:
+
+```
+$skill-installer https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
+```
+
+### What the skill provides
+
+| Skill file | Covers |
+|---|---|
+| `SKILL.md` | Environment check, module dispatch table, conventions |
+| `bx.md` | `run()` flag reference, output naming |
+| `hlc.md` | `hlc()` save options, tissue maps |
+| `reg.md` | `reg()` / `transform()` registration modes |
+| `gdm.md` | `gdm()` EPI distortion correction |
+| `nerve.md` | `nerve()` hippocampus/amygdala VAE embedding |
+| `eval.md` | `eval()` metrics, use cases, kwargs |
+| `labels.md` | ASEG, DeepGM, HLC, SynthSeg label tables |
+
+---
+
 ## Installation (stand-alone CLI)
 
 Download the latest stand-alone release (no Python required):
@@ -242,6 +311,8 @@ If you use TigerBx in your research, please cite the following:
 2. **Wang HC et al.** (2024) *Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis.* **NMR in Biomedicine; e5169.** https://doi.org/10.1002/nbm.5169
 
 3. **Kuo CC, et al.** (2025) *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.* **Magn Reson Med.** 2025; 1–16. https://doi.org/10.1002/mrm.30577
+
+4. **Sun PM, et al.** (2026) *DeepVBM: A fully automatic and efficient voxel-based morphometry via deep learning-based segmentation and registration methods.* **Magn Reson Imaging. 2026; 128: 110637.** https://doi.org/10.1016/j.mri.2026.110637
 
 ---
 

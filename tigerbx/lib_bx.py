@@ -108,9 +108,13 @@ def run(model_ff_list, input_nib, GPU, patch=False):
 
     image = data[None, ...][None, ...]
     if seg_mode == 'synthseg':
-        image = (image - np.min(image)) / (np.max(image) - np.min(image))
+        rng = np.max(image) - np.min(image)
+        if rng > 0:
+            image = (image - np.min(image)) / rng
     else:
-        image = image/np.max(image)
+        mx = np.max(image)
+        if mx > 0:
+            image = image / mx
 
     prob = 0
     count = 0

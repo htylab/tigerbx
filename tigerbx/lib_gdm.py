@@ -185,10 +185,16 @@ def gernerate_vdm(vdm_mode, session, orig_data, b0_index, resample=True):
         vol_resize = resample_nii.get_fdata()
         vol_resize = ResizeWithPadOrCrop(vol_resize, (150, 150, 120))
         head_mask = get_head_mask(vol_resize, htype=1)!=0
-        vol_resize = vol_resize / np.max(vol_resize)
+        mx = np.max(vol_resize)
+        if mx > 0:
+            vol_resize = vol_resize / mx
     else:
         head_mask = get_head_mask(vol, htype=1)!=0
-        vol_resize = vol / np.max(vol)
+        mx = np.max(vol)
+        if mx > 0:
+            vol_resize = vol / mx
+        else:
+            vol_resize = vol
     
     # vol_resize_n = HistogramNormalize(vol_resize, mask=head_mask, num_bins=256, minv=0, maxv=1)
     # image = np.stack([vol_resize, vol_resize_n], axis=0)[None, ...]

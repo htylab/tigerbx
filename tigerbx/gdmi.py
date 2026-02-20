@@ -1,7 +1,6 @@
 import sys
 import os
 from os.path import join
-from distutils.util import strtobool
 import glob
 from scipy.io import savemat
 import nibabel as nib

@@ -22,7 +22,7 @@ pip install onnxruntime-gpu    # GPU (optional)
 
 # CLI smoke check
 tiger --help
-tiger bx T1w.nii.gz -b -m -o out/
+tiger bx T1w.nii.gz -bmad -o out/
 ```
 
 Build a wheel/sdist:

@@ -4,7 +4,6 @@
 import os
 import re
 import subprocess
-import onnxruntime as ort
 import shutil
 import tempfile
 import warnings
@@ -17,7 +16,6 @@ from nilearn.image import resample_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)
-ort.set_default_logger_severity(3)
 nib.Nifti1Header.quaternion_threshold = -100
 
 model_servers = ['https://github.com/htylab/tigerbx/releases/download/modelhub/',
@@ -282,8 +280,8 @@ def cpu_count():
 
 
 def predict(model, data, GPU, mode=None, patch_size=None, tile_step_size=0.5, gaussian=True):
-    #from .tool import cpu_count
-    #will reload model file every time
+    import onnxruntime as ort
+    ort.set_default_logger_severity(3)
 
     so = ort.SessionOptions()
     cpu = max(int(cpu_count()*0.7), 1)
