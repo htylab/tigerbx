@@ -18,7 +18,7 @@ TigerBx is a Python package for deep-learning-based brain MRI analysis.
 import importlib.metadata, packaging.version
 try:
     v = importlib.metadata.version('tigerbx')
-    assert packaging.version.Version(v) >= packaging.version.Version('0.2.0')
+    assert packaging.version.Version(v) >= packaging.version.Version('0.2.1')
     print(f'tigerbx {v} ready')
 except Exception:
     print('tigerbx >= 0.2.0 not found — install required')
@@ -45,6 +45,7 @@ uv add "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
 | Register T1 to MNI space, VBM, apply warp | `tigerbx.reg()` / `tigerbx.transform()` | [reg.md](reg.md) |
 | EPI / DTI geometric distortion correction | `tigerbx.gdm()` | [gdm.md](gdm.md) |
 | Hippocampus/amygdala VAE embedding | `tigerbx.nerve()` | [nerve.md](nerve.md) |
+| Quantitative metrics (Dice, HD95, PSNR, SSIM, …) | `tigerbx.eval()` | [eval.md](eval.md) |
 
 ---
 

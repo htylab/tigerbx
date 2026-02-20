@@ -26,10 +26,13 @@ will automatically use it whenever you ask about brain MRI processing tasks.
 
 ---
 
-## Install (Codex CLI or other agents)
+## Install (Codex CLI)
 
-Copy the `tigerbx/` directory to wherever your agent loads skills from,
-following your agent's documentation.
+In Codex CLI interactive mode, run:
+
+```
+$skill-installer https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
+```
 
 ---
 
@@ -37,4 +40,4 @@ following your agent's documentation.
 
 | Skill | Description |
 |-------|-------------|
-| `tigerbx` | Brain MRI analysis: extraction, segmentation, registration, EPI correction, embedding |
+| `tigerbx` | Brain MRI analysis: extraction, segmentation, registration, EPI correction, hippocampus embedding, quantitative evaluation |

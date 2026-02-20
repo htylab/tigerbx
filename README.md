@@ -237,6 +237,47 @@ See [eval usage](doc/eval.md) for the full API reference and examples.
 
 ---
 
+## Agent Skills (Claude Code / Codex CLI)
+
+TigerBx ships with a ready-to-use **skill pack** for AI coding assistants that support the skills standard, including [Claude Code](https://claude.ai/code) and Codex CLI.
+
+Once installed, your assistant will automatically know when and how to call `tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.gdm`, `tigerbx.nerve`, and `tigerbx.eval` — without you having to explain the API.
+
+### Install — Claude Code
+
+```bash
+# Project-level (this project only)
+cp -r skills/tigerbx .claude/skills/
+
+# User-level (all your projects)
+cp -r skills/tigerbx ~/.claude/skills/
+```
+
+Reload Claude Code. The `/tigerbx` skill becomes available, and Claude will proactively use it for any brain MRI analysis task.
+
+### Install — Codex CLI
+
+In Codex CLI interactive mode, run:
+
+```
+$skill-installer https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
+```
+
+### What the skill provides
+
+| Skill file | Covers |
+|---|---|
+| `SKILL.md` | Environment check, module dispatch table, conventions |
+| `bx.md` | `run()` flag reference, output naming |
+| `hlc.md` | `hlc()` save options, tissue maps |
+| `reg.md` | `reg()` / `transform()` registration modes |
+| `gdm.md` | `gdm()` EPI distortion correction |
+| `nerve.md` | `nerve()` hippocampus/amygdala VAE embedding |
+| `eval.md` | `eval()` metrics, use cases, kwargs |
+| `labels.md` | ASEG, DeepGM, HLC, SynthSeg label tables |
+
+---
+
 ## Installation (stand-alone CLI)
 
 Download the latest stand-alone release (no Python required):
