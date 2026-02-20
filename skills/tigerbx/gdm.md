@@ -53,3 +53,14 @@ For input `dti.nii.gz`:
 |-----------|-------------|
 | (default) | `dti_gdm.nii.gz` — distortion-corrected volume |
 | `dmap=True` | `dti_dmap.nii.gz` — predicted displacement map |
+
+---
+
+## CLI (for simple one-off tasks)
+
+```bash
+tiger gdm dti.nii.gz -o output/
+tiger gdm dti.nii.gz -b0 1 -o output/
+tiger gdm dti.nii.gz -b0 dti.bval -o output/
+tiger gdm dti.nii.gz -m -g -o output/
+```

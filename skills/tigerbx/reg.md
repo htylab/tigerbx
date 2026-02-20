@@ -84,3 +84,15 @@ tigerbx.transform('moving_labels.nii.gz', 'warp.npz', 'output/', interpolation='
 # Apply warp to a continuous image
 tigerbx.transform('moving_T1w.nii.gz', 'warp.npz', 'output/', interpolation='linear')
 ```
+
+---
+
+## CLI (for simple one-off tasks)
+
+```bash
+tiger reg T1w.nii.gz -A -o output/
+tiger reg T1w.nii.gz -A -r -o output/ --affine_type C2FViT
+tiger reg T1w.nii.gz -F -o output/ --affine_type ANTs
+tiger reg /data/T1w_dir/ -v -o /data/output/
+tiger reg T1w.nii.gz -A -r -o output/ --save_displacement
+```

@@ -98,3 +98,16 @@ For input `sub-001_T1w.nii.gz` with an output directory:
 | `q`  | `sub-001_T1w_qc-<score>.log` |
 
 See [labels.md](labels.md) for ASEG and DeepGM label definitions.
+
+---
+
+## CLI (for simple one-off tasks)
+
+Flags can be combined into a single argument (e.g. `-bmad`).
+
+```bash
+tiger bx T1w.nii.gz -bmad -o output/
+tiger bx T1w.nii.gz -bmacdCSWtq -o output/
+tiger bx /data/T1w_dir/ -bmag -o /data/output/
+tiger bx --clean_onnx
+```

@@ -76,3 +76,14 @@ For input `sub-001_T1w.nii.gz`:
 | `w`    | `sub-001_T1w_wm.nii.gz` |
 
 See [labels.md](labels.md) for HLC label definitions (56-region and 171-label tables).
+
+---
+
+## CLI (for simple one-off tasks)
+
+```bash
+tiger hlc T1w.nii.gz -o output/
+tiger hlc T1w.nii.gz --save all -o output/
+tiger hlc T1w.nii.gz --save htcgw -g -o output/
+tiger hlc /data/T1w_dir/ --save all -p -o /data/output/
+```

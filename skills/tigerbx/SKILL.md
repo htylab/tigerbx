@@ -8,14 +8,30 @@ argument-hint: "<bx|hlc|reg|gdm|nerve> <input.nii.gz> [output_dir]"
 
 TigerBx is a Python package for deep-learning-based brain MRI analysis.
 
+> **Models are downloaded automatically on first use** and cached locally. No manual setup needed.
+
+## Environment check
+
+**Always verify the environment before using tigerbx.** Run this first:
+
+```python
+import importlib.metadata, packaging.version
+try:
+    v = importlib.metadata.version('tigerbx')
+    assert packaging.version.Version(v) >= packaging.version.Version('0.2.0')
+    print(f'tigerbx {v} ready')
+except Exception:
+    print('tigerbx >= 0.2.0 not found — install required')
+```
+
+If not installed or version is too old, install with:
+
 ```bash
-# Install (CPU)
+# CPU
 uv add "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/release.zip"
 # GPU (CUDA 12)
 uv add "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
 ```
-
-> **Models are downloaded automatically on first use** and cached locally. No manual setup needed.
 
 ---
 

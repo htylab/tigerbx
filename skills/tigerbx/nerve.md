@@ -75,3 +75,14 @@ For input `sub-001_T1w.nii.gz`:
 | `e`  | `sub-001_T1w_nerve_L.npz`, `sub-001_T1w_nerve_R.npz` |
 | `p`  | `sub-001_T1w_nerve_patch_L.nii.gz`, `sub-001_T1w_nerve_patch_R.nii.gz` |
 | `d`  | `sub-001_T1w_nerve_recon_L.nii.gz`, `sub-001_T1w_nerve_recon_R.nii.gz` |
+
+---
+
+## CLI (for simple one-off tasks)
+
+```bash
+tiger nerve T1w.nii.gz -e -o output/
+tiger nerve T1w.nii.gz -e -p -o output/
+tiger nerve T1w.nii.gz -v -o output/
+tiger nerve /data/nerve_out/ -d -o /data/recon/
+```
