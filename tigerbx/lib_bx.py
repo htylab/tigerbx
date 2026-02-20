@@ -1,11 +1,8 @@
-import glob
-from os.path import join, basename, isdir
-import os
+from os.path import basename
 import numpy as np
 import nibabel as nib
 from scipy.special import softmax
-from nilearn.image import reorder_img, resample_to_img, resample_img
-from scipy.ndimage import gaussian_filter
+from nilearn.image import reorder_img, resample_img
 
 from tigerbx import lib_tool
 import optuna
@@ -46,7 +43,6 @@ def getLarea(input_mask):
     from scipy import ndimage
     labeled_mask, cc_num = ndimage.label(input_mask)
     if cc_num > 0:
-        labeled_mask, cc_num = ndimage.label(input_mask)
         mask = (labeled_mask == (np.bincount(
             labeled_mask.flat)[1:].argmax() + 1))
     else:
@@ -69,25 +65,12 @@ def get_affine(mat_size):
 
 def get_mat_size(model_ff):
     import re
-    tmp = re.compile('r\d{2,4}.onnx').findall(basename(model_ff))
+    tmp = re.compile(r'r\d{2,4}.onnx').findall(basename(model_ff))
     mat_size = -1
     if len(tmp) > 0:
         mat_size = int(tmp[0].replace('.onnx', '')[1:])
     #print(model_ff, mat_size)
     return mat_size
-
-def read_nib(input_nib):
-
-    # in adni dataset, the 3D mprage is stored as a 4D array
-
-    return np.squeeze(input_nib.get_fdata())
-
-def reorient(nii, orientation="RAS"):
-    orig_ornt = nib.orientations.io_orientation(nii.affine)
-    targ_ornt = nib.orientations.axcodes2ornt(orientation)
-    transform = nib.orientations.ornt_transform(orig_ornt, targ_ornt)
-    reoriented_nii = nii.as_reoriented(transform)
-    return reoriented_nii
 
 def logit_to_prob(logits, seg_mode):
     label_num = dict()
@@ -108,7 +91,7 @@ def logit_to_prob(logits, seg_mode):
         prob = expit(logits)
     else:
         #softmax mode
-        #print(logits.shape)        
+        #print(logits.shape)
         prob = softmax(logits, axis=0)
     return prob
 
@@ -118,10 +101,10 @@ def run(model_ff_list, input_nib, GPU, patch=False):
         model_ff_list = [model_ff_list]
 
 
-    seg_mode, _ , model_str = get_mode(model_ff_list[0]) 
+    seg_mode, _ , model_str = get_mode(model_ff_list[0])
 
     #data = input_nib.get_fdata()
-    data = read_nib(input_nib)
+    data = lib_tool.read_nib(input_nib)
 
     image = data[None, ...][None, ...]
     if seg_mode == 'synthseg':
@@ -145,17 +128,16 @@ def run(model_ff_list, input_nib, GPU, patch=False):
         mask_pred = np.ones(prob[0, ...].shape)
         mask_pred[prob[0, ...] < th] = 0
         mask_pred = getLarea(mask_pred)
-    else:    
+    else:
         mask_pred = np.argmax(prob, axis=0)
-    
+
 
     if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
         labels = label_all[seg_mode]
-        mask_pred_relabel = mask_pred * 0
-        for ii in range(len(labels)):
-            mask_pred_relabel[mask_pred == (ii + 1)] = labels[ii]
-            #print((ii+1), labels[ii])
-        mask_pred = mask_pred_relabel
+        lut = np.zeros(len(labels) + 2, dtype=np.int32)
+        for ii, lbl in enumerate(labels):
+            lut[ii + 1] = lbl
+        mask_pred = lut[mask_pred]
 
 
 
@@ -164,7 +146,7 @@ def run(model_ff_list, input_nib, GPU, patch=False):
 
     output_nib = nib.Nifti1Image(
         mask_pred, input_nib.affine, input_nib.header)
-    
+
     return output_nib, prob
 
 
@@ -179,7 +161,7 @@ def read_file(model_ff, input_file):
 
         if max(zoom) > 1.1 or min(zoom) < 0.9 or mat_size == 111:
 
-            vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
+            vol_nib = lib_tool.resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
         else:
             vol_nib = reorder_img(input_nib, resample='continuous')
@@ -189,67 +171,3 @@ def read_file(model_ff, input_file):
                            target_affine=affine, target_shape=shape)
 
     return vol_nib
-
-
-
-
-def write_file(model_ff, input_file, output_dir,
-               mask, postfix=None, dtype='mask', inmem=False):
-    seg_mode, _ , model_str = get_mode(model_ff)
-
-    mask_dtype = mask.dtype
-
-    if not isdir(output_dir):
-        print('Output dir does not exist.')
-        return 0
-
-    if postfix is None:
-        postfix = seg_mode
-    
-    output_file = basename(input_file).replace('.nii', f'_{postfix}.nii')    
-
-    output_file = join(output_dir, output_file)
-    
-    input_nib = nib.load(input_file)
-    input_affine = input_nib.affine
-    zoom = input_nib.header.get_zooms()
-
-    mat_size = get_mat_size(model_ff)
-
-    if mat_size == -1:
-        target_affine = reorder_img(nib.load(input_file),
-                                     resample='linear').affine
-    else:
-        target_affine, _ = get_affine(mat_size)
-
-    if dtype == 'orig':
-        result = nib.Nifti1Image(mask.astype(input_nib.dataobj.dtype), target_affine)
-    else:
-        result = nib.Nifti1Image(mask.astype(mask_dtype), target_affine)
-    result = resample_to_img(result, input_nib, interpolation="nearest")
-    result.header.set_zooms(zoom)
-
-    if not inmem:        
-        nib.save(result, output_file)
-        print('Writing output file: ', output_file)
-
-    return output_file, result
-
-
-def resample_voxel(data_nib, voxelsize,
-                     target_shape=None, interpolation='continuous'):
-
-    affine = data_nib.affine
-    target_affine = affine.copy()
-
-    factor = np.zeros(3)
-    for i in range(3):
-        factor[i] = voxelsize[i] / \
-            np.sqrt(affine[0, i]**2 + affine[1, i]**2 + affine[2, i]**2)
-        target_affine[:3, i] = target_affine[:3, i]*factor[i]
-
-    new_nib = resample_img(data_nib, target_affine=target_affine,
-                           target_shape=target_shape, interpolation=interpolation,
-                           force_resample=True)
-
-    return new_nib

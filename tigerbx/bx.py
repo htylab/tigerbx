@@ -5,15 +5,12 @@ import time
 import numpy as np
 
 import glob
-import platform
 import nibabel as nib
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
 import copy
-from nilearn.image import resample_to_img, reorder_img, resample_img
-from itertools import product
-import concurrent.futures
+from nilearn.image import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -49,14 +46,9 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
 
 
     if brainmask_nib is None:
-
-        output = lib_bx.read_nib(mask_nib)
-
+        output = lib_tool.read_nib(mask_nib)
     else:
-        output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
-
-
-    output = lib_bx.read_nib(mask_nib)
+        output = lib_tool.read_nib(mask_nib) * lib_tool.read_nib(brainmask_nib)
 
     if np.max(output) <=255:
         dtype = np.uint8
@@ -71,7 +63,7 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
     if QC:
         probmax = np.max(prob_resp, axis=0)
         qc_score = np.percentile(
-            probmax[lib_bx.read_nib(mask_nib_resp) > 0], 1) - 0.5
+            probmax[lib_tool.read_nib(mask_nib_resp) > 0], 1) - 0.5
         #qc = np.percentile(probmax, 1) - 0.5
         qc_score = min(int(qc_score * 1500), 100)
         return output_nib, qc_score
@@ -208,11 +200,8 @@ def run_args(args):
     if len(base_ffs) != len(set(base_ffs)):
         common_folder = commonpath(input_file_list)
         
-    count = 0
     result_all = []
-    result_filedict = dict()
-    for f in input_file_list:
-        count += 1
+    for count, f in enumerate(input_file_list, 1):
         result_dict = dict()
         result_filedict = dict()
 
@@ -223,18 +212,22 @@ def run_args(args):
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
-        tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+        tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
-        tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
-        tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 
-        zoom = tbet_nib.header.get_zooms() 
-
-        if max(zoom) > 1.1 or min(zoom) < 0.9:
-            tbet_seg = tbet_nib111
-        else:
-            tbet_seg = reorder_img(tbet_nib, resample='continuous')
+        _needs_111 = any(run_d[k] for k in
+                         ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn', 'cgw', 'ct'])
+        tbet_nib111 = None
+        tbet_seg = None
+        if _needs_111:
+            tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1), interpolation='continuous')
+            tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
+            zoom = tbet_nib.header.get_zooms()
+            if max(zoom) > 1.1 or min(zoom) < 0.9:
+                tbet_seg = tbet_nib111
+            else:
+                tbet_seg = reorder_img(tbet_nib, resample='continuous')
         
         printer('QC score:', qc_score)
 
@@ -279,8 +272,8 @@ def run_args(args):
         if run_d['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
-            bet_img = lib_bx.read_nib(tbet_nib111)
+            #tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            bet_img = lib_tool.read_nib(tbet_nib111)
             
             image = bet_img[None, ...][None, ...]
             image = image/normalize_factor
@@ -305,7 +298,7 @@ def run_args(args):
 
         if run_d['ct']:
             model_ff = lib_tool.get_model(omodel['ct'])
-            bet_img = lib_bx.read_nib(tbet_nib111)            
+            bet_img = lib_tool.read_nib(tbet_nib111)            
             image = bet_img[None, ...][None, ...]
             image = image/np.max(image)
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]

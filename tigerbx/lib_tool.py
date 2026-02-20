@@ -12,7 +12,6 @@ import nibabel as nib
 import numpy as np
 import sys
 from os.path import isfile, join
-from tigerbx import lib_bx
 from nilearn.image import resample_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
@@ -353,6 +352,25 @@ def patches_to_img(patches: np.ndarray, vol_d_size: Tuple[int, ...], point_list:
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] += patches[patch_dim, : ,...]
         prob_tensor[: , p[0] : p[0]+patch_size[0],  p[1] :  p[ 1]+patch_size[1],  p[2] :  p[2]+patch_size[2]] /= none_zero_num
     return prob_tensor[np.newaxis, :]
+
+def read_nib(input_nib):
+    # in adni dataset, the 3D mprage is stored as a 4D array
+    return np.squeeze(input_nib.get_fdata())
+
+
+def resample_voxel(data_nib, voxelsize, target_shape=None, interpolation='continuous'):
+    affine = data_nib.affine
+    target_affine = affine.copy()
+    factor = np.zeros(3)
+    for i in range(3):
+        factor[i] = voxelsize[i] / \
+            np.sqrt(affine[0, i]**2 + affine[1, i]**2 + affine[2, i]**2)
+        target_affine[:3, i] = target_affine[:3, i] * factor[i]
+    new_nib = resample_img(data_nib, target_affine=target_affine,
+                           target_shape=target_shape, interpolation=interpolation,
+                           force_resample=True)
+    return new_nib
+
 
 def clean_onnx():
     import glob

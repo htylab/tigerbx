@@ -12,7 +12,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 from tigerbx import lib_tool
-from tigerbx import lib_bx
 from tigerbx import lib_reg
 from tigerbx.bx import produce_mask, save_nib, get_template
 
@@ -110,13 +109,13 @@ def run_args(args):
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
-        tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+        tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
         if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
             tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
-        tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
         tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 
         zoom = tbet_nib.header.get_zooms() 
@@ -144,8 +143,8 @@ def run_args(args):
         if run_d.get('cgw', False): # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
-            bet_img = lib_bx.read_nib(tbet_nib111)
+            #tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            bet_img = lib_tool.read_nib(tbet_nib111)
             
             image = bet_img[None, ...][None, ...]
             image = image/normalize_factor
@@ -181,7 +180,7 @@ def run_args(args):
                 "Fuse_dense_warp": None
             }
             
-            bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+            bet = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
             

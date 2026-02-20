@@ -9,7 +9,6 @@ import nibabel as nib
 import numpy as np
 import sys
 from os.path import isfile, join
-from tigerbx import lib_bx
 from tigerbx import lib_tool
 from tigerbx import bx
 from nilearn.image import resample_img, reorder_img
@@ -41,13 +40,13 @@ def get_template(template_ff):
         
         if isfile(full_path):
             user_template_nib = nib.load(full_path)
-            #resampled_template = lib_bx.resample_voxel(user_template_nib, (1, 1, 1), (256, 256, 256))
+            #resampled_template = lib_tool.resample_voxel(user_template_nib, (1, 1, 1), (256, 256, 256))
             resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
             return resampled_template
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
+        template_nib = lib_tool.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
         return template_nib
 
 
@@ -68,7 +67,7 @@ def get_template_seg(template_ff):
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        template_nib = lib_bx.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
+        template_nib = lib_tool.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
         return template_nib
     
 

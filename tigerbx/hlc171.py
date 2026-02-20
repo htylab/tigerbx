@@ -8,7 +8,6 @@ import platform
 import nibabel as nib
 
 from tigerbx import lib_tool
-from tigerbx import lib_bx
 from tigerbx.bx import produce_mask, save_nib, get_template
 from nilearn.image import resample_to_img, reorder_img
 
@@ -295,7 +294,7 @@ def run_args(args):
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
-        tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+        tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
 
@@ -303,7 +302,7 @@ def run_args(args):
         zoom = tbet_nib.header.get_zooms() 
 
         if max(zoom) > 1.1 or min(zoom) < 0.9:
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
         else:
             tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
@@ -312,8 +311,8 @@ def run_args(args):
 
         #print(tbet_nib111.shape, tbet_nib111.get_fdata().dtype, tbet_nib.get_fdata().dtype)
 
-        tbet_image = lib_bx.read_nib(tbet_nib111)
-        tbetmask_image = lib_bx.read_nib(tbetmask_nib111)
+        tbet_image = lib_tool.read_nib(tbet_nib111)
+        tbetmask_image = lib_tool.read_nib(tbetmask_nib111)
             
         image_orig = tbet_image
 
