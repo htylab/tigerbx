@@ -14,7 +14,14 @@ allowed-tools: Bash, Read, Glob
 # TigerBx skill
 
 TigerBx (`tigerbx`) is a Python package and CLI tool for deep-learning-based brain MRI analysis.
-Install: `pip install onnxruntime && pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip`
+
+Install:
+```bash
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/release.zip"
+# GPU (CUDA 12):
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
+```
+
 CLI entry point: `tiger <subcommand> ...`
 
 ---
@@ -24,7 +31,7 @@ CLI entry point: `tiger <subcommand> ...`
 | Situation | Module |
 |-----------|--------|
 | User wants to extract the brain / skull-strip a T1 image | `bx` |
-| User wants brain mask, ASEG, DKT, cortical thickness, deep GM, WMH, CGW, tumor | `bx` |
+| User wants brain mask, ASEG, cortical thickness, deep GM, WMH, CGW, tumor | `bx` |
 | User wants hierarchical parcellation (56-region) or tissue probability maps (CSF/GM/WM) | `hlc` |
 | User wants to register a T1 image to MNI space, run VBM, or apply a warp | `reg` |
 | User wants to correct geometric distortions in a DTI / EPI image | `gdm` |
@@ -40,7 +47,7 @@ import tigerbx
 tigerbx.run(argstring, input, output=None, model=None, silent=False)
 ```
 
-**`argstring` flags** (combine freely, e.g. `'bmadk'`):
+**`argstring` flags** (combine freely, e.g. `'bmad'`):
 
 | Flag | Output (suffix) | Description |
 |------|-----------------|-------------|
@@ -50,32 +57,31 @@ tigerbx.run(argstring, input, output=None, model=None, silent=False)
 | `c`  | `_ct`           | Cortical thickness map |
 | `C`  | `_cgw_pve0/1/2` | CSF / GM / WM probability maps (3 files) |
 | `d`  | `_dgm`          | Deep gray matter mask (12 structures) |
-| `k`  | `_dkt`          | DKT cortical parcellation |
 | `S`  | `_syn`          | SynthSeg-style ASEG |
-| `w`  | `_wmp`          | White matter parcellation |
 | `W`  | `_wmh`          | White matter hypointensity mask |
 | `t`  | `_tumor`        | Tumor mask |
 | `q`  | `_qc-N.log`     | QC score log |
 | `g`  | —               | Use GPU |
 | `p`  | —               | Patch-based inference |
+| `z`  | —               | Force `.nii.gz` output |
 
 Default (no flag): brain extraction (`b`).
 
 ```python
 # examples
 tigerbx.run('bm', 'T1w.nii.gz', 'output/')        # brain + mask
-tigerbx.run('bmadk', 'T1w.nii.gz', 'output/')     # full common pipeline
-tigerbx.run('bmacdCkSwWtq', '/data/T1w_dir')      # all outputs, save in-place
+tigerbx.run('bmad', 'T1w.nii.gz', 'output/')      # recommended pipeline
+tigerbx.run('bmacdCSWtq', '/data/T1w_dir')        # all outputs, save in-place
 tigerbx.run('bmag', '/data/**/*.nii.gz', 'out/')  # GPU, glob input
 tigerbx.run('clean_onnx')                          # remove cached models
 ```
 
 ### CLI
 ```bash
-tiger bx T1w.nii.gz -b -m -o output/
-tiger bx T1w.nii.gz -b -m -a -k -c -d -o output/
-tiger bx T1w.nii.gz -b -m -a -c -C -d -k -S -w -W -t -q -o output/
-tiger bx /data/T1w_dir -b -m -a -g -o output/
+tiger bx T1w.nii.gz -bmad -o output/
+tiger bx T1w.nii.gz -bm -o output/
+tiger bx T1w.nii.gz -bmacdCSWtq -o output/
+tiger bx /data/T1w_dir -bmag -o output/
 tiger bx --clean_onnx
 ```
 
@@ -245,7 +251,14 @@ tiger nerve /data/nerve_out -d -o recon/
 ## Installation
 
 ```bash
-pip install onnxruntime                   # CPU
-pip install onnxruntime-gpu               # GPU
-pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
+# CPU
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/release.zip"
+# GPU (CUDA 12)
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
+
+# Specific version (v0.2.x and later)
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
+
+# Archived 0.1.x versions (no extras required)
+pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.20.tar.gz
 ```
