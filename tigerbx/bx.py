@@ -9,6 +9,7 @@ import nibabel as nib
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
+from tigerbx.lib_crop import crop_cube
 import copy
 from nilearn.image import resample_to_img, reorder_img
 import warnings
@@ -21,6 +22,16 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
     
+def _crop_nib(nib_img, xyz6):
+    """Crop a nibabel image to xyz6 bounds and correct the affine origin."""
+    x_min, x_max, y_min, y_max, z_min, z_max = xyz6
+    data = nib_img.get_fdata()
+    cropped = data[x_min:x_max + 1, y_min:y_max + 1, z_min:z_max + 1]
+    new_affine = nib_img.affine.copy()
+    new_affine[:3, 3] = nib_img.affine[:3, :3] @ np.array([x_min, y_min, z_min]) + nib_img.affine[:3, 3]
+    return nib.Nifti1Image(cropped, new_affine)
+
+
 def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None, patch=False):
     if not isinstance(model, list):
         model = [model]
@@ -220,6 +231,8 @@ def run_args(args):
                          ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn', 'cgw', 'ct'])
         tbet_nib111 = None
         tbet_seg = None
+        tbet_nib111_crop = None
+        tbet_seg_crop = None
         if _needs_111:
             tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1), interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
@@ -228,6 +241,17 @@ def run_args(args):
                 tbet_seg = tbet_nib111
             else:
                 tbet_seg = reorder_img(tbet_nib, resample='continuous')
+
+            # Crop to brain ROI to save memory and speed up inference
+            arr_111 = tbet_nib111.get_fdata()
+            _, xyz6_111 = crop_cube(arr_111, arr_111 > 0)
+            tbet_nib111_crop = _crop_nib(tbet_nib111, xyz6_111)
+            if tbet_seg is tbet_nib111:
+                tbet_seg_crop = tbet_nib111_crop
+            else:
+                arr_seg = tbet_seg.get_fdata()
+                _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
+                tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
         
         printer('QC score:', qc_score)
 
@@ -262,7 +286,7 @@ def run_args(args):
         for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
-                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
+                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg_crop, patch=run_d['patch'])
                 
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 printer('Writing output file: ', fn)
@@ -272,9 +296,8 @@ def run_args(args):
         if run_d['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            #tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
-            bet_img = lib_tool.read_nib(tbet_nib111)
-            
+            bet_img = lib_tool.read_nib(tbet_nib111_crop)
+
             image = bet_img[None, ...][None, ...]
             image = image/normalize_factor
             cgw = lib_tool.predict(model_ff, image, args.gpu)[0]
@@ -283,31 +306,31 @@ def run_args(args):
             result_filedict['cgw'] = []
             for kk in [1, 2, 3]:
                 pve = cgw[kk]
-                pve = pve* (bet_img>0)
+                pve = pve * (bet_img > 0)
 
-                pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
+                pve_nib = nib.Nifti1Image(pve, tbet_nib111_crop.affine)
                 pve_nib = resample_to_img(
                     pve_nib, input_nib, interpolation="linear")
 
-                pve_nib.header.set_data_dtype(float)                
+                pve_nib.header.set_data_dtype(float)
 
                 fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
                 printer('Writing output file: ', fn)
                 result_filedict['cgw'].append(fn)
-                result_dict['cgw'].append(pve_nib)                       
+                result_dict['cgw'].append(pve_nib)
 
         if run_d['ct']:
             model_ff = lib_tool.get_model(omodel['ct'])
-            bet_img = lib_tool.read_nib(tbet_nib111)            
+            bet_img = lib_tool.read_nib(tbet_nib111_crop)
             image = bet_img[None, ...][None, ...]
             image = image/np.max(image)
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
-            
+
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
             ct = ct * (bet_img > 0).astype(int)
 
-            ct_nib = nib.Nifti1Image(ct, tbet_nib111.affine, tbet_nib111.header)
+            ct_nib = nib.Nifti1Image(ct, tbet_nib111_crop.affine)
             ct_nib = resample_to_img(
                 ct_nib, input_nib, interpolation="nearest")
 
