@@ -1,63 +1,137 @@
-# TigerBx: `run` Module
+# TigerBx: `bx` Module
 
-This guide explains how to use the Python API `tigerbx.run` for brain extraction and related segmentation tasks.
+Brain extraction and tissue segmentation via `tigerbx.run()` or the `tiger bx` CLI.
 
-## Function
+---
 
-`run(argstring, input, output=None, model=None)`
+## Python API
 
-The `argstring` argument is a string of flags specifying which models to apply. Multiple flags can be combined, e.g. `'bd'` for brain extraction plus deep gray matter segmentation.
+```python
+tigerbx.run(argstring, input=None, output=None, model=None, silent=False)
+```
 
-### Common Flags
+| Parameter   | Type            | Default | Description |
+|-------------|-----------------|---------|-------------|
+| `argstring` | `str`           | —       | One or more flag characters specifying which outputs to produce (see table below) |
+| `input`     | `str` or `list` | `None`  | Input NIfTI file, directory, or glob pattern |
+| `output`    | `str`           | `None`  | Output directory; if `None`, results are saved next to each input file |
+| `model`     | `str` or `dict` | `None`  | Custom model path or override dict; `None` uses bundled defaults |
+| `silent`    | `bool`          | `False` | Suppress all console output |
 
-| Flag | Description |
-| ---- | ----------- |
-| `b`  | Brain extraction (default if no other flags are given) |
-| `m`  | Brain mask only |
-| `a`  | ASEG tissue segmentation |
-| `d`  | Deep gray matter mask |
-| `k`  | DKT cortical parcellation |
-| `c`  | Cortical thickness map |
-| `C`  | CSF/GM/WM probability maps |
-| `w`  | White matter parcellation |
-| `W`  | White matter hypointensity mask |
-| `t`  | Tumor segmentation |
-| `q`  | Save a QC score to file |
-| `z`  | Force `.nii.gz` output |
-| `p`  | Enable patch inference |
-| `g`  | Use GPU for inference |
-| `clean_onnx` | Delete downloaded model files |
-| `encode` / `decode` | Convert volumes to latent space or back |
+If no segmentation flag is provided, brain extraction (`b`) runs by default.
 
-### Example
+---
+
+## CLI Usage
+
+```
+tiger bx <input> [input ...] [-o OUTPUT] [flags ...]
+```
+
+---
+
+## Flags
+
+| API flag | CLI flag | Output suffix        | Description |
+|----------|----------|----------------------|-------------|
+| `b`      | `-b`     | `_tbet`              | Brain-extracted image |
+| `m`      | `-m`     | `_tbetmask`          | Binary brain mask |
+| `a`      | `-a`     | `_aseg`              | ASEG tissue segmentation (43 regions) |
+| `c`      | `-c`     | `_ct`                | Cortical thickness map |
+| `C`      | `-C`     | `_cgw_pve0/1/2`      | CSF / GM / WM probability maps (3 files, FSL-style PVE) |
+| `d`      | `-d`     | `_dgm`               | Deep gray matter mask (12 structures) |
+| `k`      | `-k`     | `_dkt`               | DKT cortical parcellation |
+| `S`      | `-S`     | `_syn`               | SynthSeg-style ASEG segmentation |
+| `w`      | `-w`     | `_wmp`               | White matter parcellation |
+| `W`      | `-W`     | `_wmh`               | White matter hypointensity mask |
+| `t`      | `-t`     | `_tumor`             | Tumor mask |
+| `q`      | `-q`     | `_qc-<score>.log`    | QC score log (also written automatically when QC < 50) |
+| `g`      | `-g`     | —                    | Use GPU for inference |
+| `z`      | `-z`     | —                    | Force `.nii.gz` output format |
+| `p`      | `-p`     | —                    | Enable patch-based inference |
+
+Additional CLI-only options:
+
+| CLI flag        | Description |
+|-----------------|-------------|
+| `--model MODEL` | Specify a custom ONNX model path or dict string |
+| `--clean_onnx`  | Delete all downloaded ONNX model files |
+| `--silent`      | Suppress console output |
+
+---
+
+## Examples
+
+### Python API
 
 ```python
 import tigerbx
 
-# Perform brain extraction and deep GM segmentation
-# Equivalent to running flags "bd" on the input file
-result = tigerbx.run('bd', 'T1w.nii.gz', 'out_dir')
+# Brain extraction only (default when no flag is given)
+tigerbx.run('b', 'T1w.nii.gz', 'output_dir')
+
+# Brain mask + brain image
+tigerbx.run('bm', 'T1w.nii.gz', 'output_dir')
+
+# ASEG + DKT parcellation + deep gray matter
+tigerbx.run('adk', 'T1w.nii.gz', 'output_dir')
+
+# Full pipeline — all output types
+tigerbx.run('bmacdCkSwWtq', 'T1w.nii.gz', 'output_dir')
+
+# Process an entire directory; outputs saved next to each input file
+tigerbx.run('bm', '/data/T1w_dir')
+
+# Glob pattern, GPU inference, silent mode
+tigerbx.run('bmag', '/data/**/T1w.nii.gz', '/data/output', silent=True)
+
+# Delete downloaded ONNX model files
+tigerbx.run('clean_onnx')
 ```
 
-If a directory or wildcard pattern is provided as the `input`, all matching files are processed. When `output` is `None`, results are saved next to each input file.
+### CLI
 
+```bash
+# Brain extraction and brain mask
+tiger bx T1w.nii.gz -b -m -o output_dir
 
-Additional Examples
--------------------
+# ASEG + DKT + cortical thickness + deep gray matter
+tiger bx T1w.nii.gz -a -k -c -d -o output_dir
 
-```python
-# Process an entire folder and save outputs next to each input file
-# Wildcard patterns can also be used
-results = tigerbx.run('b', '/path/to/folder/*.nii.gz')
+# Full pipeline — all output types
+tiger bx T1w.nii.gz -b -m -a -c -C -d -k -S -w -W -t -q -o output_dir
 
-# Run cortical thickness and DKT segmentation on GPU
-results = tigerbx.run('ckg', 'T1w.nii.gz', 'out_dir')
+# Process a whole directory with GPU
+tiger bx /data/T1w_dir -b -m -a -g -o /data/output
 
-# Encode images into latent space and decode them back
-# Useful for debugging or data augmentation
-results = tigerbx.run('encode', 'T1w.nii.gz', 'latent_dir')
-recon = tigerbx.run('decode', 'latent_dir/encode.npz', 'recon_dir')
+# Patch-based inference for high-resolution inputs
+tiger bx T1w.nii.gz -b -m -p -o output_dir
+
+# Delete downloaded ONNX model files
+tiger bx --clean_onnx
 ```
 
-These examples illustrate processing multiple inputs, enabling GPU inference,
-and using the encode/decode utilities.
+---
+
+## Output Files
+
+For an input named `sub-001_T1w.nii.gz`, outputs are:
+
+| Flag | Output file |
+|------|-------------|
+| `-b` | `sub-001_T1w_tbet.nii.gz` |
+| `-m` | `sub-001_T1w_tbetmask.nii.gz` |
+| `-a` | `sub-001_T1w_aseg.nii.gz` |
+| `-c` | `sub-001_T1w_ct.nii.gz` |
+| `-C` | `sub-001_T1w_cgw_pve0.nii.gz`, `_pve1.nii.gz`, `_pve2.nii.gz` (CSF / GM / WM) |
+| `-d` | `sub-001_T1w_dgm.nii.gz` |
+| `-k` | `sub-001_T1w_dkt.nii.gz` |
+| `-S` | `sub-001_T1w_syn.nii.gz` |
+| `-w` | `sub-001_T1w_wmp.nii.gz` |
+| `-W` | `sub-001_T1w_wmh.nii.gz` |
+| `-t` | `sub-001_T1w_tumor.nii.gz` |
+| `-q` | `sub-001_T1w_qc-<score>.log` |
+
+---
+
+For label definitions used in ASEG, DKT, DeepGM, and WMP outputs, see [Label definitions](seglabel.md).

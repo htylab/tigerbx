@@ -11,150 +11,217 @@
 * Designed strictly for **research purposes only**—not for clinical or commercial use.
 
 <img src="./doc/tigerbx.png" alt="tigerbx" width="400">
+
 ---
 
 ## Quick Start
 
-### Install as a Python Package and perform segmentation
+### Install as a Python package
 
 ```bash
-pip install onnxruntime              # For CPU
+pip install onnxruntime              # CPU inference
 pip install --no-cache https://github.com/htylab/tigerbx/archive/release.zip
 ```
 
 ```python
 import tigerbx
 
-# Full segmentation pipeline
-tigerbx.run('bmadk', 'T1w.nii.gz', 'output_dir')
+# Brain extraction + ASEG + DKT parcellation + deep gray matter
+tigerbx.run('badk', 'T1w.nii.gz', 'output_dir')
 ```
 
-### To install a specific archived version or gpu-enabled onnxruntime:
+### Install a specific version or GPU-enabled runtime
 
 ```bash
-pip install onnxruntime-gpu          # For GPU
+pip install onnxruntime-gpu          # GPU inference
 pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.18.tar.gz
 ```
 
 ---
 
-## Python API Usage
+## Modules
 
-### Brain Segmentation
-
-```python
-import tigerbx
-
-# Full segmentation pipeline
-tigerbx.run('bmadk', r'C:\T1w_dir', r'C:\output_dir')
-
-# Input using wildcards
-tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
-
-# Output to same directory
-tigerbx.run('bmadk', r'C:\T1w_dir\**\*.nii.gz')
-
-# Deep gray matter segmentation (with GPU)
-tigerbx.run('dg', r'C:\T1w_dir')
-```
-See [run usage](doc/run.md) for a complete description of these APIs.
-
-### Hierarchical Label Consolidation (HLC)
-
-This module maps 171 FreeSurfer-style labels to 56 hierarchical regions for improved efficiency and reduced memory use. Also outputs:
-
-* **Cortical thickness (CT)** maps
-* **CSF/GM/WM probability (CGW)** maps
+### `bx` — Brain Extraction and Segmentation
 
 ```python
 import tigerbx
-tigerbx.hlc('T1w_dir', 'outputdir')
+
+# Brain extraction + brain mask
+tigerbx.run('bm', 'T1w.nii.gz', 'output_dir')
+
+# ASEG + DKT + cortical thickness + deep gray matter
+tigerbx.run('akcd', 'T1w.nii.gz', 'output_dir')
+
+# Full pipeline — all output types
+tigerbx.run('bmacdCkSwWtq', 'T1w.nii.gz', 'output_dir')
+
+# Process a directory; outputs saved next to each input file
+tigerbx.run('bm', '/data/T1w_dir')
+
+# Glob pattern, GPU
+tigerbx.run('bmag', '/data/**/T1w.nii.gz', '/data/output')
 ```
 
 ```bash
-tiger hlc T1w_dir -o outputdir
+tiger bx T1w.nii.gz -b -m -o output_dir
+tiger bx T1w.nii.gz -a -k -c -d -o output_dir
+tiger bx T1w.nii.gz -b -m -a -c -C -d -k -S -w -W -t -q -o output_dir
+tiger bx /data/T1w_dir -b -m -a -g -o /data/output
 ```
 
-See [HLC usage](doc/hlc.md) for a complete description of these APIs.
-
-### Registration and VBM
-
-```python
-# Standard registration
-tigerbx.reg('r', r'C:\T1w_dir', r'C:\output_dir', template='template.nii.gz', save_displacement=False, affine_type='C2FViT')
-
-# FuseMorph registration
-tigerbx.reg('F', r'C:\T1w_dir', r'C:\output_dir', save_displacement=False)
-
-# Voxel-Based Morphometry (VBM)
-tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
-
-# Apply warp field
-tigerbx.transform(r'C:\T1w_dir\moving.nii.gz', r'C:\T1w_dir\warp.npz', r'C:\output_dir', interpolation='nearest')
-```
-```bash
-tiger reg -r C:\T1w_dir -o C:\output_dir -T template.nii.gz --affine_type C2FViT
-tiger reg -F C:\T1w_dir -o C:\output_dir --affine_type ANTs
-tiger reg -v C:\T1w_dir\**\*.nii.gz -o C:\output_dir --affine_type C2FViT
-```
-See [registration instructions](doc/reginstruction.md) for detailed usage guidelines on the various methods.
-
-### Generative Displacement Mapping (GDM)
-
-GDM is a referenceless method for correcting geometric distortions in EPI scans using a GAN-based displacement field predictor. It improves alignment between diffusion and T1-weighted images without requiring field maps or reversed gradients \[Kuo et al., 2025].
-
-```python
-# Single file
-tigerbx.gdm('dti.nii.gz')
-
-# Directory input with specified b0 index
-tigerbx.gdm(r'C:\EPI_dir', r'C:\output_dir', b0_index=0)
-```
-
-### NERVE Embedding Pipeline
-
-NERVE encodes hippocampus and amygdala patches into latent vectors using a variational autoencoder. These embeddings can be used for downstream neuroimaging tasks such as Alzheimer's disease detection.
-
-```python
-# Encode a T1-weighted image and save patches
-tigerbx.nerve('ep', 'T1w.nii.gz', 'nerve_out')
-```
-
-See [NERVE usage](doc/nerve.md) for more examples.
-
-### Utility Functions
-
-```python
-# Remove downloaded ONNX files
-tigerbx.run('clean_onnx')
-
-```
+See [bx usage](doc/run.md) for a complete flag reference and output file naming.
 
 ---
 
-## Command-Line Usage
+### `hlc` — Hierarchical Label Consolidation
 
-### Installation
+Maps FreeSurfer-style labels to 56 hierarchical regions. Also produces cortical thickness and CSF/GM/WM probability maps.
 
-Download the latest stand-alone release:
-[https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases)
+The HLC module was developed by **Pin-Chuan Chen**.
 
-### Example Commands
+```python
+import tigerbx
+
+# Default: HLC parcellation only
+tigerbx.hlc('T1w.nii.gz', 'output_dir')
+
+# All outputs (brain mask, bet, HLC, cortical thickness, CSF/GM/WM)
+tigerbx.hlc('T1w.nii.gz', 'output_dir', save='all')
+
+# Cortical thickness + tissue probability maps with GPU
+tigerbx.hlc('T1w.nii.gz', 'output_dir', save='tcgw', GPU=True)
+```
 
 ```bash
-tiger bx -bmad c:\data\*.nii.gz -o c:\output
-tiger bx -c c:\data\*.nii.gz -o c:\output
-tiger reg -r c:\data\*.nii.gz -o c:\output -T template.nii.gz
-tiger gdm DTI.nii.gz -o c:\outputdir
+tiger hlc T1w.nii.gz -o output_dir
+tiger hlc T1w.nii.gz --save all -o output_dir
+tiger hlc T1w.nii.gz --save tcgw -g -o output_dir
+```
+
+See [HLC usage](doc/hlc.md) for a complete description.
+
+---
+
+### `reg` — Registration and VBM
+
+Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration, plus a full VBM pipeline.
+
+The VBM and registration pipeline was developed by **Pei-Mao Sun**.
+
+```python
+import tigerbx
+
+# Affine registration (C2FViT)
+tigerbx.reg('A', r'C:\T1w_dir', r'C:\output_dir')
+
+# Affine + VMnet nonlinear registration
+tigerbx.reg('Ar', r'C:\T1w_dir', r'C:\output_dir', affine_type='C2FViT')
+
+# FuseMorph with ANTs affine
+tigerbx.reg('F', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
+
+# VBM pipeline
+tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
+
+# Apply a saved warp field to a label map
+tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
+                  interpolation='nearest')
+```
+
+```bash
+tiger reg T1w.nii.gz -A -o output_dir
+tiger reg T1w.nii.gz -A -r -o output_dir --affine_type C2FViT
+tiger reg T1w.nii.gz -F -o output_dir --affine_type ANTs
+tiger reg /data/T1w_dir -v -o /data/output
+```
+
+See [registration instructions](doc/reginstruction.md) for detailed usage.
+
+---
+
+### `gdm` — Generative Displacement Mapping
+
+Corrects geometric distortions in EPI scans using a GAN-based displacement field predictor, without requiring field maps or reversed-phase-encode acquisitions [Kuo et al., 2025].
+
+```python
+import tigerbx
+
+# Correct a single DTI file
+tigerbx.gdm('dti.nii.gz', 'output_dir')
+
+# Specify b0 index or .bval file
+tigerbx.gdm('dti.nii.gz', 'output_dir', b0_index=1)
+tigerbx.gdm('dti.nii.gz', 'output_dir', b0_index='dti.bval')
+
+# Save displacement map with GPU
+tigerbx.gdm('dti.nii.gz', 'output_dir', dmap=True, GPU=True)
+```
+
+```bash
+tiger gdm dti.nii.gz -o output_dir
+tiger gdm dti.nii.gz -b0 1 -o output_dir
+tiger gdm dti.nii.gz -b0 dti.bval -o output_dir
+tiger gdm dti.nii.gz -m -g -o output_dir
+```
+
+See [GDM usage](doc/gdm.md) for a complete description.
+
+---
+
+### `nerve` — NERVE Embedding Pipeline
+
+Extracts hippocampus and amygdala patches and encodes them into latent vectors using a variational autoencoder. Embeddings can be used for downstream tasks such as Alzheimer's disease detection.
+
+The NERVE module was developed by **Pei-Shin Chen**.
+
+```python
+import tigerbx
+
+# Encode to latent vectors
+tigerbx.nerve('e', 'T1w.nii.gz', 'output_dir')
+
+# Encode and save ROI patch images
+tigerbx.nerve('ep', 'T1w.nii.gz', 'output_dir')
+
+# Evaluate reconstruction quality
+tigerbx.nerve('v', 'T1w.nii.gz', 'output_dir')
+
+# Decode previously saved .npz files
+tigerbx.nerve('d', '/data/nerve_out', '/data/recon_out')
+```
+
+```bash
+tiger nerve T1w.nii.gz -e -o output_dir
+tiger nerve T1w.nii.gz -e -p -o output_dir
+tiger nerve T1w.nii.gz -v -o output_dir
+tiger nerve /data/nerve_out -d -o /data/recon_out
+```
+
+See [NERVE usage](doc/nerve.md) for a complete description.
+
+---
+
+## Installation (stand-alone CLI)
+
+Download the latest stand-alone release (no Python required):
+[https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases)
+
+After installation, all subcommands are available via `tiger`:
+
+```bash
+tiger bx --help
+tiger hlc --help
+tiger reg --help
+tiger gdm --help
+tiger nerve --help
 ```
 
 ---
 
 ## Supported Platforms
 
-* ✅ Windows and macOS
-* ✅ Ubuntu 20.04 or newer
-
+* Windows and macOS
+* Ubuntu 20.04 or newer
 
 ---
 
@@ -162,25 +229,23 @@ tiger gdm DTI.nii.gz -o c:\outputdir
 
 If you use TigerBx in your research, please cite the following:
 
-1. **Weng JS, et al.** (2022) *Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation.* **NMR Biomed. 2022; e4880.** [https://doi.org/10.1002/nbm.4880](https://doi.org/10.1002/nbm.4880)
-2. **Wang HC et al. .** (2024)
-   *Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis.*
-   **NMR in Biomedicine; e5169.**
-   [https://doi.org/10.1002/nbm.5169](https://doi.org/10.1002/nbm.5169)
-3. **Kuo CC, et al.** (2025).\* *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.*
-   **Magn Reson Med.** 2025; 1–16. [https://doi.org/10.1002/mrm.30577](https://doi.org/10.1002/mrm.30577)
+1. **Weng JS, et al.** (2022) *Deriving a robust deep-learning model for subcortical brain segmentation by using a large-scale database: Preprocessing, reproducibility, and accuracy of volume estimation.* **NMR Biomed. 2022; e4880.** https://doi.org/10.1002/nbm.4880
+
+2. **Wang HC et al.** (2024) *Comparative Assessment of Established and Deep Learning Segmentation Methods for Hippocampal Volume Estimation in Brain MRI Analysis.* **NMR in Biomedicine; e5169.** https://doi.org/10.1002/nbm.5169
+
+3. **Kuo CC, et al.** (2025) *Referenceless reduction of spin-echo echo-planar imaging distortion with generative displacement mapping.* **Magn Reson Med.** 2025; 1–16. https://doi.org/10.1002/mrm.30577
 
 ---
 
 ## Label Definitions
 
-See [Label definitions](doc/seglabel.md) for a full list of anatomical regions used in segmentation.
+See [Label definitions](doc/seglabel.md) for a full list of anatomical regions used in segmentation outputs.
 
 ---
 
 ## Validation and Benchmarks
 
-See [Validation](doc/validation.md) for details on accuracy, reproducibility, and comparison against other tools.
+See [Validation](doc/validation.md) for accuracy, reproducibility, and comparison against other tools.
 
 ---
 

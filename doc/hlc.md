@@ -1,64 +1,114 @@
 # TigerBx: `hlc` Module
 
-This guide describes how to consolidate labels using `tigerbx.hlc`.
+Hierarchical Label Consolidation maps FreeSurfer-style ASEG/DKT labels into 56 hierarchically organised regions, reducing memory use while preserving anatomical detail. The module can also output cortical thickness and tissue probability maps.
+
 The HLC module was developed by **Pin-Chuan Chen**.
 
-## Function
+---
 
-`hlc(input, output=None, model=None, save='h', GPU=False, gz=True, patch=False)`
+## Python API
 
-The function merges segmentation labels into a hierarchy and can optionally output cortical thickness or CSF/GM/WM probability maps.
+```python
+tigerbx.hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False)
+```
 
-### Parameters
+| Parameter | Type            | Default | Description |
+|-----------|-----------------|---------|-------------|
+| `input`   | `str` or `list` | `None`  | Input NIfTI file, directory, or glob pattern |
+| `output`  | `str`           | `None`  | Output directory; if `None`, saves next to each input file |
+| `model`   | `dict`          | `None`  | Custom model override dict; `None` uses bundled defaults |
+| `save`    | `str`           | `'h'`   | Letters specifying which outputs to generate (see table below) |
+| `GPU`     | `bool`          | `False` | Use GPU for inference (requires at least 32 GB VRAM) |
+| `gz`      | `bool`          | `True`  | Save in `.nii.gz` format |
+| `patch`   | `bool`          | `False` | Enable patch-based inference |
 
-- **input**: Path to a NIfTI file, directory, or wildcard pattern.
-- **output**: Destination directory for results. Defaults to the input location if not specified.
-- **model**: Custom model overrides in dictionary form. Leave `None` for default weights.
-- **save**: Letters indicating which outputs to save. Options:
-  - `b` – brain-extracted image
-  - `m` – brain mask
-  - `h` – HLC segmentation labels
-  - `t` – cortical thickness map
-  - `c`, `g`, `w` – CSF, GM and WM probability maps
-  Use `'all'` to generate the whole set (`bmhtcgw`).
-- **GPU**: Use GPU if `True`. Note: at least 32G VRAM required.
-- **gz**: Save files in `.nii.gz` format.
-- **patch**: Enable patch‑based inference.
+---
 
-### Example
+## CLI Usage
+
+```
+tiger hlc <input> [input ...] [-o OUTPUT] [--save LETTERS] [-g] [-z] [-p]
+```
+
+---
+
+## `save` Options
+
+| Letter | Output suffix  | Description |
+|--------|----------------|-------------|
+| `m`    | `_tbetmask`    | Binary brain mask |
+| `b`    | `_tbet`        | Brain-extracted image |
+| `h`    | `_hlc`         | HLC parcellation (56 hierarchical regions) |
+| `t`    | `_ct`          | Cortical thickness map |
+| `c`    | `_csf`         | CSF probability map |
+| `g`    | `_gm`          | GM probability map |
+| `w`    | `_wm`          | WM probability map |
+| `all`  | all of the above | Shorthand for `mbhtcgw` |
+
+---
+
+## Examples
+
+### Python API
 
 ```python
 import tigerbx
 
-# Run HLC with default settings and save brain mask + HLC labels
-result = tigerbx.hlc('T1w_dir', 'out_dir', save='bh')
+# Default: HLC parcellation only
+tigerbx.hlc('T1w.nii.gz', 'output_dir')
+
+# Brain mask + HLC labels
+tigerbx.hlc('T1w.nii.gz', 'output_dir', save='mh')
+
+# All outputs
+tigerbx.hlc('T1w.nii.gz', 'output_dir', save='all')
+
+# Cortical thickness + tissue probability maps with GPU
+tigerbx.hlc('T1w.nii.gz', 'output_dir', save='tcgw', GPU=True)
+
+# Process a whole directory, save all outputs
+tigerbx.hlc('/data/T1w_dir', '/data/output', save='all')
+
+# Glob pattern with patch-based inference
+tigerbx.hlc('/data/**/T1w.nii.gz', '/data/output', save='all', patch=True)
 ```
 
-### CLI Example
+### CLI
 
 ```bash
-tiger hlc T1w_dir -o out_dir --save bh -g
-```
+# Default: HLC parcellation only
+tiger hlc T1w.nii.gz -o output_dir
 
-The function returns either a dictionary of NIfTI objects (single file) or a list of output filenames when processing multiple inputs.
+# All outputs (brain mask, bet, hlc, cortical thickness, CSF/GM/WM)
+tiger hlc T1w.nii.gz --save all -o output_dir
+
+# HLC + cortical thickness + tissue probability maps with GPU
+tiger hlc T1w.nii.gz --save htcgw -g -o output_dir
+
+# Process a whole directory with patch-based inference
+tiger hlc /data/T1w_dir --save all -p -o /data/output
+
+# Force .nii.gz output (already the default; use -z to ensure it when gz=False elsewhere)
+tiger hlc T1w.nii.gz --save mh -z -o output_dir
+```
 
 ---
 
-For a list of label IDs used in segmentation, see [Label definitions](seglabel.md). For registration tools and VBM analyses, refer to [registration instructions](reginstruction.md).
+## Output Files
 
+For an input named `sub-001_T1w.nii.gz`:
 
-Additional Examples
--------------------
+| Letter | Output file |
+|--------|-------------|
+| `m`    | `sub-001_T1w_tbetmask.nii.gz` |
+| `b`    | `sub-001_T1w_tbet.nii.gz` |
+| `h`    | `sub-001_T1w_hlc.nii.gz` |
+| `t`    | `sub-001_T1w_ct.nii.gz` |
+| `c`    | `sub-001_T1w_csf.nii.gz` |
+| `g`    | `sub-001_T1w_gm.nii.gz` |
+| `w`    | `sub-001_T1w_wm.nii.gz` |
 
-```python
-# Process a folder and only save HLC labels
-# All outputs will go to the specified directory
-files = tigerbx.hlc('/data/subj*/T1w.nii.gz', 'hlc_dir', save='h')
+---
 
-# Generate cortical thickness and CSF/GM/WM maps using GPU
-# Patch mode reduces memory usage for large volumes
-results = tigerbx.hlc('T1w.nii.gz', 'out_dir', save='tcgw', GPU=True, patch=True)
-```
-
-These snippets show how to select outputs, use wildcards and enable
-patch inference when running the HLC module.
+For label definitions used in the HLC parcellation, see [Label definitions](seglabel.md).
+For registration tools and VBM analyses, see [Registration instructions](reginstruction.md).
