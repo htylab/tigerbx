@@ -68,8 +68,8 @@ tigerbx.run('bmag', '/data/**/T1w.nii.gz', '/data/output')
 
 ```bash
 tiger bx T1w.nii.gz -bmad -o output_dir
-tiger bx T1w.nii.gz -b -m -a -c -C -d -S -W -t -q -o output_dir
-tiger bx /data/T1w_dir -b -m -a -g -o /data/output
+tiger bx T1w.nii.gz -bmacdCSWtq -o output_dir
+tiger bx /data/T1w_dir -bmag -o /data/output
 ```
 
 See [bx usage](doc/run.md) for a complete flag reference and output file naming.

@@ -91,16 +91,16 @@ tigerbx.run('clean_onnx')
 tiger bx T1w.nii.gz -bmad -o output_dir
 
 # Brain extraction and brain mask only
-tiger bx T1w.nii.gz -b -m -o output_dir
+tiger bx T1w.nii.gz -bm -o output_dir
 
 # Full pipeline — all output types
-tiger bx T1w.nii.gz -b -m -a -c -C -d -S -W -t -q -o output_dir
+tiger bx T1w.nii.gz -bmacdCSWtq -o output_dir
 
 # Process a whole directory with GPU
-tiger bx /data/T1w_dir -b -m -a -g -o /data/output
+tiger bx /data/T1w_dir -bmag -o /data/output
 
 # Patch-based inference for high-resolution inputs
-tiger bx T1w.nii.gz -b -m -p -o output_dir
+tiger bx T1w.nii.gz -bmp -o output_dir
 
 # Delete downloaded ONNX model files
 tiger bx --clean_onnx
