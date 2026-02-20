@@ -1,7 +1,6 @@
 import sys
 import os
 from os.path import basename, join, isdir, commonpath
-import argparse
 import glob
 import platform
 import nibabel as nib
@@ -13,42 +12,12 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 from tigerbx import lib_tool
-from tigerbx import lib_bx
 from tigerbx import lib_reg
 from tigerbx.bx import produce_mask, save_nib, get_template
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-    run_args(args)
-
-def setup_parser(parser):
-    #def main():      
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output image, default: the directory of input files')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
-    parser.add_argument('-A', '--affine', action='store_true', help='Affining images to template')
-    parser.add_argument('-r', '--registration', action='store_true', help='Registering images to template(VoxelMorph)')
-    parser.add_argument('-s', '--syn', action='store_true', help='Registering images to template(SyN)')
-    parser.add_argument('-S', '--syncc', action='store_true', help='Registering images to template(SyNCC)')
-    parser.add_argument('-F', '--fusemorph', action='store_true', help='Registering images to template(FuseMorph)')
-    parser.add_argument('-T', '--template', type=str, help='The template filename(default is MNI152)')
-    parser.add_argument('-R', '--rigid', action='store_true', help='Rigid transforms images to template')
-    parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
-    parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
-    parser.add_argument('--affine_type', choices=['C2FViT', 'ANTs'], default='C2FViT', help='Specify affine transformation type')
-    
-    #args = parser.parse_args()
-    #run_args(args)
-
 def reg(argstring, input=None, output=None, model=None, template=None, save_displacement=False, affine_type='C2FViT'):
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
@@ -140,13 +109,13 @@ def run_args(args):
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
-        tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+        tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
         if lib_tool.check_dtype(tbet_nib, input_nib.dataobj.dtype):
             tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
-        tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
         tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 
         zoom = tbet_nib.header.get_zooms() 
@@ -174,8 +143,8 @@ def run_args(args):
         if run_d.get('cgw', False): # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
-            bet_img = lib_bx.read_nib(tbet_nib111)
+            #tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            bet_img = lib_tool.read_nib(tbet_nib111)
             
             image = bet_img[None, ...][None, ...]
             image = image/normalize_factor
@@ -211,7 +180,7 @@ def run_args(args):
                 "Fuse_dense_warp": None
             }
             
-            bet = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+            bet = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
             bet = bet.astype(input_nib.dataobj.dtype)
             bet_nib = nib.Nifti1Image(bet, input_nib.affine, input_nib.header)
             
@@ -470,7 +439,3 @@ def run_args(args):
     return result_all
 
 
-if __name__ == "__main__":
-    main()
-    if platform.system() == 'Windows':
-        os.system('pause')

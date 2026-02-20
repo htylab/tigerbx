@@ -1,7 +1,6 @@
 import sys
 import os
 from os.path import join
-import argparse
 from distutils.util import strtobool
 import glob
 from scipy.io import savemat
@@ -16,28 +15,9 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from tigerbx import lib_tool
 from tigerbx import lib_gdm
 
-'''
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-    run_args(args)
-'''
-def setup_parser(parser):
-    #def main():      
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input',  type=str, nargs='+', help='Path to the input image, can be a folder for the specific format(nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output image, default: the directory of input files')
-    parser.add_argument('-b0', '--b0_index', default=None, type=str, help='The index of b0 slice or the .bval file, default: 0 (the first slice)')
-    parser.add_argument('-n', '--no_resample', action='store_true', help='Don\'t resample to 1.7x1.7x1.7mm3')
-    parser.add_argument('-m', '--dmap', action='store_true', help='Producing the virtual displacement map')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    #args = parser.parse_args()
-    #run_args(args)
-
 def gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False):
 
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
 
     args.b0_index = str(b0_index)
@@ -101,5 +81,3 @@ def run_args(args):
 
         print('Processing time: %d seconds' % (time.time() - t))    
 
-if __name__ == "__main__":
-    main()

@@ -17,7 +17,6 @@ import onnxruntime as ort
 import tempfile
 import tigerbx
 
-import argparse
 import time
 import glob
 import platform
@@ -33,27 +32,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tigerbx.lib_nerve import nerve_preprocess_nib, get_ftemplate
 from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
-
-'''
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-    run_args(args)
-'''
-
-def setup_parser(parser):
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('--method', default='NERVE', type=str, help='Specifying the model name')
-    parser.add_argument('-p', '--save_patch', action='store_true', help='Saving patches')
-    parser.add_argument('-d', '--decode', action='store_true', help='Decode patches')
-    parser.add_argument('-e', '--encode', action='store_true', help='Encode patches')
-    parser.add_argument('-v', '--evaluate', action='store_true', help='Evaluate models')
-
 
 # ------------------------------------------------------------
 # Encode: NIfTI → latent .npz
@@ -94,9 +72,10 @@ def encode_nii(
 
     latent_dict, patch_arrays, first_affine = {}, [], None
     for tag, img in patches.items():
-        latent = onnx_encode(enc_sess, img)[0]
-        latent_dict[tag] = latent
-        print(f"{tag} ▸ latent shape {latent.shape}")
+        z_mu, z_sigma = onnx_encode(enc_sess, img)
+        latent_dict[tag] = z_mu[0]
+        latent_dict[tag + '_sigma'] = z_sigma[0]
+        print(f"{tag} > latent shape {z_mu.shape}")
 
         patch_arrays.append(img.get_fdata())
         if first_affine is None:
@@ -132,7 +111,8 @@ def decode_npz(
     decoder,
     output_dir="NERVE_recon",
     GPU=False,
-    f_template=False
+    f_template=False,
+    eps=0
 ):
     """
     Decode latent NPZ back to NIfTI patches or a merged volume.
@@ -152,11 +132,13 @@ def decode_npz(
     # Load latent dict
     data = np.load(npz_path, allow_pickle=True)
     affine = data["affine"]
-    tags = [k for k in data.files if k not in ("encoder", "affine")]
+    tags = [k for k in data.files if ('sigma' not in k) and (k not in ("encoder", "affine"))]
     recon_arrays, recon_paths = [], []
 
     for tag in tags:
-        latent = data[tag]
+        mu = data[tag]
+        sigma = data[tag + '_sigma'] 
+        latent = mu + eps*np.random.randn(*mu.shape).astype(np.float32) * sigma
         recon = onnx_decode(dec_sess, latent[None, ...]).squeeze()
         recon_arrays.append(recon)
 
@@ -169,7 +151,7 @@ def decode_npz(
 
 
 def nerve(argstring, input, output=None, model=None, method='NERVE'):
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
@@ -182,6 +164,7 @@ def nerve(argstring, input, output=None, model=None, method='NERVE'):
     args.decode = 'd' in argstring
     args.gpu = 'g' in argstring
     args.evaluate = 'v' in argstring
+    args.sigma = 's' in argstring
     return run_args(args)
 
 
@@ -214,10 +197,10 @@ def run_args(args):
 
 
     if args.method == 'NERVE':
-        omodel['encode'] = 'nerve_lp4_encoder.onnx'
+        omodel['encode'] = 'nerve_lp4_encoderv2.onnx'
         omodel['decode'] = 'nerve_lp4_decoder.onnx'
     else:
-        omodel['encode'] = 'nerve_lp4_encoder.onnx' #NERME ONNX not yet implemented
+        omodel['encode'] = 'nerve_lp4_encoderv2.onnx' #NERME ONNX not yet implemented
         omodel['decode'] = 'nerve_lp4_decoder.onnx' #NERME ONNX not yet implemented
         #omodel['decoder'] = 'nerve_lp4_decoder.onnx'
 
@@ -257,26 +240,38 @@ def run_args(args):
         print(f'Preprocessing {count}/{fcount}:\n', os.path.basename(f))
         t = time.time()
 
+        encode_ok = True
+        decode_ok = True
+
         if args.encode:
-            npz_ff, patch_ff = encode_nii(f,
-                encoder=lib_tool.get_model(omodel['encode']),
-                output_dir=f_output_dir,
-                GPU=args.gpu,
-                save_patch=args.save_patch,
-                f_template=ftemplate)
-            results.append(npz_ff)
-            results.append(patch_ff)
-        if args.decode:
-            if args.evaluate: f = npz_ff
-            recon_ff = decode_npz(f,
-                    decoder=lib_tool.get_model(omodel['decode']),
+            try:
+                npz_ff, patch_ff = encode_nii(f,
+                    encoder=lib_tool.get_model(omodel['encode']),
                     output_dir=f_output_dir,
                     GPU=args.gpu,
+                    save_patch=args.save_patch,
                     f_template=ftemplate)
-            results.append(recon_ff)
+                results.append(npz_ff)
+                results.append(patch_ff)
+            except Exception as e:
+                encode_ok = False
+                print('Encoding error:', e)
+        if args.decode:
+            try:
+                if args.evaluate: f = npz_ff
+                recon_ff = decode_npz(f,
+                        decoder=lib_tool.get_model(omodel['decode']),
+                        output_dir=f_output_dir,
+                        GPU=args.gpu,
+                        f_template=ftemplate,
+                        eps=args.sigma)
+                results.append(recon_ff)
+            except Exception as e:
+                decode_ok = False
+                print('Decoding error:', e)
         
             
-        if args.evaluate: # for calculating PSNR
+        if args.evaluate and encode_ok and decode_ok: # for calculating PSNR
             recon_pairs.append((f, patch_ff, recon_ff))
             max_e = nib.load(patch_ff).get_fdata().max()
             max_value = max(max_e, max_value)
@@ -302,13 +297,15 @@ def run_args(args):
                            f'{omodel["encode"]}_eval.csv')
             df.to_csv(csv_ff, index=False)
             print(f'[Evaluation] Saving {csv_ff} report')
+
+            avg = df[df["ID"] == "Average"].iloc[0]
+            print(f"[Average] MAE = {avg.MAE:.6f}, "
+              f"MSE = {avg.MSE:.6f}, "
+              f"PSNR = {avg.PSNR:.2f}, "
+              f"SSIM = {avg.SSIM:.4f}")
             results = df
     
         print('Processing time: %d seconds' %  (time.time() - t))
     return results
 
 
-if __name__ == "__main__":
-    main()
-    if platform.system() == 'Windows':
-        os.system('pause')

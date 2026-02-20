@@ -1,20 +1,17 @@
 import sys
 import os
 from os.path import basename, join, isdir, dirname, commonpath, relpath
-import argparse
 import time
 import numpy as np
 
 import glob
-import platform
 import nibabel as nib
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
+from tigerbx.lib_crop import crop_cube
 import copy
-from nilearn.image import resample_to_img, reorder_img, resample_img
-from itertools import product
-import concurrent.futures
+from nilearn.image import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -25,6 +22,16 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
     
+def _crop_nib(nib_img, xyz6):
+    """Crop a nibabel image to xyz6 bounds and correct the affine origin."""
+    x_min, x_max, y_min, y_max, z_min, z_max = xyz6
+    data = nib_img.get_fdata()
+    cropped = data[x_min:x_max + 1, y_min:y_max + 1, z_min:z_max + 1]
+    new_affine = nib_img.affine.copy()
+    new_affine[:3, 3] = nib_img.affine[:3, :3] @ np.array([x_min, y_min, z_min]) + nib_img.affine[:3, 3]
+    return nib.Nifti1Image(cropped, new_affine)
+
+
 def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None, patch=False):
     if not isinstance(model, list):
         model = [model]
@@ -50,14 +57,9 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
 
 
     if brainmask_nib is None:
-
-        output = lib_bx.read_nib(mask_nib)
-
+        output = lib_tool.read_nib(mask_nib)
     else:
-        output = lib_bx.read_nib(mask_nib) * lib_bx.read_nib(brainmask_nib)
-
-
-    output = lib_bx.read_nib(mask_nib)
+        output = lib_tool.read_nib(mask_nib) * lib_tool.read_nib(brainmask_nib)
 
     if np.max(output) <=255:
         dtype = np.uint8
@@ -72,7 +74,7 @@ def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None
     if QC:
         probmax = np.max(prob_resp, axis=0)
         qc_score = np.percentile(
-            probmax[lib_bx.read_nib(mask_nib_resp) > 0], 1) - 0.5
+            probmax[lib_tool.read_nib(mask_nib_resp) > 0], 1) - 0.5
         #qc = np.percentile(probmax, 1) - 0.5
         qc_score = min(int(qc_score * 1500), 100)
         return output_nib, qc_score
@@ -111,44 +113,9 @@ def get_template(f, output_dir, get_z, common_folder=None):
     return ftemplate, f_output_dir
 
 
-'''
-def main():
-    parser = argparse.ArgumentParser()
-    setup_parser(parser)
-    args = parser.parse_args()
-    run_args(args)
-'''
-def setup_parser(parser):
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('-m', '--betmask', action='store_true', help='Producing BET mask')
-    parser.add_argument('-a', '--aseg', action='store_true', help='Producing ASEG mask')
-    parser.add_argument('-b', '--bet', action='store_true', help='Producing BET images')
-    parser.add_argument('-c', '--ct', action='store_true', help='Producing cortical thickness map')
-    parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
-    parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
-    parser.add_argument('-k', '--dkt', action='store_true', help='Producing DKT mask')
-    parser.add_argument('-S', '--syn', action='store_true', help='Producing ASEG mask using SynthSeg-like method')
-    parser.add_argument('-w', '--wmp', action='store_true', help='Producing white matter parcellation')
-    parser.add_argument('-W', '--wmh', action='store_true', help='Producing white matter hypo-intensity mask')
-    parser.add_argument('-t', '--tumor', action='store_true', help='Producing tumor mask')
-    parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
-    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
-    parser.add_argument('--silent', action='store_true', help='Silent mode')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
-    parser.add_argument('--encode', action='store_true', help='Encoding a brain volume to its latent')
-    parser.add_argument('--decode', action='store_true', help='Decoding a brain volume from its latent')
-    #args = parser.parse_args()
-    #run_args(args)
-
-
 def run(argstring, input=None, output=None, model=None, silent=False):
 
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
@@ -156,24 +123,19 @@ def run(argstring, input=None, output=None, model=None, silent=False):
     args.output = output
     args.model = model
     args.clean_onnx = 'clean_onnx' in argstring
-    args.encode = 'encode' in argstring
-    args.decode = 'decode' in argstring
     args.gpu = 'g' in argstring
 
     args.silent = silent
 
-    if (args.encode or args.decode or args.clean_onnx):
+    if args.clean_onnx:
         argstring = ''
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
-    args.dgm = 'd' in argstring        
-    args.dkt = 'k' in argstring
-    args.wmh = 'W' in argstring    
-    args.wmp = 'w' in argstring
-    #args.seg3 = 's' in argstring
+    args.dgm = 'd' in argstring
+    args.wmh = 'W' in argstring
     args.syn = 'S' in argstring
     args.tumor = 't' in argstring
     args.qc = 'q' in argstring
@@ -192,9 +154,8 @@ def run_args(args):
         printer = print
 
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
-                    run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
-                    run_d['wmh'], run_d['tumor'], run_d['cgw'], 
-                    run_d['syn'],run_d['encode'], run_d['decode'], run_d['patch']]:
+                    run_d['ct'], run_d['qc'], run_d['wmh'], run_d['tumor'],
+                    run_d['cgw'], run_d['syn'], run_d['patch']]:
         run_d['bet'] = True
         # Producing extracted brain by default
         
@@ -206,11 +167,8 @@ def run_args(args):
 
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
-        if run_d['decode']:
-            input_file_list = glob.glob(join(args.input[0], '*.npz'))
-        else:
-            input_file_list = glob.glob(join(args.input[0], '*.nii'))
-            input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
+        input_file_list = glob.glob(join(args.input[0], '*.nii'))
+        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
 
     elif '*' in args.input[0]:
         input_file_list = glob.glob(args.input[0])
@@ -218,17 +176,13 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'    
-    omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
+    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
-    omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
     omodel['wmh'] = 'mprage_wmh_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
     omodel['syn'] = 'mprage_synthseg_v003_r111.onnx'
-    omodel['encode'] = 'mprage_encode_v2.onnx'
-    omodel['decode'] = 'mprage_decode_v2.onnx'
 
  
     # if you want to use other models
@@ -251,85 +205,60 @@ def run_args(args):
     if len(base_ffs) != len(set(base_ffs)):
         common_folder = commonpath(input_file_list)
         
-    count = 0
     result_all = []
-    result_filedict = dict()
-    for f in input_file_list:
-        count += 1
+    for count, f in enumerate(input_file_list, 1):
         result_dict = dict()
         result_filedict = dict()
 
         printer(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
-        ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
-            
+        ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)       
 
-        if run_d['encode']:
-            model_ff = lib_tool.get_model(omodel['encode'])
-            input_nib = nib.load(f)
-            input_vol = input_nib.get_fdata().squeeze()
-            input_vol = input_vol/np.max(input_vol)
-            z_mu, z_sigma = lib_tool.predict(model_ff, input_vol[None, ...][None, ...],
-                                              GPU=args.gpu, mode='encode')
+        tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
+        input_nib = nib.load(f)
+        tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
-            npz = ftemplate.replace('.nii','').replace('.gz', '')
-            npz = npz.replace('@@@@', f'encode.npz')
-            np.savez_compressed(npz, z_mu=z_mu, z_sigma=z_sigma,
-                                affine=input_nib.affine,
-                                header=input_nib.header,
-                                shape=input_nib.shape)
-            
-            result_dict['encode'] = np.load(npz)
-            result_filedict['encode'] = npz
+        tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
 
-
-        if run_d['decode']:
-            model_ff = lib_tool.get_model(omodel['decode'])
-            latent = np.load(f, allow_pickle=True)
-            sample = lib_tool.predict(model_ff, latent['z_mu'],
-                                              GPU=args.gpu, mode='decode').squeeze()
-            sample = np.clip(sample, 0, 1)
-            sample = (sample * 255).astype(np.uint8)
-
-            output_nib = nib.Nifti1Image(sample, latent['affine'], latent['header'].item())
-            output_nib.header.set_data_dtype(np.uint8)
-
-            fn = save_nib(output_nib, ftemplate, 'decode')
-            printer('Writing output file: ', fn)
-            result_dict['decode'] = output_nib
-            result_filedict['decode'] = fn            
-   
-
-
-        if (not run_d['decode']) and (not run_d['encode']): #skipping the following operation for decode and encode
-            tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
-            input_nib = nib.load(f)
-            tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
-
-            tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        _needs_111 = any(run_d[k] for k in
+                         ['aseg', 'dgm', 'wmh', 'tumor', 'syn', 'cgw', 'ct'])
+        tbet_nib111 = None
+        tbet_seg = None
+        tbet_nib111_crop = None
+        tbet_seg_crop = None
+        if _needs_111:
+            tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1), interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
-
-            zoom = tbet_nib.header.get_zooms() 
-
+            zoom = tbet_nib.header.get_zooms()
             if max(zoom) > 1.1 or min(zoom) < 0.9:
                 tbet_seg = tbet_nib111
             else:
                 tbet_seg = reorder_img(tbet_nib, resample='continuous')
-            
-            printer('QC score:', qc_score)
 
-            result_dict['QC'] = qc_score
-            result_filedict['QC'] = qc_score
-            if qc_score < 50:
-                printer('Pay attention to the result with QC < 50. ')
-            if run_d['qc'] or qc_score < 50:
-                qcfile = ftemplate.replace('.nii','').replace('.gz', '')
-                qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
-                with open(qcfile, 'a') as the_file:
-                    the_file.write(f'QC: {qc_score} \n')
-                printer('Writing output file: ', qcfile)
+            # Crop to brain ROI to save memory and speed up inference
+            arr_111 = tbet_nib111.get_fdata()
+            _, xyz6_111 = crop_cube(arr_111, arr_111 > 0)
+            tbet_nib111_crop = _crop_nib(tbet_nib111, xyz6_111)
+            if tbet_seg is tbet_nib111:
+                tbet_seg_crop = tbet_nib111_crop
+            else:
+                arr_seg = tbet_seg.get_fdata()
+                _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
+                tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
+        
+        printer('QC score:', qc_score)
+
+        result_dict['QC'] = qc_score
+        result_filedict['QC'] = qc_score
+        if qc_score < 50:
+            printer('Pay attention to the result with QC < 50. ')
+        if run_d['qc'] or qc_score < 50:
+            qcfile = ftemplate.replace('.nii','').replace('.gz', '')
+            qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
+            with open(qcfile, 'a') as the_file:
+                the_file.write(f'QC: {qc_score} \n')
+            printer('Writing output file: ', qcfile)
 
         if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
@@ -348,10 +277,10 @@ def run_args(args):
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
-        for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
+        for seg_str in ['aseg', 'dgm', 'wmh', 'tumor', 'syn']:
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
-                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg, patch=run_d['patch'])
+                                         brainmask_nib=tbetmask_nib, tbet111=tbet_seg_crop, patch=run_d['patch'])
                 
                 fn = save_nib(result_nib, ftemplate, seg_str)
                 printer('Writing output file: ', fn)
@@ -361,9 +290,8 @@ def run_args(args):
         if run_d['cgw']: # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            #tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
-            bet_img = lib_bx.read_nib(tbet_nib111)
-            
+            bet_img = lib_tool.read_nib(tbet_nib111_crop)
+
             image = bet_img[None, ...][None, ...]
             image = image/normalize_factor
             cgw = lib_tool.predict(model_ff, image, args.gpu)[0]
@@ -372,31 +300,31 @@ def run_args(args):
             result_filedict['cgw'] = []
             for kk in [1, 2, 3]:
                 pve = cgw[kk]
-                pve = pve* (bet_img>0)
+                pve = pve * (bet_img > 0)
 
-                pve_nib = nib.Nifti1Image(pve, tbet_nib111.affine, tbet_nib111.header)
+                pve_nib = nib.Nifti1Image(pve, tbet_nib111_crop.affine)
                 pve_nib = resample_to_img(
                     pve_nib, input_nib, interpolation="linear")
 
-                pve_nib.header.set_data_dtype(float)                
+                pve_nib.header.set_data_dtype(float)
 
                 fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
                 printer('Writing output file: ', fn)
                 result_filedict['cgw'].append(fn)
-                result_dict['cgw'].append(pve_nib)                       
+                result_dict['cgw'].append(pve_nib)
 
         if run_d['ct']:
             model_ff = lib_tool.get_model(omodel['ct'])
-            bet_img = lib_bx.read_nib(tbet_nib111)            
+            bet_img = lib_tool.read_nib(tbet_nib111_crop)
             image = bet_img[None, ...][None, ...]
             image = image/np.max(image)
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
-            
+
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
             ct = ct * (bet_img > 0).astype(int)
 
-            ct_nib = nib.Nifti1Image(ct, tbet_nib111.affine, tbet_nib111.header)
+            ct_nib = nib.Nifti1Image(ct, tbet_nib111_crop.affine)
             ct_nib = resample_to_img(
                 ct_nib, input_nib, interpolation="nearest")
 
@@ -415,9 +343,4 @@ def run_args(args):
             result_all.append(result_filedict) #storing output filenames
     return result_all
 
-
-if __name__ == "__main__":
-    main()
-    if platform.system() == 'Windows':
-        os.system('pause')
 

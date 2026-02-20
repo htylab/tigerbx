@@ -280,19 +280,19 @@ def val_reg_60(input_dir, output_dir, model=None, GPU=False, debug=False, templa
 def val(argstring, input_dir, output_dir=None, model=None, GPU=False,
         debug=False, template=None):
     """
-    argstring : str   ─ 執行模式（鍵值見 mapping）
-    input_dir : str   ─ 輸入資料根目錄
-    output_dir: str   ─ 輸出目錄，若為 None 則自動建立在 input_dir 下
-    model     : str   ─ 指定模型名稱或路徑（依各子函式需求）
-    GPU       : bool  ─ 是否使用 GPU
-    debug     : bool  ─ 若為 True 只跑少量檔案
-    template  : str   ─ reg_60 模式的對位模板，其餘模式不需要
+    argstring : str   -- execution mode (see mapping for valid keys)
+    input_dir : str   -- root directory of input data
+    output_dir: str   -- output directory; auto-created under input_dir if None
+    model     : str   -- model name or path (depends on the sub-function)
+    GPU       : bool  -- whether to use GPU
+    debug     : bool  -- if True, process only a small number of files
+    template  : str   -- registration template for reg_60 mode; not needed for other modes
     """
     if output_dir is None:
         output_dir = join(input_dir, 'tigerbx_validate_temp')
     print('Using output directory:', output_dir)
 
-    # 各模式對應的驗證函式
+    # map each mode string to its validation function
     mapping = {
         'bet_synstrip': val_bet_synstrip,
         'bet_NFBS':     val_bet_NFBS,
@@ -308,7 +308,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False,
 
     func = mapping[argstring]
 
-    # 先整理共用參數
+    # collect shared keyword arguments
     common_kwargs = dict(
         input_dir=input_dir,
         output_dir=output_dir,
@@ -317,7 +317,7 @@ def val(argstring, input_dir, output_dir=None, model=None, GPU=False,
         debug=debug,
     )
 
-    # 動態判斷是否要傳入 template
+    # pass template only if the target function accepts it
     if 'template' in inspect.signature(func).parameters:
         common_kwargs['template'] = template
 

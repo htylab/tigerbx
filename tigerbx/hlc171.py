@@ -1,6 +1,5 @@
 import os
 from os.path import basename, join, isdir, dirname, commonpath
-import argparse
 import time
 import numpy as np
 
@@ -9,28 +8,15 @@ import platform
 import nibabel as nib
 
 from tigerbx import lib_tool
-from tigerbx import lib_bx
 from tigerbx.bx import produce_mask, save_nib, get_template
 from nilearn.image import resample_to_img, reorder_img
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def setup_parser(parser):
-    #parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, nargs='+', help='Path to the input image(s); can be a folder containing images in the specific format (nii.gz)')
-    parser.add_argument('-o', '--output', default=None, help='File path for output segmentation (default: the directory of input files)')
-    parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
-    parser.add_argument('--save', default='h', type=str, help='Selected outputs mbhtcgw, default:h')
-    parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
-    parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
-    parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
-
-
-
 def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False):
     
-    from argparse import Namespace
+    from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
         input = [input]
@@ -43,65 +29,7 @@ def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch
     args.gz = gz
     return run_args(args)
 
-
-import numpy as np
-
-def crop_cube(ABC, tbetmask_image, padding=16):
-    """
-    Crop the 3D region with signal > 0, pad 16 voxels in each direction to form a cube.
-    Input array shape is (W, H, D). Returns the cropped cube and boundary list xyz6,
-    ordered as [x_min, x_max, y_min, y_max, z_min, z_max].
-    """
-    # Find voxels with signal > 0
-    non_zero = np.where(tbetmask_image > 0)
-    if len(non_zero[0]) == 0:
-        raise ValueError("No region with signal > 0 found in the image")
-    
-    # Determine minimal and maximal bounds
-    x_min, x_max = np.min(non_zero[0]), np.max(non_zero[0])  # x-axis (W)
-    y_min, y_max = np.min(non_zero[1]), np.max(non_zero[1])  # y-axis (H)
-    z_min, z_max = np.min(non_zero[2]), np.max(non_zero[2])  # z-axis (D)
-    
-    # Extend by 16 voxels while checking boundaries
-    W, H, D = ABC.shape
-    x_min = max(0, x_min - padding)
-    x_max = min(W - 1, x_max + padding)
-    y_min = max(0, y_min - padding)
-    y_max = min(H - 1, y_max + padding)
-    z_min = max(0, z_min - padding)
-    z_max = min(D - 1, z_max + padding)
-    
-    # Save bounds to xyz6 list in [x_min, x_max, y_min, y_max, z_min, z_max] order
-    xyz6 = [x_min, x_max, y_min, y_max, z_min, z_max]
-    
-    # Crop cube
-    cube = ABC[x_min:x_max + 1, y_min:y_max + 1, z_min:z_max + 1]
-    
-    return cube, xyz6
-
-def restore_result(ABC_shape, result, xyz6):
-    """
-    Place the processed result back into a zero array with the original size.
-    ABC_shape: shape of the original image (D, H, W)
-    result: processed cube
-    xyz6: boundary list [z_min, z_max, y_min, y_max, x_min, x_max]
-    """
-    # Create an empty array with the original shape
-    output = np.zeros(ABC_shape)
-    
-    # Extract boundaries from xyz6
-    z_min, z_max, y_min, y_max, x_min, x_max = xyz6
-    
-    # Insert the result back to the corresponding position
-    output[z_min:z_max + 1, y_min:y_max + 1, x_min:x_max + 1] = result
-    
-    return output
-
-# Example usage
-# Assume ABC is your 3D NumPy array
-# cube, xyz6 = crop_cube(ABC)
-# result = segseg(cube)  # assume segseg is your processing function
-# output = restore_result(ABC.shape, result, xyz6)
+from tigerbx.lib_crop import crop_cube, restore_result
 
 
 
@@ -257,7 +185,7 @@ def HLC_decoder(out, lrseg, dwseg):
 
 def run_args(args):
 
-    if args.save == 'all': args.save = 'hcCbm'
+    if args.save == 'all': args.save = 'mbhtcgw'
 
 
     input_file_list = args.input
@@ -271,7 +199,7 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['HLC'] = 'mprage_hlc_v003_resunetplus.onnx'
+    omodel['HLC'] = 'mprage_hlc_v004_resunetplusT2.onnx'
  
     # if you want to use other models
     if isinstance(args.model, dict):
@@ -308,7 +236,7 @@ def run_args(args):
 
         tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
         input_nib = nib.load(f)
-        tbet_nib = lib_bx.read_nib(input_nib) * lib_bx.read_nib(tbetmask_nib)
+        tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
 
@@ -316,7 +244,7 @@ def run_args(args):
         zoom = tbet_nib.header.get_zooms() 
 
         if max(zoom) > 1.1 or min(zoom) < 0.9:
-            tbet_nib111 = lib_bx.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
         else:
             tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
@@ -325,12 +253,12 @@ def run_args(args):
 
         #print(tbet_nib111.shape, tbet_nib111.get_fdata().dtype, tbet_nib.get_fdata().dtype)
 
-        tbet_image = lib_bx.read_nib(tbet_nib111)
-        tbetmask_image = lib_bx.read_nib(tbetmask_nib111)
+        tbet_image = lib_tool.read_nib(tbet_nib111)
+        tbetmask_image = lib_tool.read_nib(tbetmask_nib111)
             
         image_orig = tbet_image
 
-        image, xyz6 = crop_cube(image_orig, tbetmask_image)
+        image, xyz6 = crop_cube(image_orig, tbetmask_image, min_size=(160, 160, 160) if args.patch else None)
 
         image = image/np.max(image)
         image = image[None, ...][None, ...]
@@ -399,6 +327,7 @@ def run_args(args):
             if cgw_short[kk] not in args.save: continue
             pve = cgw[kk]
             pve = restore_result(image_orig.shape, pve, xyz6)
+            pve[pve<0.05] = 0
             pve = np.clip(pve* (tbet_image>0), 0, 1)
 
 
