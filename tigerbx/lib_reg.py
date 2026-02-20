@@ -420,7 +420,7 @@ def ants_transform(ants_moving, displacement_dict, interpolation='nearestNeighbo
         fixed=reference,
         moving=ants_moving,
         transformlist=displacement_dict[mode].tolist(),
-        interpolator=interpolation  # segmentation 請務必使用 nearest
+        interpolator=interpolation  # use nearest for segmentation
         )
         
     resampled_array = resampled_img.numpy()
