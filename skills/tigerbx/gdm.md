@@ -1,51 +1,55 @@
-# `tiger gdm` — EPI Distortion Correction
+# `tigerbx.gdm()` — EPI Distortion Correction
 
 Corrects geometric distortions in DTI/EPI scans using a GAN-based displacement field predictor.
 No field maps or reversed-phase-encode acquisitions required.
 
 Reference: Kuo et al., *Magn Reson Med* 2025. https://doi.org/10.1002/mrm.30577
 
+```python
+import tigerbx
+
+tigerbx.gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False)
 ```
-tiger gdm <input> [input ...] [-o OUTPUT] [-b0 INDEX_OR_BVAL] [-m] [-n] [-g]
-```
 
----
-
-## Flags
-
-| Flag | Description |
-|------|-------------|
-| `-b0 N` | Index of b0 volume (integer). Default: `0` (first volume) |
-| `-b0 FILE` | Path to a `.bval` file — b0 is identified automatically |
-| `-m` | Also save the predicted displacement map (`_dmap.nii.gz`) |
-| `-n` | Skip resampling to 1.7×1.7×1.7 mm³ |
-| `-g` | Use GPU |
+| Parameter      | Type         | Default | Description |
+|----------------|--------------|---------|-------------|
+| `input`        | `str`        | —       | Path to DTI/EPI NIfTI file (4D) |
+| `output`       | `str`        | `None`  | Output directory; `None` saves next to input |
+| `b0_index`     | `int` or `str` | `0`   | Index of b0 volume, or path to a `.bval` file |
+| `dmap`         | `bool`       | `False` | Also save predicted displacement map |
+| `no_resample`  | `bool`       | `False` | Skip resampling to 1.7×1.7×1.7 mm³ |
+| `GPU`          | `bool`       | `False` | Use GPU |
 
 ---
 
 ## Examples
 
-```bash
+```python
+import tigerbx
+
 # Correct a DTI file (b0 = first volume)
-tiger gdm dti.nii.gz -o output/
+tigerbx.gdm('dti.nii.gz', 'output/')
 
-# Specify b0 index
-tiger gdm dti.nii.gz -b0 1 -o output/
+# Specify b0 by index
+tigerbx.gdm('dti.nii.gz', 'output/', b0_index=1)
 
-# Use .bval file to find b0 automatically
-tiger gdm dti.nii.gz -b0 dti.bval -o output/
+# Identify b0 automatically from .bval file
+tigerbx.gdm('dti.nii.gz', 'output/', b0_index='dti.bval')
 
-# Save displacement map, GPU
-tiger gdm dti.nii.gz -m -g -o output/
+# Save displacement map, use GPU
+tigerbx.gdm('dti.nii.gz', 'output/', dmap=True, GPU=True)
+
+# Skip resampling (keep original resolution)
+tigerbx.gdm('dti.nii.gz', 'output/', no_resample=True)
 ```
 
 ---
 
-## Output naming
+## Output file naming
 
 For input `dti.nii.gz`:
 
-| Flag | Output file |
-|------|-------------|
+| Parameter | Output file |
+|-----------|-------------|
 | (default) | `dti_gdm.nii.gz` — distortion-corrected volume |
-| `-m`      | `dti_dmap.nii.gz` — displacement map |
+| `dmap=True` | `dti_dmap.nii.gz` — predicted displacement map |

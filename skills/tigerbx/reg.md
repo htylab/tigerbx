@@ -1,60 +1,86 @@
-# `tiger reg` — Registration and VBM
+# `tigerbx.reg()` / `tigerbx.transform()` — Registration and VBM
 
 Affine and nonlinear registration to MNI space; full VBM pipeline.
 Developed by Pei-Mao Sun.
 
-```
-tiger reg <input> [input ...] [-o OUTPUT] [flags] [--affine_type C2FViT|ANTs]
-```
-
 ---
 
-## Flags
+## `tigerbx.reg()`
+
+```python
+import tigerbx
+
+tigerbx.reg(argstring, input, output=None, model=None,
+            template=None, save_displacement=False, affine_type='C2FViT')
+```
+
+| Parameter           | Type   | Default    | Description |
+|---------------------|--------|------------|-------------|
+| `argstring`         | `str`  | —          | Registration method flags (see table) |
+| `input`             | `str`  | —          | NIfTI file, directory, or glob pattern |
+| `output`            | `str`  | `None`     | Output directory |
+| `affine_type`       | `str`  | `'C2FViT'` | `'C2FViT'` or `'ANTs'` — affects `r`, `F`, `v` |
+| `save_displacement` | `bool` | `False`    | Save warp field as `.npz` for reuse |
+| `template`          | `str`  | `None`     | Custom template NIfTI (for VBM) |
+
+### `argstring` flags
 
 | Flag | Description |
 |------|-------------|
-| `-A` | Affine registration (C2FViT or ANTs) |
-| `-r` | VMnet nonlinear registration |
-| `-s` | SyN nonlinear registration (ANTs) |
-| `-S` | SyNCC nonlinear registration (ANTs) |
-| `-F` | FuseMorph nonlinear registration |
-| `-R` | Rigid registration |
-| `-v` | Full VBM pipeline |
-| `-b` | Also save brain-extracted image |
-| `-g` | GPU |
-| `--affine_type` | `C2FViT` (default) or `ANTs` — affects `-r`, `-F`, `-v` |
-| `--save_displacement` | Save warp field as `.npz` for later use with `transform` |
+| `A`  | Affine registration (C2FViT or ANTs) |
+| `r`  | VMnet nonlinear registration |
+| `s`  | SyN nonlinear registration (ANTs) |
+| `S`  | SyNCC nonlinear registration (ANTs) |
+| `F`  | FuseMorph nonlinear registration |
+| `R`  | Rigid registration |
+| `v`  | Full VBM pipeline |
+| `b`  | Also save brain-extracted image |
+| `g`  | GPU |
 
----
+### Examples
 
-## Examples
+```python
+import tigerbx
 
-```bash
-# Affine registration (C2FViT)
-tiger reg T1w.nii.gz -A -o output/
+# Affine registration
+tigerbx.reg('A', 'T1w.nii.gz', 'output/')
 
-# Affine + VMnet nonlinear
-tiger reg T1w.nii.gz -A -r -o output/ --affine_type C2FViT
+# Affine + VMnet nonlinear (C2FViT affine)
+tigerbx.reg('Ar', 'T1w.nii.gz', 'output/', affine_type='C2FViT')
 
 # FuseMorph with ANTs affine
-tiger reg T1w.nii.gz -F -o output/ --affine_type ANTs
+tigerbx.reg('F', 'T1w.nii.gz', 'output/', affine_type='ANTs')
+
+# Save warp field for later use
+tigerbx.reg('Ar', 'T1w.nii.gz', 'output/', save_displacement=True)
 
 # Full VBM pipeline on a directory
-tiger reg /data/T1w_dir -v -o /data/output/
-
-# Save displacement field for later reuse
-tiger reg T1w.nii.gz -A -r -o output/ --save_displacement
+tigerbx.reg('v', '/data/T1w_dir/', '/data/output/')
 ```
 
 ---
 
-## Applying a saved warp field
+## `tigerbx.transform()`
 
-Use the Python API `tigerbx.transform()` to apply a previously saved `.npz` warp to another image (e.g. a label map):
+Apply a previously saved `.npz` warp field to any image (e.g. a label map).
 
-```bash
-# Via Python one-liner
-python -c "import tigerbx; tigerbx.transform('moving.nii.gz', 'warp.npz', 'output/', interpolation='nearest')"
+```python
+tigerbx.transform(moving, warp_npz, output=None, interpolation='linear')
 ```
 
-Use `interpolation='nearest'` for segmentation/label maps, `'linear'` for continuous images.
+| Parameter       | Description |
+|-----------------|-------------|
+| `moving`        | Path to the image to warp |
+| `warp_npz`      | Path to the `.npz` warp field saved by `reg(..., save_displacement=True)` |
+| `output`        | Output directory |
+| `interpolation` | `'linear'` for continuous images; `'nearest'` for label/segmentation maps |
+
+```python
+import tigerbx
+
+# Apply warp to a label map
+tigerbx.transform('moving_labels.nii.gz', 'warp.npz', 'output/', interpolation='nearest')
+
+# Apply warp to a continuous image
+tigerbx.transform('moving_T1w.nii.gz', 'warp.npz', 'output/', interpolation='linear')
+```

@@ -1,52 +1,67 @@
-# `tiger hlc` — Hierarchical Label Consolidation
+# `tigerbx.hlc()` — Hierarchical Label Consolidation
 
 Maps FreeSurfer-style ASEG/DKT labels into 56 hierarchically organised regions.
 Also produces cortical thickness and CSF/GM/WM tissue probability maps.
 
 Developed by Pin-Chuan Chen.
 
+```python
+import tigerbx
+
+result = tigerbx.hlc(input, output=None, model=None, save='h', GPU=False, gz=True, patch=False)
 ```
-tiger hlc <input> [input ...] [-o OUTPUT] [--save LETTERS] [-g] [-p] [-z]
-```
+
+| Parameter | Type            | Default | Description |
+|-----------|-----------------|---------|-------------|
+| `input`   | `str` or `list` | —       | NIfTI file, directory, glob pattern, or list of paths |
+| `output`  | `str`           | `None`  | Output directory; `None` saves next to each input |
+| `model`   | `dict`          | `None`  | Custom model override dict |
+| `save`    | `str`           | `'h'`   | Letters specifying which outputs to generate (see table) |
+| `GPU`     | `bool`          | `False` | Use GPU (requires ≥ 32 GB VRAM for hlc) |
+| `gz`      | `bool`          | `True`  | Save as `.nii.gz` |
+| `patch`   | `bool`          | `False` | Patch-based inference |
 
 ---
 
-## `--save` letters
+## `save` options
 
-| Letter | Output suffix | Description |
-|--------|---------------|-------------|
-| `m`    | `_tbetmask`   | Binary brain mask |
-| `b`    | `_tbet`       | Brain-extracted image |
-| `h`    | `_hlc`        | HLC 56-region parcellation |
-| `t`    | `_ct`         | Cortical thickness map |
-| `c`    | `_csf`        | CSF probability map |
-| `g`    | `_gm`         | GM probability map |
-| `w`    | `_wm`         | WM probability map |
-| `all`  | all above     | Shorthand for `mbhtcgw` |
-
-Default: `--save h` (HLC parcellation only).
+| Letter | Dict key / output suffix | Description |
+|--------|--------------------------|-------------|
+| `m`    | `tbetmask` / `_tbetmask` | Binary brain mask |
+| `b`    | `tbet` / `_tbet`         | Brain-extracted image |
+| `h`    | `hlc` / `_hlc`           | HLC 56-region parcellation |
+| `t`    | `ct` / `_ct`             | Cortical thickness map |
+| `c`    | `csf` / `_csf`           | CSF probability map |
+| `g`    | `gm` / `_gm`             | GM probability map |
+| `w`    | `wm` / `_wm`             | WM probability map |
+| `all`  | all above                | Shorthand for `'mbhtcgw'` |
 
 ---
 
 ## Examples
 
-```bash
+```python
+import tigerbx
+
 # HLC parcellation only (default)
-tiger hlc T1w.nii.gz -o output/
+result = tigerbx.hlc('T1w.nii.gz', 'output/')
+hlc_arr = result['hlc'].get_fdata()
 
 # All outputs
-tiger hlc T1w.nii.gz --save all -o output/
+result = tigerbx.hlc('T1w.nii.gz', 'output/', save='all')
+ct_arr  = result['ct'].get_fdata()    # cortical thickness
+csf_arr = result['csf'].get_fdata()   # CSF probability
 
-# HLC + cortical thickness + tissue maps, GPU
-tiger hlc T1w.nii.gz --save htcgw -g -o output/
+# Cortical thickness + tissue maps, GPU
+result = tigerbx.hlc('T1w.nii.gz', 'output/', save='tcgw', GPU=True)
 
-# Whole directory, patch-based inference
-tiger hlc /data/T1w_dir --save all -p -o /data/output/
+# Whole directory
+tigerbx.hlc('/data/T1w_dir/', '/data/output/', save='all')
 ```
 
 ---
 
-## Output naming
+## Output file naming
 
 For input `sub-001_T1w.nii.gz`:
 
