@@ -31,10 +31,10 @@ jobs:
       if: runner.os == 'macOS'
       run: echo "SYSTEM_VERSION_COMPAT=0" >> "$GITHUB_ENV"
 
-    - name: Set up Python 3.9
+    - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
-        python-version: "3.9"
+        python-version: "3.10"
 
     - name: Install build dependencies
       run: |
