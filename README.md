@@ -33,8 +33,8 @@ pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/ar
 ```python
 import tigerbx
 
-# Brain extraction + ASEG + DKT parcellation + deep gray matter
-tigerbx.run('badk', 'T1w.nii.gz', 'output_dir')
+# Brain mask + brain image + ASEG + deep gray matter (recommended)
+tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 ```
 
 ### Install a specific version
