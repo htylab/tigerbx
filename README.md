@@ -209,6 +209,34 @@ See [NERVE usage](doc/nerve.md) for a complete description.
 
 ---
 
+### `eval` — Image Quality and Segmentation Metrics
+
+Computes quantitative metrics between a ground-truth and a predicted image.
+Accepts NIfTI file paths, nibabel images, or numpy arrays.
+
+```python
+import tigerbx
+
+# Segmentation — evaluate ASEG prediction against ground truth
+result = tigerbx.run('a', 'T1w.nii.gz', 'output/')
+scores = tigerbx.eval('gt_aseg.nii.gz', result['aseg'], 'dice',
+                      labels=[10, 11, 17, 18])
+# → {'dice': {'10': 0.91, '11': 0.89, '17': 0.94, '18': 0.92, 'mean': 0.915}}
+
+# Multiple metrics at once
+scores = tigerbx.eval('gt.nii.gz', 'pred.nii.gz', ['dice', 'hd95'],
+                      labels=[1, 2, 3])
+
+# Reconstruction quality (e.g. after GDM)
+scores = tigerbx.eval('ref.nii.gz', 'pred_gdm.nii.gz', ['psnr', 'ssim', 'ncc'])
+```
+
+Supported metrics: `dice`, `iou`, `hd95`, `asd`, `mae`, `mse`, `psnr`, `ssim`, `ncc`, `mi`, `ksg_mi`, `accuracy`, `precision`, `recall`, `f1`.
+
+See [eval usage](doc/eval.md) for the full API reference and examples.
+
+---
+
 ## Installation (stand-alone CLI)
 
 Download the latest stand-alone release (no Python required):
