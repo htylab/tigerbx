@@ -260,7 +260,9 @@ def run_args(args):
 
         image, xyz6 = crop_cube(image_orig, tbetmask_image, min_size=(160, 160, 160) if args.patch else None)
 
-        image = image/np.max(image)
+        mx = np.max(image)
+        if mx > 0:
+            image = image / mx
         image = image[None, ...][None, ...]
         model_ff = lib_tool.get_model(omodel['HLC'])
         print('Perform HLC model....')

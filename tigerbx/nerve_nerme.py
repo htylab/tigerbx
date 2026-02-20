@@ -21,7 +21,6 @@ import time
 import glob
 import platform
 import nibabel as nib
-from tqdm import tqdm
 import pandas as pd
 from skimage.metrics import structural_similarity as ssim_metric
 from tigerbx import lib_tool

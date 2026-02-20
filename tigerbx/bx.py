@@ -271,7 +271,8 @@ def run_args(args):
             imabet = tbet_nib.get_fdata()
             if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
                 imabet = imabet.astype(input_nib.dataobj.dtype)
-            
+                tbet_nib = nib.Nifti1Image(imabet, tbet_nib.affine, tbet_nib.header)
+
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
             printer('Writing output file: ', fn)
             result_dict['tbet'] = tbet_nib
@@ -317,7 +318,9 @@ def run_args(args):
             model_ff = lib_tool.get_model(omodel['ct'])
             bet_img = lib_tool.read_nib(tbet_nib111_crop)
             image = bet_img[None, ...][None, ...]
-            image = image/np.max(image)
+            mx = np.max(image)
+            if mx > 0:
+                image = image / mx
             ct = lib_tool.predict(model_ff, image, args.gpu)[0, 0, ...]
 
             ct[ct < 0.2] = 0
