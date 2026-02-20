@@ -40,9 +40,7 @@ tiger bx <input> [input ...] [-o OUTPUT] [flags ...]
 | `c`      | `-c`     | `_ct`                | Cortical thickness map |
 | `C`      | `-C`     | `_cgw_pve0/1/2`      | CSF / GM / WM probability maps (3 files, FSL-style PVE) |
 | `d`      | `-d`     | `_dgm`               | Deep gray matter mask (12 structures) |
-| `k`      | `-k`     | `_dkt`               | DKT cortical parcellation |
 | `S`      | `-S`     | `_syn`               | SynthSeg-style ASEG segmentation |
-| `w`      | `-w`     | `_wmp`               | White matter parcellation |
 | `W`      | `-W`     | `_wmh`               | White matter hypointensity mask |
 | `t`      | `-t`     | `_tumor`             | Tumor mask |
 | `q`      | `-q`     | `_qc-<score>.log`    | QC score log (also written automatically when QC < 50) |
@@ -70,14 +68,11 @@ import tigerbx
 # Brain extraction only (default when no flag is given)
 tigerbx.run('b', 'T1w.nii.gz', 'output_dir')
 
-# Brain mask + brain image
-tigerbx.run('bm', 'T1w.nii.gz', 'output_dir')
-
-# ASEG + DKT parcellation + deep gray matter
-tigerbx.run('adk', 'T1w.nii.gz', 'output_dir')
+# Brain mask + brain image + ASEG + deep gray matter (recommended)
+tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCkSwWtq', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdCSWtq', 'T1w.nii.gz', 'output_dir')
 
 # Process an entire directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
@@ -92,14 +87,14 @@ tigerbx.run('clean_onnx')
 ### CLI
 
 ```bash
-# Brain extraction and brain mask
+# Brain mask + brain image + ASEG + deep gray matter (recommended)
+tiger bx T1w.nii.gz -bmad -o output_dir
+
+# Brain extraction and brain mask only
 tiger bx T1w.nii.gz -b -m -o output_dir
 
-# ASEG + DKT + cortical thickness + deep gray matter
-tiger bx T1w.nii.gz -a -k -c -d -o output_dir
-
 # Full pipeline — all output types
-tiger bx T1w.nii.gz -b -m -a -c -C -d -k -S -w -W -t -q -o output_dir
+tiger bx T1w.nii.gz -b -m -a -c -C -d -S -W -t -q -o output_dir
 
 # Process a whole directory with GPU
 tiger bx /data/T1w_dir -b -m -a -g -o /data/output
@@ -125,13 +120,11 @@ For an input named `sub-001_T1w.nii.gz`, outputs are:
 | `-c` | `sub-001_T1w_ct.nii.gz` |
 | `-C` | `sub-001_T1w_cgw_pve0.nii.gz`, `_pve1.nii.gz`, `_pve2.nii.gz` (CSF / GM / WM) |
 | `-d` | `sub-001_T1w_dgm.nii.gz` |
-| `-k` | `sub-001_T1w_dkt.nii.gz` |
 | `-S` | `sub-001_T1w_syn.nii.gz` |
-| `-w` | `sub-001_T1w_wmp.nii.gz` |
 | `-W` | `sub-001_T1w_wmh.nii.gz` |
 | `-t` | `sub-001_T1w_tumor.nii.gz` |
 | `-q` | `sub-001_T1w_qc-<score>.log` |
 
 ---
 
-For label definitions used in ASEG, DKT, DeepGM, and WMP outputs, see [Label definitions](seglabel.md).
+For label definitions used in ASEG, DeepGM, and SynthSeg outputs, see [Label definitions](seglabel.md).

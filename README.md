@@ -40,8 +40,8 @@ tigerbx.run('badk', 'T1w.nii.gz', 'output_dir')
 ### Install a specific version
 
 ```bash
-pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.21.tar.gz"
-pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.21.tar.gz"
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
 ```
 
 ---
@@ -53,14 +53,11 @@ pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/ar
 ```python
 import tigerbx
 
-# Brain extraction + brain mask
-tigerbx.run('bm', 'T1w.nii.gz', 'output_dir')
-
-# ASEG + DKT + cortical thickness + deep gray matter
-tigerbx.run('akcd', 'T1w.nii.gz', 'output_dir')
+# Brain mask + brain image + ASEG + deep gray matter (recommended)
+tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCkSwWtq', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdCSWtq', 'T1w.nii.gz', 'output_dir')
 
 # Process a directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
@@ -70,9 +67,8 @@ tigerbx.run('bmag', '/data/**/T1w.nii.gz', '/data/output')
 ```
 
 ```bash
-tiger bx T1w.nii.gz -b -m -o output_dir
-tiger bx T1w.nii.gz -a -k -c -d -o output_dir
-tiger bx T1w.nii.gz -b -m -a -c -C -d -k -S -w -W -t -q -o output_dir
+tiger bx T1w.nii.gz -bmad -o output_dir
+tiger bx T1w.nii.gz -b -m -a -c -C -d -S -W -t -q -o output_dir
 tiger bx /data/T1w_dir -b -m -a -g -o /data/output
 ```
 

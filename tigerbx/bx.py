@@ -134,11 +134,8 @@ def run(argstring, input=None, output=None, model=None, silent=False):
     args.bet = 'b' in argstring
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
-    args.dgm = 'd' in argstring        
-    args.dkt = 'k' in argstring
-    args.wmh = 'W' in argstring    
-    args.wmp = 'w' in argstring
-    #args.seg3 = 's' in argstring
+    args.dgm = 'd' in argstring
+    args.wmh = 'W' in argstring
     args.syn = 'S' in argstring
     args.tumor = 't' in argstring
     args.qc = 'q' in argstring
@@ -157,9 +154,8 @@ def run_args(args):
         printer = print
 
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
-                    run_d['dkt'], run_d['ct'], run_d['wmp'], run_d['qc'], 
-                    run_d['wmh'], run_d['tumor'], run_d['cgw'], 
-                    run_d['syn'], run_d['patch']]:
+                    run_d['ct'], run_d['qc'], run_d['wmh'], run_d['tumor'],
+                    run_d['cgw'], run_d['syn'], run_d['patch']]:
         run_d['bet'] = True
         # Producing extracted brain by default
         
@@ -180,11 +176,9 @@ def run_args(args):
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'    
-    omodel['dkt'] = 'mprage_dkt_v002_train.onnx'
+    omodel['aseg'] = 'mprage_aseg43_v007_16ksynth.onnx'
     omodel['ct'] = 'mprage_mix_ct.onnx'
     omodel['dgm'] = 'mprage_dgm12_v002_mix6.onnx'
-    omodel['wmp'] = 'mprage_wmp_v003_14k8.onnx'
     omodel['wmh'] = 'mprage_wmh_v002_betr111.onnx'
     omodel['tumor'] = 'mprage_tumor_v001_r111.onnx'
     omodel['cgw'] = 'mprage_cgw_v001_r111.onnx'
@@ -228,7 +222,7 @@ def run_args(args):
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
 
         _needs_111 = any(run_d[k] for k in
-                         ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn', 'cgw', 'ct'])
+                         ['aseg', 'dgm', 'wmh', 'tumor', 'syn', 'cgw', 'ct'])
         tbet_nib111 = None
         tbet_seg = None
         tbet_nib111_crop = None
@@ -283,7 +277,7 @@ def run_args(args):
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
-        for seg_str in ['aseg', 'dgm', 'dkt', 'wmp', 'wmh', 'tumor', 'syn']:
+        for seg_str in ['aseg', 'dgm', 'wmh', 'tumor', 'syn']:
             if run_d[seg_str]:
                 result_nib = produce_mask(omodel[seg_str], f, GPU=args.gpu,
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg_crop, patch=run_d['patch'])
