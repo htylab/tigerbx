@@ -44,6 +44,11 @@ pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/arc
 pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
 ```
 
+> **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):
+> ```bash
+> pip install https://github.com/htylab/tigerbx/archive/refs/tags/v0.1.20.tar.gz
+> ```
+
 ---
 
 ## Modules
