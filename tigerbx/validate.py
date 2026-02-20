@@ -3,7 +3,6 @@ import numpy as np
 import glob
 import nibabel as nib
 import tigerbx
-import pandas as pd
 from tigerbx import lib_tool
 from tigerbx import lib_reg
 from nilearn.image import reorder_img
@@ -42,6 +41,7 @@ def get_dice26(gt, pd):
 
 
 def val_bet_synstrip(input_dir, output_dir, model=None, GPU=False, debug=False):
+    import pandas as pd
     ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
     if debug:
         ffs = ffs[:5]
@@ -90,6 +90,7 @@ def val_bet_synstrip(input_dir, output_dir, model=None, GPU=False, debug=False):
 
 
 def val_bet_NFBS(input_dir, output_dir, model=None, GPU=False, debug=False):
+    import pandas as pd
     ffs = sorted(glob.glob(join(input_dir, '*', '*T1w.nii.gz')))
     if debug:
         ffs = ffs[:5]
@@ -128,6 +129,7 @@ def val_bet_NFBS(input_dir, output_dir, model=None, GPU=False, debug=False):
 
 
 def _val_seg_123(model_str, run_option, input_dir, output_dir, model=None, GPU=False, debug=False):
+    import pandas as pd
     ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
     if debug:
         ffs = ffs[:5]
@@ -166,6 +168,7 @@ def _val_seg_123(model_str, run_option, input_dir, output_dir, model=None, GPU=F
 
 
 def val_hlc_123(input_dir, output_dir, model=None, GPU=False, debug=False):
+    import pandas as pd
     ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
     if debug:
         ffs = ffs[:5]
@@ -204,6 +207,7 @@ def val_hlc_123(input_dir, output_dir, model=None, GPU=False, debug=False):
 
 
 def val_reg_60(input_dir, output_dir, model=None, GPU=False, debug=False, template=None):
+    import pandas as pd
     ffs = sorted(glob.glob(join(input_dir, 'raw60', '*.nii.gz')))
     if debug:
         ffs = ffs[:5]

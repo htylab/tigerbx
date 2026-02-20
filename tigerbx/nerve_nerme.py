@@ -12,8 +12,6 @@ from os.path import basename
 
 import numpy as np
 import nibabel as nib
-#import onnx
-import onnxruntime as ort
 import tempfile
 import tigerbx
 
@@ -21,8 +19,6 @@ import time
 import glob
 import platform
 import nibabel as nib
-import pandas as pd
-from skimage.metrics import structural_similarity as ssim_metric
 from tigerbx import lib_tool
 
 import warnings
@@ -59,7 +55,7 @@ def encode_nii(
         f_template = basename(raw_path)
 
     # Build encoder session
-    #onnx.checker.check_model(onnx.load(encoder))
+    import onnxruntime as ort
     enc_sess = ort.InferenceSession(encoder, providers=providers)
 
     # Temporary workspace for tigerbx preprocessing
@@ -121,7 +117,7 @@ def decode_npz(
         ["CUDAExecutionProvider", "CPUExecutionProvider"]
         if GPU else ["CPUExecutionProvider"]
     )
-    #onnx.checker.check_model(onnx.load(decoder))
+    import onnxruntime as ort
     dec_sess = ort.InferenceSession(decoder, providers=providers)
 
     os.makedirs(output_dir, exist_ok=True)
@@ -276,6 +272,7 @@ def run_args(args):
             max_value = max(max_e, max_value)
 
     if args.evaluate:
+        import pandas as pd
         records = []
         for orig_f, patch_ff, recon_ff in recon_pairs:
                   

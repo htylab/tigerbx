@@ -1,7 +1,6 @@
 import os
 import re
 import subprocess
-import onnxruntime as ort
 import shutil
 import warnings
 from os.path import join, isdir, basename, isfile, dirname
@@ -14,10 +13,7 @@ from tigerbx import bx
 from nilearn.image import resample_img, reorder_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
-import optuna
-import ants
 warnings.filterwarnings("ignore", category=UserWarning)
-ort.set_default_logger_severity(3)
 nib.Nifti1Header.quaternion_threshold = -100
 
 
@@ -223,6 +219,7 @@ def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_
     return (x, y, z, np.mean(dice_scores), warp)
 
 def optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args):
+    import optuna
 
     def objective(trial):
         x = trial.suggest_float("x", 0.9, 1.0)
@@ -355,6 +352,7 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         fn = bx.save_nib(Fused_nib, ftemplate, 'Fuse')
 
 def get_ants_info(image, affine):
+    import ants
     ants_img = ants.from_numpy(image)
     
     rot = affine[:3, :3]
@@ -376,6 +374,7 @@ def get_ants_info(image, affine):
     return ants_img, ants_dict
 
 def apply_ANTs_reg(ants_moving, ants_fixed, mode):
+    import ants
     registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)  
     transformed_moving_image = registration['warpedmovout']    
     transformed_array = transformed_moving_image.numpy()
@@ -393,12 +392,13 @@ def apply_ANTs_reg(ants_moving, ants_fixed, mode):
     return transformed_array, ants_dict
 
 def ants_transform(ants_moving, displacement_dict, interpolation='nearestNeighbor', mode='affine'):
+    import ants
     if interpolation == 'nearest':
         interpolation = 'nearestNeighbor'
 
     ref_info = displacement_dict["reference_info"]
     dummy_array = np.zeros(ref_info["shape"], dtype=np.float32)
-    
+
     reference = ants.from_numpy(dummy_array)
     reference.set_origin(list(ref_info["origin"]))
     reference.set_spacing(list(ref_info["spacing"]))
