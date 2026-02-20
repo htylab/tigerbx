@@ -6,4 +6,4 @@ from tigerbx.hlc171 import hlc
 from tigerbx.reg_vbm import reg
 from tigerbx.nerve_nerme import nerve
 from tigerbx.eval import eval
-__version__ = '0.2.0'
+__version__ = '0.2.1'

@@ -79,14 +79,14 @@ def run_cli(label, cmd):
 # ── per-module inference ──────────────────────────────────────────────────────
 
 def run_bx(output_dir, tigerbx):
-    # b=bet  m=betmask  a=aseg  c=ct  C=cgw  d=dgm  k=dkt
-    # S=syn  w=wmp  W=wmh  t=tumor  q=qc
+    # b=bet  m=betmask  a=aseg  c=ct  C=cgw  d=dgm  S=syn  W=wmh  t=tumor  q=qc
+    # Note: k=dkt and w=wmp are API-only; omitted to keep API/CLI outputs comparable
     api_dir = make_dir(output_dir, 'bx', 'api')
     cli_dir = make_dir(output_dir, 'bx', 'cli')
-    run_api('bx — all outputs', lambda: tigerbx.run('bmacdCkSwWtq', TEMPLATE, api_dir))
+    run_api('bx — all outputs', lambda: tigerbx.run('bmacdCSWtq', TEMPLATE, api_dir))
     run_cli('bx — all outputs', [
         TIGER_BIN, 'bx',
-        '-b', '-m', '-a', '-c', '-C', '-d', '-k', '-S', '-w', '-W', '-t', '-q',
+        '-b', '-m', '-a', '-c', '-C', '-d', '-S', '-W', '-t', '-q',
         TEMPLATE, '-o', cli_dir,
     ])
 
