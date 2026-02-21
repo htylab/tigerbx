@@ -328,6 +328,12 @@ See [Validation](doc/validation.md) for accuracy, reproducibility, and compariso
 
 ---
 
+## Contributing
+
+Contributions are welcome! See the [Developer Guide](doc/developer_guide.md) for instructions on setting up a local environment, branch and commit conventions, running tests, and submitting pull requests.
+
+---
+
 ## Disclaimer
 
 This software is intended solely for **research use** and has **not** been reviewed or approved by the FDA or any regulatory body. It must **not** be used for diagnostic, treatment, or other clinical purposes.
