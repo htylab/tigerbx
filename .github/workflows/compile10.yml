@@ -8,7 +8,7 @@ permissions:
 
 jobs:
 # ============================================================
-# 1. Build ── 針對三大 OS 編譯，上傳裸 binary（不壓縮）
+# 1. Build ── 針對三大 OS 編譯，產生並上傳 zip
 # ============================================================
   build:
     strategy:
@@ -50,55 +50,40 @@ jobs:
           --icon=./tigerbx/exe/ico.ico \
           -F ./tigerbx_cli/${{ matrix.py }}.py
 
-    - name: Prepare binary
+    - name: Package binary into zip
       shell: bash
       run: |
         mkdir out
+        ZIP_NAME="tigerbx-${{ runner.os }}-${SHORT_SHA}.zip"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          cp dist/tiger.exe out/
+          zip -j "out/${ZIP_NAME}" dist/tiger.exe
         else
-          cp dist/tiger out/
+          zip -j "out/${ZIP_NAME}" dist/tiger
         fi
+        echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
 
-    - name: Upload binary artifact
+    - name: Upload zip artifact
       uses: actions/upload-artifact@v4
       with:
-        name: tigerbx-${{ runner.os }}-${{ env.SHORT_SHA }}
-        path: out/
+        name: ${{ env.ZIP_NAME }}
+        path: out/${{ env.ZIP_NAME }}
 
 # ============================================================
-# 2. Release ── 各 binary 各自壓成一顆 zip 後發布
+# 2. Release ── 收集 zip 直接發布
 # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-    - name: Derive short commit SHA
-      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        path: bins           # 各 OS 放在各自子目錄 bins/bin-<OS>-<SHA>/
+        merge-multiple: true
+        path: release
 
     - name: List downloaded files
-      run: find bins -type f | sort
-
-    - name: Package each binary into its own zip
-      run: |
-        mkdir release
-        for dir in bins/tigerbx-*/; do
-          name=$(basename "$dir")              # tigerbx-Linux-abc1234
-          platform=${name#tigerbx-}           # Linux-abc1234
-          platform=${platform%-*}             # Linux / macOS / Windows
-          if [[ -f "$dir/tiger.exe" ]]; then
-            zip -j "release/tigerbx-${platform}-${SHORT_SHA}.zip" "$dir/tiger.exe"
-          else
-            zip -j "release/tigerbx-${platform}-${SHORT_SHA}.zip" "$dir/tiger"
-          fi
-        done
-        ls -lh release/
+      run: ls -lh release/
 
     - name: Create draft GitHub Release
       uses: ncipollo/release-action@v1
