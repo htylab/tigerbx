@@ -341,12 +341,46 @@ def ksg_mi(y_true, y_pred, k=5):
 # Classification metrics
 # ---------------------------------------------------------------------------
 
+def _clf_prf(y_true, y_pred, average):
+    """Per-label and aggregated (precision, recall, F1) — pure numpy."""
+    labels = np.unique(np.concatenate([y_true, y_pred]))
+    n = len(labels)
+    tps = np.empty(n, dtype=float)
+    fps = np.empty(n, dtype=float)
+    fns = np.empty(n, dtype=float)
+    for i, lbl in enumerate(labels):
+        pp = y_pred == lbl
+        tp = y_true == lbl
+        tps[i] = (pp & tp).sum()
+        fps[i] = (pp & ~tp).sum()
+        fns[i] = (~pp & tp).sum()
+    sup = tps + fns
+    ps = np.where(tps + fps > 0, tps / (tps + fps), 0.0)
+    rs = np.where(tps + fns > 0, tps / (tps + fns), 0.0)
+    fs = np.where(ps + rs > 0, 2 * ps * rs / (ps + rs), 0.0)
+
+    if average == 'micro':
+        tp_s, fp_s, fn_s = tps.sum(), fps.sum(), fns.sum()
+        p = tp_s / (tp_s + fp_s) if tp_s + fp_s > 0 else 0.0
+        r = tp_s / (tp_s + fn_s) if tp_s + fn_s > 0 else 0.0
+        f = 2 * p * r / (p + r) if p + r > 0 else 0.0
+    elif average == 'weighted':
+        s = sup.sum()
+        w = sup / s if s > 0 else np.ones(n) / n
+        p, r, f = float(np.dot(ps, w)), float(np.dot(rs, w)), float(np.dot(fs, w))
+    elif average == 'binary':
+        p, r, f = float(ps[-1]), float(rs[-1]), float(fs[-1])
+    else:  # macro
+        p, r, f = float(ps.mean()), float(rs.mean()), float(fs.mean())
+
+    return p, r, f
+
+
 def accuracy(y_true, y_pred):
     """Classification accuracy."""
-    from sklearn.metrics import accuracy_score
     y_true = _to_array(y_true).astype(int).ravel()
     y_pred = _to_array(y_pred).astype(int).ravel()
-    return float(accuracy_score(y_true, y_pred))
+    return float(np.mean(y_true == y_pred))
 
 
 def precision(y_true, y_pred, average='macro'):
@@ -357,26 +391,26 @@ def precision(y_true, y_pred, average='macro'):
     average : str
         Averaging strategy: 'macro', 'micro', 'weighted', 'binary'.
     """
-    from sklearn.metrics import precision_score
     y_true = _to_array(y_true).astype(int).ravel()
     y_pred = _to_array(y_pred).astype(int).ravel()
-    return float(precision_score(y_true, y_pred, average=average, zero_division=0))
+    p, _, _ = _clf_prf(y_true, y_pred, average)
+    return p
 
 
 def recall(y_true, y_pred, average='macro'):
     """Classification recall."""
-    from sklearn.metrics import recall_score
     y_true = _to_array(y_true).astype(int).ravel()
     y_pred = _to_array(y_pred).astype(int).ravel()
-    return float(recall_score(y_true, y_pred, average=average, zero_division=0))
+    _, r, _ = _clf_prf(y_true, y_pred, average)
+    return r
 
 
 def f1(y_true, y_pred, average='macro'):
     """F1 score."""
-    from sklearn.metrics import f1_score
     y_true = _to_array(y_true).astype(int).ravel()
     y_pred = _to_array(y_pred).astype(int).ravel()
-    return float(f1_score(y_true, y_pred, average=average, zero_division=0))
+    _, _, f = _clf_prf(y_true, y_pred, average)
+    return f
 
 
 # ---------------------------------------------------------------------------
