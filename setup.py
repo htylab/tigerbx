@@ -39,7 +39,7 @@ setup(
     },
      python_requires='>=3.8',
      install_requires=[
-             'numpy>=1.21.6,<2.0',
+             'numpy>=1.21.6',
              'nilearn>=0.9.2',
              'optuna',
              'SimpleITK>=2.1.0',
@@ -48,8 +48,8 @@ setup(
              'filelock',
          ],
      extras_require={
-         'cpu': ['onnxruntime>=1.17.0,<1.21.0'],
-         'cu12': ['onnxruntime-gpu>=1.17.0,<1.21.0'],
+         'cpu': ['onnxruntime>=1.18.0'],
+         'cu12': ['onnxruntime-gpu>=1.18.0'],
          'dev': ['pytest', 'pandas'],
      },
 
