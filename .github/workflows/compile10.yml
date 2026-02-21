@@ -56,7 +56,7 @@ jobs:
         mkdir out
         ZIP_NAME="tigerbx-${{ runner.os }}-${SHORT_SHA}.zip"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          zip -j "out/${ZIP_NAME}" dist/tiger.exe
+          powershell -Command "Compress-Archive -Path dist/tiger.exe -DestinationPath out/${ZIP_NAME}"
         else
           zip -j "out/${ZIP_NAME}" dist/tiger
         fi
