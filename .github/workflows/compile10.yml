@@ -63,7 +63,7 @@ jobs:
     - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
-        name: bin-${{ runner.os }}-${{ env.SHORT_SHA }}
+        name: tigerbx-${{ runner.os }}-${{ env.SHORT_SHA }}
         path: out/
 
 # ============================================================
@@ -88,15 +88,14 @@ jobs:
     - name: Package each binary into its own zip
       run: |
         mkdir release
-        for dir in bins/bin-*/; do
-          name=$(basename "$dir")              # bin-Linux-abc1234
-          platform=${name#bin-}               # Linux-abc1234
+        for dir in bins/tigerbx-*/; do
+          name=$(basename "$dir")              # tigerbx-Linux-abc1234
+          platform=${name#tigerbx-}           # Linux-abc1234
           platform=${platform%-*}             # Linux / macOS / Windows
-          pl=$(echo "$platform" | tr '[:upper:]' '[:lower:]')  # linux / macos / windows
           if [[ -f "$dir/tiger.exe" ]]; then
-            zip -j "release/tiger-${pl}-${SHORT_SHA}.zip" "$dir/tiger.exe"
+            zip -j "release/tigerbx-${platform}-${SHORT_SHA}.zip" "$dir/tiger.exe"
           else
-            zip -j "release/tiger-${pl}-${SHORT_SHA}.zip" "$dir/tiger"
+            zip -j "release/tigerbx-${platform}-${SHORT_SHA}.zip" "$dir/tiger"
           fi
         done
         ls -lh release/
@@ -107,5 +106,5 @@ jobs:
         tag: v${{ github.run_number }}
         name: Release ${{ github.run_number }}
         draft: true
-        artifacts: release/tiger-*.zip
+        artifacts: release/tigerbx-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}

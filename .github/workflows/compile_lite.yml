@@ -65,7 +65,7 @@ jobs:
     - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
-        name: bin-lite-${{ runner.os }}-${{ env.SHORT_SHA }}
+        name: tigerbx-lite-${{ runner.os }}-${{ env.SHORT_SHA }}
         path: out/
 
 # ============================================================
@@ -90,15 +90,14 @@ jobs:
     - name: Package each binary into its own zip
       run: |
         mkdir release
-        for dir in bins/bin-lite-*/; do
-          name=$(basename "$dir")              # bin-lite-Linux-abc1234
-          platform=${name#bin-lite-}           # Linux-abc1234
+        for dir in bins/tigerbx-lite-*/; do
+          name=$(basename "$dir")              # tigerbx-lite-Linux-abc1234
+          platform=${name#tigerbx-lite-}      # Linux-abc1234
           platform=${platform%-*}             # Linux / macOS / Windows
-          pl=$(echo "$platform" | tr '[:upper:]' '[:lower:]')  # linux / macos / windows
           if [[ -f "$dir/tiger.exe" ]]; then
-            zip -j "release/tiger-lite-${pl}-${SHORT_SHA}.zip" "$dir/tiger.exe"
+            zip -j "release/tigerbx-lite-${platform}-${SHORT_SHA}.zip" "$dir/tiger.exe"
           else
-            zip -j "release/tiger-lite-${pl}-${SHORT_SHA}.zip" "$dir/tiger"
+            zip -j "release/tigerbx-lite-${platform}-${SHORT_SHA}.zip" "$dir/tiger"
           fi
         done
         ls -lh release/
@@ -117,5 +116,5 @@ jobs:
 
           For full registration support, use the Python package: `pip install "tigerbx[cpu]"`
         draft: true
-        artifacts: release/tiger-lite-*.zip
+        artifacts: release/tigerbx-lite-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}
