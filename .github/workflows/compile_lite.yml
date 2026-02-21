@@ -8,7 +8,7 @@ permissions:
 
 jobs:
 # ============================================================
-# 1. Build ── 針對三大 OS 編譯（排除 ants / optuna）
+# 1. Build ── 針對三大 OS 編譯（排除 ants / optuna），上傳裸 binary
 # ============================================================
   build:
     strategy:
@@ -52,47 +52,56 @@ jobs:
           --exclude-module optuna \
           -F ./tigerbx_cli/${{ matrix.py }}.py
 
-    - name: Package binary into zip
+    - name: Prepare binary
       shell: bash
       run: |
         mkdir out
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          BIN_SRC="dist/tiger.exe"
-          ZIP_NAME="tiger-lite-windows-${SHORT_SHA}.zip"
-          powershell -Command "Compress-Archive -Path $BIN_SRC -DestinationPath out/$ZIP_NAME"
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          BIN_SRC="dist/tiger"
-          ZIP_NAME="tiger-lite-macos-${SHORT_SHA}.zip"
-          zip -j "out/$ZIP_NAME" "$BIN_SRC"
+          cp dist/tiger.exe out/
         else
-          BIN_SRC="dist/tiger"
-          ZIP_NAME="tiger-lite-linux-${SHORT_SHA}.zip"
-          zip -j "out/$ZIP_NAME" "$BIN_SRC"
+          cp dist/tiger out/
         fi
-        echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
-    - name: Upload zip artifact
+    - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.ZIP_NAME }}
-        path: out/${{ env.ZIP_NAME }}
+        name: bin-lite-${{ runner.os }}-${{ env.SHORT_SHA }}
+        path: out/
 
 # ============================================================
-# 2. Release ── 發布三顆 lite zip
+# 2. Release ── 各 binary 各自壓成一顆 zip 後發布
 # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
+    - name: Derive short commit SHA
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        merge-multiple: true
-        path: artifacts
+        path: bins
 
     - name: List downloaded files
-      run: ls -lh artifacts
+      run: find bins -type f | sort
+
+    - name: Package each binary into its own zip
+      run: |
+        mkdir release
+        for dir in bins/bin-lite-*/; do
+          name=$(basename "$dir")              # bin-lite-Linux-abc1234
+          platform=${name#bin-lite-}           # Linux-abc1234
+          platform=${platform%-*}             # Linux / macOS / Windows
+          pl=$(echo "$platform" | tr '[:upper:]' '[:lower:]')  # linux / macos / windows
+          if [[ -f "$dir/tiger.exe" ]]; then
+            zip -j "release/tiger-lite-${pl}-${SHORT_SHA}.zip" "$dir/tiger.exe"
+          else
+            zip -j "release/tiger-lite-${pl}-${SHORT_SHA}.zip" "$dir/tiger"
+          fi
+        done
+        ls -lh release/
 
     - name: Create draft GitHub Release
       uses: ncipollo/release-action@v1
@@ -108,5 +117,5 @@ jobs:
 
           For full registration support, use the Python package: `pip install "tigerbx[cpu]"`
         draft: true
-        artifacts: artifacts/tiger-lite-*.zip
+        artifacts: release/tiger-lite-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}

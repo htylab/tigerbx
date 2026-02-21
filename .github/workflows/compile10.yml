@@ -8,7 +8,7 @@ permissions:
 
 jobs:
 # ============================================================
-# 1. Build ── 針對三大 OS 編譯並產生「單檔 zip」
+# 1. Build ── 針對三大 OS 編譯，上傳裸 binary（不壓縮）
 # ============================================================
   build:
     strategy:
@@ -48,54 +48,58 @@ jobs:
         pyinstaller -c -p . \
           --additional-hooks-dir=./pyinstaller_hooks \
           --icon=./tigerbx/exe/ico.ico \
-          --exclude-module pandas \
           -F ./tigerbx_cli/${{ matrix.py }}.py
 
-    # ── 重新命名與壓縮（zip 內只有執行檔本身） ──
-    - name: Package binary into zip
+    - name: Prepare binary
       shell: bash
       run: |
         mkdir out
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          BIN_SRC="dist/tiger.exe"
-          BIN_NAME="tiger.exe"
-          ZIP_NAME="tiger-windows-${SHORT_SHA}.zip"
-          powershell -Command "Compress-Archive -Path $BIN_SRC -DestinationPath out/$ZIP_NAME"
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          BIN_SRC="dist/tiger"
-          BIN_NAME="tiger"
-          ZIP_NAME="tiger-macos-${SHORT_SHA}.zip"
-          zip -j "out/$ZIP_NAME" "$BIN_SRC"
-        else   # Linux
-          BIN_SRC="dist/tiger"
-          BIN_NAME="tiger"
-          ZIP_NAME="tiger-linux-${SHORT_SHA}.zip"
-          zip -j "out/$ZIP_NAME" "$BIN_SRC"
+          cp dist/tiger.exe out/
+        else
+          cp dist/tiger out/
         fi
-        echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
-    - name: Upload zip artifact
+    - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.ZIP_NAME }}      # artifact 名就是 zip 檔名
-        path: out/${{ env.ZIP_NAME }}
+        name: bin-${{ runner.os }}-${{ env.SHORT_SHA }}
+        path: out/
 
 # ============================================================
-# 2. Release ── 直接發布三顆 zip
+# 2. Release ── 各 binary 各自壓成一顆 zip 後發布
 # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
+    - name: Derive short commit SHA
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        merge-multiple: true        # 把三顆 zip 平鋪到 artifacts/
-        path: artifacts
+        path: bins           # 各 OS 放在各自子目錄 bins/bin-<OS>-<SHA>/
 
     - name: List downloaded files
-      run: ls -lh artifacts
+      run: find bins -type f | sort
+
+    - name: Package each binary into its own zip
+      run: |
+        mkdir release
+        for dir in bins/bin-*/; do
+          name=$(basename "$dir")              # bin-Linux-abc1234
+          platform=${name#bin-}               # Linux-abc1234
+          platform=${platform%-*}             # Linux / macOS / Windows
+          pl=$(echo "$platform" | tr '[:upper:]' '[:lower:]')  # linux / macos / windows
+          if [[ -f "$dir/tiger.exe" ]]; then
+            zip -j "release/tiger-${pl}-${SHORT_SHA}.zip" "$dir/tiger.exe"
+          else
+            zip -j "release/tiger-${pl}-${SHORT_SHA}.zip" "$dir/tiger"
+          fi
+        done
+        ls -lh release/
 
     - name: Create draft GitHub Release
       uses: ncipollo/release-action@v1
@@ -103,5 +107,5 @@ jobs:
         tag: v${{ github.run_number }}
         name: Release ${{ github.run_number }}
         draft: true
-        artifacts: artifacts/tiger-*.zip
+        artifacts: release/tiger-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}
