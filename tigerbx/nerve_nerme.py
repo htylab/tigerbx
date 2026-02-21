@@ -272,36 +272,37 @@ def run_args(args):
             max_value = max(max_e, max_value)
 
     if args.evaluate:
-        import pandas as pd
+        import csv
         records = []
         for orig_f, patch_ff, recon_ff in recon_pairs:
-                  
             mae, mse, p, ssim_val = compute_metrics(patch_ff, recon_ff, max_value)
             records.append(dict(ID=orig_f, MAE=mae, MSE=mse, PSNR=p, SSIM=ssim_val))
 
-            df = pd.DataFrame(records)
-        if not df.empty:
-            df.loc["Average"] = {
+        if records:
+            n = len(records)
+            avg = {
                 "ID": "Average",
-                "MAE": df["MAE"].mean(),
-                "MSE": df["MSE"].mean(),
-                "PSNR": df["PSNR"].mean(),
-                "SSIM": df["SSIM"].mean(),
+                "MAE": sum(r["MAE"] for r in records) / n,
+                "MSE": sum(r["MSE"] for r in records) / n,
+                "PSNR": sum(r["PSNR"] for r in records) / n,
+                "SSIM": sum(r["SSIM"] for r in records) / n,
             }
+            records.append(avg)
 
-            csv_ff = join(f_output_dir, 
-                           f'{omodel["encode"]}_eval.csv')
-            df.to_csv(csv_ff, index=False)
+            csv_ff = join(f_output_dir, f'{omodel["encode"]}_eval.csv')
+            with open(csv_ff, 'w', newline='') as fh:
+                writer = csv.DictWriter(fh, fieldnames=["ID", "MAE", "MSE", "PSNR", "SSIM"])
+                writer.writeheader()
+                writer.writerows(records)
             print(f'[Evaluation] Saving {csv_ff} report')
 
-            avg = df[df["ID"] == "Average"].iloc[0]
-            print(f"[Average] MAE = {avg.MAE:.6f}, "
-              f"MSE = {avg.MSE:.6f}, "
-              f"PSNR = {avg.PSNR:.2f}, "
-              f"SSIM = {avg.SSIM:.4f}")
-            results = df
-    
-        print('Processing time: %d seconds' %  (time.time() - t))
+            print(f"[Average] MAE = {avg['MAE']:.6f}, "
+                  f"MSE = {avg['MSE']:.6f}, "
+                  f"PSNR = {avg['PSNR']:.2f}, "
+                  f"SSIM = {avg['SSIM']:.4f}")
+            results = records
+
+        print('Processing time: %d seconds' % (time.time() - t))
     return results
 
 

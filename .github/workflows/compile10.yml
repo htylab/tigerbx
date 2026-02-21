@@ -48,6 +48,7 @@ jobs:
         pyinstaller -c -p . \
           --additional-hooks-dir=./pyinstaller_hooks \
           --icon=./tigerbx/exe/ico.ico \
+          --exclude-module pandas \
           -F ./tigerbx_cli/${{ matrix.py }}.py
 
     # ── 重新命名與壓縮（zip 內只有執行檔本身） ──

@@ -44,15 +44,13 @@ setup(
              'optuna',
              'SimpleITK>=2.1.0',
              'antspyx',
-             'pandas',
-             'scikit-image',
              'platformdirs',
              'filelock',
          ],
      extras_require={
          'cpu': ['onnxruntime>=1.17.0,<1.21.0'],
          'cu12': ['onnxruntime-gpu>=1.17.0,<1.21.0'],
-         'dev': ['pytest'],
+         'dev': ['pytest', 'pandas'],
      },
 
 )
