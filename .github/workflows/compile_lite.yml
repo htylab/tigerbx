@@ -1,0 +1,112 @@
+name: Compile Lite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+# ============================================================
+# 1. Build ── 針對三大 OS 編譯（排除 ants / optuna）
+# ============================================================
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        py: ['tiger']
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Derive short commit SHA
+      shell: bash
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+    - name: Disable macOS wheel compatibility check
+      if: runner.os == 'macOS'
+      run: echo "SYSTEM_VERSION_COMPAT=0" >> "$GITHUB_ENV"
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ".[cpu]"
+        pip install pyinstaller
+
+    - name: PyInstaller (lite — exclude ants / optuna)
+      shell: bash
+      run: |
+        pyinstaller -c -p . \
+          --additional-hooks-dir=./pyinstaller_hooks \
+          --icon=./tigerbx/exe/ico.ico \
+          --exclude-module antspyx \
+          --exclude-module ants \
+          --exclude-module optuna \
+          -F ./tigerbx_cli/${{ matrix.py }}.py
+
+    - name: Package binary into zip
+      shell: bash
+      run: |
+        mkdir out
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          BIN_SRC="dist/tiger.exe"
+          ZIP_NAME="tiger-lite-windows-${SHORT_SHA}.zip"
+          powershell -Command "Compress-Archive -Path $BIN_SRC -DestinationPath out/$ZIP_NAME"
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          BIN_SRC="dist/tiger"
+          ZIP_NAME="tiger-lite-macos-${SHORT_SHA}.zip"
+          zip -j "out/$ZIP_NAME" "$BIN_SRC"
+        else
+          BIN_SRC="dist/tiger"
+          ZIP_NAME="tiger-lite-linux-${SHORT_SHA}.zip"
+          zip -j "out/$ZIP_NAME" "$BIN_SRC"
+        fi
+        echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+    - name: Upload zip artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ZIP_NAME }}
+        path: out/${{ env.ZIP_NAME }}
+
+# ============================================================
+# 2. Release ── 發布三顆 lite zip
+# ============================================================
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
+        path: artifacts
+
+    - name: List downloaded files
+      run: ls -lh artifacts
+
+    - name: Create draft GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: v${{ github.run_number }}-lite
+        name: Release ${{ github.run_number }} (lite)
+        body: |
+          Lite build — excludes `antspyx` and `optuna`.
+
+          **Supported:** `tiger bx`, `tiger hlc`, `tiger gdm`, `tiger nerve`
+          **Supported (partial):** `tiger reg -A` (C2FViT affine), `tiger reg -r` (VMnet nonlinear)
+          **Not supported:** `tiger reg -s/-S/-F` (SyN / SyNCC / FuseMorph — requires `antspyx`)
+
+          For full registration support, use the Python package: `pip install "tigerbx[cpu]"`
+        draft: true
+        artifacts: artifacts/tiger-lite-*.zip
+        token: ${{ secrets.GITHUB_TOKEN }}
