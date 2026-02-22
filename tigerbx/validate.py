@@ -405,7 +405,14 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
         lite_path = join(val_dir, 'lite_list.json')
         if os.path.exists(lite_path):
             lite = _load_lite_list(val_dir)
-            print(f'Lite mode: loaded {lite_path}')
+            # check for datasets discovered now but absent from the cached list
+            missing = [ds['id'] for ds in DATASET_REGISTRY
+                       if ds['id'] in discovered and ds['id'] not in lite]
+            if missing:
+                print(f'Lite list outdated (missing: {missing}), rebuilding …')
+                lite = _build_lite_list(val_dir, discovered)
+            else:
+                print(f'Lite mode: loaded {lite_path}')
         else:
             print('Lite mode: lite_list.json not found, building …')
             lite = _build_lite_list(val_dir, discovered)
