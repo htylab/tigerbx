@@ -414,15 +414,17 @@ def _mean_dice(metric):
 # ── internal runner ───────────────────────────────────────────────────────────
 
 def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
-              full=False, template=None):
+              full=False, template=None, task=None,
+              bet_model=None, seg_model=None):
     """Auto-discover datasets under val_dir and run all of them."""
     if val_dir is None:
         val_dir = os.getcwd()
     val_dir  = os.path.abspath(val_dir)
     mode_tag = 'full' if full else 'lite'
 
-    model_dict = model or {}
-    bet_model  = model_dict.get('bet')
+    model_dict = dict(model or {})
+    if bet_model: model_dict['bet'] = bet_model
+    bet_model = model_dict.get('bet')
 
     discovered = _discover_datasets(val_dir)
     if not discovered:
@@ -457,7 +459,10 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
         files_filter = lite.get(ds['id']) if lite is not None else None
 
         for name, func, seg_key in ds['funcs']:
-            seg_model = model_dict.get(seg_key) if seg_key else None
+            if task is not None and task not in name:
+                continue
+            _seg_model = seg_model if seg_model is not None else (
+                model_dict.get(seg_key) if seg_key else None)
             print(f'\n{"="*60}')
             print(f'  {name}  [{mode_tag}]')
             print(f'{"="*60}')
@@ -469,7 +474,7 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
                     files_filter=files_filter,
                     template=template,
                     bet_model=bet_model,
-                    seg_model=seg_model,
+                    seg_model=_seg_model,
                 )
                 summary[name] = metric
             except Exception as exc:
@@ -496,7 +501,8 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
 # ── public entry point ────────────────────────────────────────────────────────
 
 def val(val_dir=None, output_dir=None, model=None, GPU=False,
-        full=False, template=None):
+        full=False, template=None, task=None,
+        bet_model=None, seg_model=None):
     """
     Auto-discover datasets under *val_dir* and run all available validations.
 
@@ -508,12 +514,18 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
         recognisable dataset patterns — directory names are not fixed.
     output_dir : str, optional
         Where to write per-validation CSV files.  No CSV saved when None.
+    task       : str, optional
+        Run only tasks whose name contains this string.
+        Valid values: ``'bet'``, ``'aseg'``, ``'dgm'``, ``'syn'``,
+        ``'hlc'``, ``'reg'``.  Default: run all discovered tasks.
+    bet_model  : str, optional
+        Override BET model filename for all tasks.
+    seg_model  : str, optional
+        Override the segmentation model for the selected task.
+        Most useful when *task* is also specified.
     model      : dict, optional
-        Override specific task models.  Keys match those used in ``run()``:
-        ``{'bet': 'filename.onnx', 'aseg': 'filename.onnx', ...}``.
-        Each validation function uses only the keys relevant to its task
-        (``'bet'`` applies everywhere; ``'aseg'``/``'dgm'``/``'syn'``/
-        ``'hlc'``/``'reg'`` apply to their respective tasks only).
+        Low-level override dict (same format as ``run()``).
+        ``bet_model`` / ``seg_model`` take priority over this dict.
     GPU        : bool
         Use GPU for inference.
     full       : bool
@@ -529,14 +541,19 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
 
     Examples
     --------
-    >>> tigerbx.val()                              # cwd, lite mode
-    >>> tigerbx.val('/data/val_home')              # lite mode
-    >>> tigerbx.val('/data/val_home', full=True)   # full dataset
-    >>> tigerbx.val('/data/val_home', model={'bet': 'new_bet.onnx'})
-    >>> tigerbx.val('/data/val_home', model={'aseg': 'new_aseg.onnx'})  # BET stays default
+    >>> tigerbx.val('/data/val_home')                            # all tasks, lite
+    >>> tigerbx.val('/data/val_home', full=True)                 # all tasks, full
+    >>> tigerbx.val('/data/val_home', task='aseg',
+    ...             seg_model='new_aseg.onnx', GPU=True)         # new ASEG only
+    >>> tigerbx.val('/data/val_home', task='bet',
+    ...             bet_model='new_bet.onnx', GPU=True)          # new BET only
+    >>> tigerbx.val('/data/val_home', task='aseg',
+    ...             bet_model='new_bet.onnx',
+    ...             seg_model='new_aseg.onnx', GPU=True)         # both overridden
     """
     return _val_auto(val_dir=val_dir, output_dir=output_dir,
-                     model=model, GPU=GPU, full=full, template=template)
+                     model=model, GPU=GPU, full=full, template=template,
+                     task=task, bet_model=bet_model, seg_model=seg_model)
 
 
 # ── QC calibration ────────────────────────────────────────────────────────────

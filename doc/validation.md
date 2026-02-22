@@ -1,151 +1,158 @@
-### TigerBx: Validation Pipeline
+# TigerBx Validation Guide
 
 ---
 
-## Quick start
+## 1. Basic Testing
+
+Verify overall performance of the installed version.
+Run from the directory containing your validation datasets:
 
 ```python
 import tigerbx
 
-# Lite mode (default): ≤20 randomly sampled files per dataset, cached in lite_list.json
-tigerbx.val('/data/val_home')
+# Lite mode (default): ≤20 randomly sampled files per dataset,
+# cached in lite_list.json for reproducibility
+tigerbx.val(GPU=True)
 
-# Full dataset
-tigerbx.val('/data/val_home', full=True, output_dir='val_out')
+# Specify a directory explicitly
+tigerbx.val('/data/val_home', GPU=True)
 
-# GPU
-tigerbx.val('/data/val_home', GPU=True, output_dir='val_out')
+# Full dataset + save CSV results
+tigerbx.val('/data/val_home', GPU=True, full=True, output_dir='val_out')
 ```
 
-`val()` auto-discovers dataset types under `val_home` and all immediate sub-directories
-by probing for known file patterns — directory names are not fixed.
+`val()` scans the given directory (defaults to cwd) and all immediate
+sub-directories for known dataset patterns. Directory names are not fixed.
+
+**Auto-detection rules:**
+
+| Dataset       | File pattern              | Tasks run                        |
+|---------------|---------------------------|----------------------------------|
+| SynthStrip    | `*/image.nii.gz`          | `bet_synstrip`                   |
+| NFBS          | `*/*T1w.nii.gz`           | `bet_NFBS`                       |
+| seg123        | `raw123/*.nii.gz`         | `aseg`, `dgm`, `syn`, `hlc`      |
+| reg60         | `raw60/*.nii.gz`          | `reg`                            |
 
 ---
 
-## Running a single task
+## 2. Development: Testing Individual Models
 
-Call the task-specific functions directly for more control:
+When training a new model, test only the relevant task while keeping all
+other models at their defaults.
+
+### Test a new BET model
 
 ```python
-import tigerbx
-from tigerbx.validate import (
-    val_bet_synstrip, val_bet_NFBS,
-    val_hlc_123, val_reg_60,
-)
-from tigerbx.validate import _val_seg_123  # aseg / dgm / syn
-
-df, metric    = val_bet_synstrip('synthstrip_data_v1.4', output_dir='val_out', GPU=True)
-df, metric    = val_bet_NFBS('NFBS_Dataset', output_dir='val_out', GPU=True)
-data, metrics = _val_seg_123('aseg', 'a', 'aseg_data', output_dir='val_out', GPU=True)
-data, metrics = _val_seg_123('dgm',  'd', 'aseg_data', output_dir='val_out', GPU=True)
-data, metrics = _val_seg_123('syn',  'S', 'aseg_data', output_dir='val_out', GPU=True)
-data, metrics = val_hlc_123('aseg_data', output_dir='val_out', GPU=True)
-data, metrics = val_reg_60('reg_data',   output_dir='val_out', GPU=True,
-                           template='Template_T1_tbet.nii.gz')
+# Runs both SynthStrip and NFBS skull-stripping datasets
+tigerbx.val(GPU=True, task='bet', bet_model='mprage_bet_v006.onnx', output_dir='val_out')
 ```
 
----
-
-## Overriding models during validation
-
-Every validation function accepts `bet_model` and `seg_model` keyword arguments.
-`val()` accepts a `model` dict whose keys mirror those used in `run()`.
-
-### Override BET only (applies to all tasks)
+### Test a new ASEG model (BET stays default)
 
 ```python
-# via val()
-tigerbx.val('/data/val_home', model={'bet': 'new_bet_v2.onnx'}, output_dir='val_out')
-
-# via direct call
-val_bet_synstrip('synthstrip_data_v1.4', bet_model='new_bet_v2.onnx', output_dir='val_out')
+tigerbx.val(GPU=True, task='aseg', seg_model='mprage_aseg_v009.onnx', output_dir='val_out')
 ```
 
-### Override a segmentation model, keep default BET
+### Test other segmentation models
 
 ```python
-# Test new ASEG model — BET stays at default
-tigerbx.val('/data/val_home', model={'aseg': 'mprage_aseg_v009.onnx'}, output_dir='val_out')
-
-# Or call directly
-_val_seg_123('aseg', 'a', 'aseg_data', seg_model='mprage_aseg_v009.onnx', output_dir='val_out')
+tigerbx.val(GPU=True, task='dgm', seg_model='new_dgm.onnx',  output_dir='val_out')
+tigerbx.val(GPU=True, task='syn', seg_model='new_syn.onnx',  output_dir='val_out')
+tigerbx.val(GPU=True, task='hlc', seg_model='new_hlc.onnx',  output_dir='val_out')
+tigerbx.val(GPU=True, task='reg', seg_model='new_reg.onnx',  output_dir='val_out')
 ```
 
-### Override both BET and a segmentation model
+### Override both BET and segmentation model
 
 ```python
-tigerbx.val('/data/val_home',
-            model={'bet': 'new_bet.onnx', 'aseg': 'new_aseg.onnx'},
+tigerbx.val(GPU=True, task='aseg',
+            bet_model='new_bet.onnx',
+            seg_model='new_aseg.onnx',
             output_dir='val_out')
 ```
 
-### Model dict keys
-
-| Key     | Applies to                        |
-|---------|-----------------------------------|
-| `'bet'` | all tasks (BET step)              |
-| `'aseg'`| `_val_seg_123('aseg', ...)` only  |
-| `'dgm'` | `_val_seg_123('dgm', ...)`  only  |
-| `'syn'` | `_val_seg_123('syn', ...)`  only  |
-| `'hlc'` | `val_hlc_123`               only  |
-| `'reg'` | `val_reg_60`                only  |
+**Valid `task` values:** `'bet'`, `'aseg'`, `'dgm'`, `'syn'`, `'hlc'`, `'reg'`
 
 ---
 
-## QC calibration
+## 3. QC Calibration (BET)
 
-BET validation functions write CSVs containing `DICE` and `QC_raw` columns.
-Use `qc_stat()` to analyse how well QC_raw predicts segmentation quality:
+BET validation records a `QC_raw` confidence score for each image alongside
+its Dice coefficient. Use `qc_stat()` to analyse the QC–Dice relationship
+and find an appropriate warning threshold.
+
+### Step 1 — Run BET validation and save CSVs
 
 ```python
-import tigerbx
+tigerbx.val(GPU=True, task='bet', full=True, output_dir='val_out')
+# Produces: val_out/val_bet_synstrip.csv  and  val_out/val_bet_NFBS.csv
+```
 
-# Run BET validation (writes val_bet_synstrip.csv, val_bet_NFBS.csv)
-tigerbx.val('/data/val_home', output_dir='val_out', full=True)
+### Step 2 — Analyse the QC–Dice relationship
 
-# Analyse QC–Dice relationship across one or both CSVs
+```python
+# Single CSV
 tigerbx.qc_stat('val_out/val_bet_synstrip.csv')
+
+# Combine both datasets (recommended — more samples, better statistics)
 tigerbx.qc_stat(['val_out/val_bet_synstrip.csv',
                  'val_out/val_bet_NFBS.csv'])
 ```
 
-Output includes:
-- Distribution stats for `QC_raw` and `DICE`
+**Output:**
+- Distribution statistics for `QC_raw` and `DICE`
 - Pearson r between `QC_raw` and `DICE`
-- A suggested `qc_score` warning threshold (flags ≥ 90 % of failed cases)
+- Suggested `qc_score` warning threshold (captures ≥ 90 % of failed cases)
+
+### Step 3 — Apply the suggested threshold
+
+```
+Example output:
+  Suggested threshold : QC_raw = 0.6123  →  qc_score = 61
+  Recommendation: change the warning threshold in bx.py run_args()
+    from:  if qc_score < 50:
+    to:    if qc_score < 61:
+```
 
 ### QC formula
 
 ```
 qc_raw   = 1 - mean(entropy[brain_voxels]) / ln2
-qc_score = int(clip(qc_raw * 100, 0, 100))
+qc_score = int(clip(qc_raw × 100, 0, 100))
 
-entropy  = -(p · log p + (1-p) · log(1-p))   # binary entropy, p = P(brain)
+entropy  = -(p · log p + (1−p) · log(1−p))   # binary entropy, p = P(brain)
 ```
 
-- Scores near 100 → confident, sharp brain boundary
-- Scores near 0 → model uncertain across most voxels (likely poor extraction)
-- Only predicted-brain voxels are used, so QC captures false positives but not false negatives
+- High score (→ 100): model is confident about the brain boundary
+- Low score  (→ 0):   model is uncertain; extraction likely poor
+- Only predicted-brain voxels are used — captures false positives, not false negatives
 
 ---
 
-## Validation Datasets
+## 4. Validation Datasets
 
-1. **Skull Stripping** — [NFBS Dataset](http://preprocessed-connectomes-project.org/NFB_skullstripped)
-2. **Skull Stripping** — [SynthStrip](https://surfer.nmr.mgh.harvard.edu/docs/synthstrip)
-3. **Deep Gray Matter** — [MindBoggle-101](https://mindboggle.info/)
-4. **Deep Gray Matter** — [CANDI](https://www.nitrc.org/projects/candi_share/)
-5. **Registration** — [CC359](https://sites.google.com/view/calgary-campinas-dataset/home)
+| #  | Task              | Dataset                                                                              |
+|----|-------------------|--------------------------------------------------------------------------------------|
+| 1  | Skull Stripping   | [NFBS Dataset](http://preprocessed-connectomes-project.org/NFB_skullstripped)       |
+| 2  | Skull Stripping   | [SynthStrip](https://surfer.nmr.mgh.harvard.edu/docs/synthstrip)                    |
+| 3  | Deep Gray Matter  | [MindBoggle-101](https://mindboggle.info/)                                          |
+| 4  | Deep Gray Matter  | [CANDI](https://www.nitrc.org/projects/candi_share/)                                |
+| 5  | Registration      | [CC359](https://sites.google.com/view/calgary-campinas-dataset/home)                |
 
-### Internal Validation Sets
-
-- **seg123**: MindBoggle-101 + CANDI combined (N=123) with deep gray matter labels
+**Internal set — seg123:** MindBoggle-101 + CANDI combined (N = 123), deep gray matter labels
 
 ---
 
-## Validation Results — Version 0.1.20
+## 5. Validation Results — Version 0.1.20
 
-### Deep Gray Matter: Dice Coefficients
+### Skull Stripping (Dice)
+
+| Dataset    | Dice  |
+|------------|-------|
+| NFBS       | 0.973 |
+| SynthStrip | 0.971 |
+
+### Deep Gray Matter (Dice)
 
 | Structure   | L/R | aseg  | dgm   | syn   | hlc   | L/R | aseg  | dgm   | syn   | hlc   |
 |-------------|-----|-------|-------|-------|-------|-----|-------|-------|-------|-------|
@@ -157,12 +164,9 @@ entropy  = -(p · log p + (1-p) · log(1-p))   # binary entropy, p = P(brain)
 | Amygdala    | L   | 0.737 | 0.764 | 0.716 | 0.756 | R   | 0.727 | 0.750 | 0.711 | 0.743 |
 | **Mean**    | L   | 0.833 | 0.846 | 0.820 | 0.844 | R   | 0.829 | 0.841 | 0.807 | 0.839 |
 
-### Registration
+### Registration (Dice)
 
-    mean Dice: 0.797
-    mean Dice: 0.804 (FuseMorph)
-
-### Skull Stripping
-
-    bet_NFBS:     0.973
-    bet_synstrip: 0.971
+| Method    | Dice  |
+|-----------|-------|
+| Default   | 0.797 |
+| FuseMorph | 0.804 |
