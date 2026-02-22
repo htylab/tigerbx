@@ -5,6 +5,9 @@ import SimpleITK as sitk
 from os.path import join, basename, isdir
 import numpy as np
 import nibabel as nib
+import logging
+
+_logger = logging.getLogger('tigerbx')
 # import onnxruntime as ort
 from scipy.special import softmax
 from scipy.ndimage import median_filter
@@ -61,13 +64,13 @@ def read_file(model_ff, input_file):
 def write_file(model_ff, input_file, output_dir, vol_out, inmem=False, postfix='gdmi'):
 
     if not isdir(output_dir):
-        print('Output dir does not exist.')
-        return 0
+        _logger.warning('Output dir does not exist: %s', output_dir)
+        return None, None
 
-    output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '') 
+    output_file = basename(input_file).replace('.nii.gz', '').replace('.nii', '')
     output_file = output_file + f'_{postfix}.nii.gz'
     output_file = join(output_dir, output_file)
-    print('Writing output file: ', output_file)
+    _logger.debug('Writing output file: %s', output_file)
 
     input_nib = nib.load(input_file)
     affine = input_nib.affine

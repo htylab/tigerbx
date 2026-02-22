@@ -34,7 +34,7 @@ def gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False
     args.input = input
     args.output = output
 
-    run_args(args)
+    return run_args(args)
 
 
 def run_args(args):
@@ -72,6 +72,7 @@ def run_args(args):
 
     model_name = lib_tool.get_model('vdm_unet3d_v002')
 
+    result_all = []
     _pbar = tqdm(input_file_list, desc='tigerbx-gdm', unit='file', disable=(verbose > 0))
     for f in _pbar:
 
@@ -87,9 +88,17 @@ def run_args(args):
             f_output_dir = output_dir
             os.makedirs(output_dir, exist_ok=True)
 
-        lib_gdm.write_file(model_name, f, f_output_dir, gdmi)
+        result_dict = {}
+        fn, _ = lib_gdm.write_file(model_name, f, f_output_dir, gdmi)
+        result_dict['gdmi'] = fn
 
         if args.dmap:
-            lib_gdm.write_file(model_name, f, f_output_dir, gdmap, postfix='gdm')
+            fn, _ = lib_gdm.write_file(model_name, f, f_output_dir, gdmap, postfix='gdm')
+            result_dict['gdm'] = fn
 
         printer('Processing time: %d seconds' % (time.time() - t))
+        result_all.append(result_dict)
+
+    if len(input_file_list) == 1:
+        return result_all[0]
+    return result_all

@@ -94,7 +94,8 @@ def crop_image(image, target_shape):
 def min_max_norm(img):
     max = np.max(img)
     min = np.min(img)
-
+    if max == min:
+        return np.zeros_like(img, dtype=float)
     norm_img = (img - min) / (max - min)
 
     return norm_img
@@ -303,6 +304,7 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
                                       template_nib.affine, template_nib.header)
         fn = bx.save_nib(rigid_nib, ftemplate, 'rigid')
     #Affine
+    affined = None
     if method_check['affine'] == 'C2FViT':
         if affine_matrix is not None and affine_matrix.shape != ():
             affine_matrix = np.expand_dims(affine_matrix.astype(np.float32), axis=0)
@@ -332,6 +334,8 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
             fn = bx.save_nib(ants_output_nib, ftemplate, ants_reg_str.split("_")[0])
     #Nonlinear(VMnet)
     if dense_warp is not None and dense_warp.shape != ():
+        if affined is None:
+            raise ValueError("dense_warp requires affine registration output, but affined is None.")
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         dense_warp = np.expand_dims(dense_warp.astype(np.float32), axis=0)
         model = model_transform if interpolation == 'nearest' else model_transform_bili
@@ -342,6 +346,8 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         fn = bx.save_nib(reged_nib, ftemplate, 'reg')
     #Nonlinear(FuseMorph)
     if Fuse_dense_warp is not None and Fuse_dense_warp.shape != ():
+        if affined is None:
+            raise ValueError("Fuse_dense_warp requires affine registration output, but affined is None.")
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         Fuse_dense_warp = np.expand_dims(Fuse_dense_warp.astype(np.float32), axis=0)
         model = model_transform if interpolation == 'nearest' else model_transform_bili
@@ -357,7 +363,7 @@ def get_ants_info(image, affine):
     
     rot = affine[:3, :3]
     spacing = np.linalg.norm(rot, axis=0)
-    direction_matrix = rot / spacing[:, np.newaxis]
+    direction_matrix = rot / spacing
     
     ants_img.set_origin(affine[:3, 3].tolist())
     ants_img.set_spacing(spacing.tolist())

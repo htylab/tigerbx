@@ -32,11 +32,13 @@ import nibabel as nib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE = os.path.join(ROOT, 'tigerbx', 'template', 'MNI152_T1_1mm_brain.nii.gz')
 SCRIPTS_DIR = os.path.dirname(sys.executable)
-TIGER_BIN = (
-    os.path.join(SCRIPTS_DIR, 'tiger.exe')
-    if sys.platform == 'win32'
-    else os.path.join(SCRIPTS_DIR, 'tiger')
-)
+if sys.platform == 'win32':
+    _tiger_candidate = os.path.join(SCRIPTS_DIR, 'tiger.exe')
+    if not os.path.isfile(_tiger_candidate):
+        _tiger_candidate = os.path.join(SCRIPTS_DIR, 'Scripts', 'tiger.exe')
+    TIGER_BIN = _tiger_candidate
+else:
+    TIGER_BIN = os.path.join(SCRIPTS_DIR, 'tiger')
 
 ALL_MODULES = ['bx', 'hlc', 'reg', 'nerve']
 
