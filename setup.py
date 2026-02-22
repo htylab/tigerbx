@@ -20,6 +20,8 @@ setup(
      python_requires='>=3.8',
      install_requires=[
              'numpy>=1.21.6',
+             'scipy',
+             'nibabel',
              'nilearn>=0.9.2',
              'optuna',
              'SimpleITK>=2.1.0',
