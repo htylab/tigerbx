@@ -40,7 +40,7 @@ uv add "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
 | Task | Function | Detail |
 |------|----------|--------|
 | Brain extraction, skull-stripping | `tigerbx.run()` | [bx.md](bx.md) |
-| Brain mask, ASEG, deep GM, WMH, cortical thickness, CGW, tumor | `tigerbx.run()` | [bx.md](bx.md) |
+| Brain mask, ASEG, deep GM, WMH, cortical thickness, CGW | `tigerbx.run()` | [bx.md](bx.md) |
 | Hierarchical parcellation (56 regions) or tissue probability maps | `tigerbx.hlc()` | [hlc.md](hlc.md) |
 | Register T1 to MNI space, VBM, apply warp | `tigerbx.reg()` / `tigerbx.transform()` | [reg.md](reg.md) |
 | EPI / DTI geometric distortion correction | `tigerbx.gdm()` | [gdm.md](gdm.md) |

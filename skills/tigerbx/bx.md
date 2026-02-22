@@ -35,7 +35,6 @@ Combine freely as a string, e.g. `'bmad'`.
 | `d`  | `dgm` / `_dgm`             | Deep gray matter mask (12 structures) |
 | `S`  | `syn` / `_syn`             | SynthSeg-style ASEG |
 | `W`  | `wmh` / `_wmh`             | White matter hypointensity mask |
-| `t`  | `tumor` / `_tumor`         | Tumor mask |
 | `q`  | `QC` / `_qc-N.log`         | QC score (also auto-written to disk when QC < 50) |
 | `g`  | —                          | Use GPU |
 | `p`  | —                          | Patch-based inference (for high-res inputs) |
@@ -94,7 +93,6 @@ For input `sub-001_T1w.nii.gz` with an output directory:
 | `d`  | `sub-001_T1w_dgm.nii.gz` |
 | `S`  | `sub-001_T1w_syn.nii.gz` |
 | `W`  | `sub-001_T1w_wmh.nii.gz` |
-| `t`  | `sub-001_T1w_tumor.nii.gz` |
 | `q`  | `sub-001_T1w_qc-<score>.log` |
 
 See [labels.md](labels.md) for ASEG and DeepGM label definitions.
