@@ -21,7 +21,7 @@ if getattr(sys, 'frozen', False):
     application_path = os.path.dirname(sys.executable)
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
-    
+
 def _crop_nib(nib_img, xyz6):
     """Crop a nibabel image to xyz6 bounds and correct the affine origin."""
     x_min, x_max, y_min, y_max, z_min, z_max = xyz6
@@ -32,55 +32,80 @@ def _crop_nib(nib_img, xyz6):
     return nib.Nifti1Image(cropped, new_affine)
 
 
-def produce_mask(model, f, GPU=False, QC=False, brainmask_nib=None, tbet111=None, patch=False):
-    if not isinstance(model, list):
-        model = [model]
-    # for multi-model ensemble
-    model_ff_list = []
-    for mm in model:
-        model_ff_list.append(lib_tool.get_model(mm))
+def _infer_mask(model_ff_list, f, GPU, patch, brainmask_nib=None, tbet111=None):
+    """Shared inference core: load, run model, resample, apply brainmask, cast dtype.
 
+    Returns (output_nib, mask_nib_resp, prob_resp).
+    mask_nib_resp and prob_resp are in model space (before resampling to input space).
+    """
     input_nib = nib.load(f)
 
     if tbet111 is None:
         input_nib_resp = lib_bx.read_file(model_ff_list[0], f)
     else:
-        #input_nib_resp = lib_bx.reorient(tbet111)
-        input_nib_resp = copy.deepcopy(tbet111) #using the copy to avoid modifying it.
-        
-        
+        input_nib_resp = copy.deepcopy(tbet111)  # avoid modifying caller's copy
+
     mask_nib_resp, prob_resp = lib_bx.run(
-        model_ff_list, input_nib_resp,  GPU=GPU, patch=patch)
-        
+        model_ff_list, input_nib_resp, GPU=GPU, patch=patch)
+
     mask_nib = resample_to_img(
         mask_nib_resp, input_nib, interpolation="nearest")
-
 
     if brainmask_nib is None:
         output = lib_tool.read_nib(mask_nib)
     else:
         output = lib_tool.read_nib(mask_nib) * lib_tool.read_nib(brainmask_nib)
 
-    if np.max(output) <=255:
-        dtype = np.uint8
-    else:
-        dtype = np.int16
-
+    dtype = np.uint8 if np.max(output) <= 255 else np.int16
     output = output.astype(dtype)
 
     output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
     output_nib.header.set_data_dtype(dtype)
 
-    if QC:
-        probmax = np.max(prob_resp, axis=0)
-        qc_score = np.percentile(
-            probmax[lib_tool.read_nib(mask_nib_resp) > 0], 1) - 0.5
-        #qc = np.percentile(probmax, 1) - 0.5
-        qc_score = min(int(qc_score * 1500), 100)
-        return output_nib, qc_score
-    else:
+    return output_nib, mask_nib_resp, prob_resp
 
-        return output_nib
+
+def produce_betmask(model, f, GPU=False, patch=False):
+    """Run BET model and return (output_nib, qc_score, qc_raw).
+
+    QC is always computed: qc_raw in [0, 1] based on mean binary entropy
+    across all predicted brain voxels.  qc_score = int(qc_raw * 100).
+    """
+    if not isinstance(model, list):
+        model = [model]
+    model_ff_list = [lib_tool.get_model(mm) for mm in model]
+
+    output_nib, mask_nib_resp, prob_resp = _infer_mask(
+        model_ff_list, f, GPU, patch)
+
+    probmax     = np.max(prob_resp, axis=0)
+    within_mask = lib_tool.read_nib(mask_nib_resp) > 0
+    p           = probmax.clip(1e-7, 1 - 1e-7)
+    entropy     = -(p * np.log(p) + (1 - p) * np.log(1 - p))  # binary entropy [0, ln2]
+    # qc_raw: confidence score in [0, 1]
+    # 1.0 = perfectly confident everywhere, 0.0 = maximum uncertainty (p=0.5 everywhere)
+    # mean entropy across all brain voxels, normalised by ln2
+    # use mean (not percentile) so interior voxels dominate over boundary voxels
+    qc_raw   = 1.0 - float(np.mean(entropy[within_mask])) / np.log(2)
+    qc_score = int(np.clip(qc_raw * 100, 0, 100))
+
+    return output_nib, qc_score, qc_raw
+
+
+def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None, patch=False):
+    """Run a segmentation model and return output_nib.
+
+    brainmask_nib: BET mask applied to the output (zeros outside brain).
+    tbet111:       Pre-computed BET brain used as model input instead of raw f.
+    """
+    if not isinstance(model, list):
+        model = [model]
+    model_ff_list = [lib_tool.get_model(mm) for mm in model]
+
+    output_nib, _, _ = _infer_mask(
+        model_ff_list, f, GPU, patch, brainmask_nib, tbet111)
+
+    return output_nib
 
 def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace('@@@@', postfix)
@@ -215,7 +240,7 @@ def run_args(args):
 
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)       
 
-        tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
+        tbetmask_nib, qc_score, qc_raw = produce_betmask(omodel['bet'], f, GPU=args.gpu)
         input_nib = nib.load(f)
         tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
@@ -250,6 +275,7 @@ def run_args(args):
         printer('QC score:', qc_score)
 
         result_dict['QC'] = qc_score
+        result_dict['QC_raw'] = qc_raw
         result_filedict['QC'] = qc_score
         if qc_score < 50:
             printer('Pay attention to the result with QC < 50. ')

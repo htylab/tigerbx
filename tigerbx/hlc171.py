@@ -8,7 +8,7 @@ import platform
 import nibabel as nib
 
 from tigerbx import lib_tool
-from tigerbx.bx import produce_mask, save_nib, get_template
+from tigerbx.bx import produce_betmask, save_nib, get_template
 from nilearn.image import resample_to_img, reorder_img
 
 import warnings
@@ -234,7 +234,7 @@ def run_args(args):
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
 
-        tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
+        tbetmask_nib, qc_score, _ = produce_betmask(omodel['bet'], f, GPU=args.gpu)
         input_nib = nib.load(f)
         tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 

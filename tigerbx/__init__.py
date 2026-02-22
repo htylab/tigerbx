@@ -1,5 +1,5 @@
 from tigerbx.bx import run
-from tigerbx.validate import val
+from tigerbx.validate import val, qc_stat
 from tigerbx.lib_reg import transform
 from tigerbx.gdmi import gdm
 from tigerbx.hlc171 import hlc

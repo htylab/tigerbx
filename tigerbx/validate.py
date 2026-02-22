@@ -69,7 +69,8 @@ def _run_loop(ffs, compute_fn, debug=False, files_filter=None):
             f_list.append(f)
             val = compute_fn(f, _tmp)
             results.append(val)
-            print(count, len(ffs), f, f'Dice: {float(np.mean(val)):.3f}')
+            primary = val[0] if isinstance(val, tuple) else val
+            print(count, len(ffs), f, f'Dice: {float(np.mean(primary)):.3f}')
     return f_list, results
 
 
@@ -140,16 +141,20 @@ def val_bet_synstrip(input_dir, output_dir=None, model=None, GPU=False,
         result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=model)
         mask_pred = result['tbetmask'].get_fdata()
         mask_gt   = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
-        return getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
+        dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
+        return dice, result['QC_raw']
 
-    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    f_list, results = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    dsc_list   = [r[0] for r in results]
+    qcraw_list = [r[1] for r in results]
+
     _write_csv(output_dir, 'val_bet_synstrip.csv',
-               ['type', 'category', 'DICE'],
+               ['type', 'category', 'DICE', 'QC_raw'],
                f_list,
-               [[t, c, d] for t, c, d in zip(tt_list, cat_list, dsc_list)])
+               [[t, c, d, q] for t, c, d, q in zip(tt_list, cat_list, dsc_list, qcraw_list)])
 
     df = pd.DataFrame({'Filename': f_list, 'type': tt_list,
-                       'category': cat_list, 'DICE': dsc_list})
+                       'category': cat_list, 'DICE': dsc_list, 'QC_raw': qcraw_list})
     print(df.groupby('category')['DICE'].mean().to_string())
     metric = float(df['DICE'].mean())
     print(f'mean Dice of all data: {metric:.4f}')
@@ -164,14 +169,19 @@ def val_bet_NFBS(input_dir, output_dir=None, model=None, GPU=False,
         result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=model)
         mask_pred = result['tbetmask'].get_fdata()
         mask_gt   = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
-        return getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
+        dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
+        return dice, result['QC_raw']
 
-    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
-    _write_csv(output_dir, 'val_bet_NFBS.csv', ['DICE'], f_list, dsc_list)
+    f_list, results = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    dsc_list   = [r[0] for r in results]
+    qcraw_list = [r[1] for r in results]
+
+    _write_csv(output_dir, 'val_bet_NFBS.csv', ['DICE', 'QC_raw'], f_list,
+               [[d, q] for d, q in zip(dsc_list, qcraw_list)])
 
     metric = float(np.mean(dsc_list))
     print(f'mean Dice of all data: {metric:.4f}')
-    return {'Filename': f_list, 'DICE': dsc_list}, metric
+    return {'Filename': f_list, 'DICE': dsc_list, 'QC_raw': qcraw_list}, metric
 
 
 def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
@@ -497,3 +507,120 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
     """
     return _val_auto(val_dir=val_dir, output_dir=output_dir,
                      model=model, GPU=GPU, full=full, template=template)
+
+
+# ── QC calibration ────────────────────────────────────────────────────────────
+
+def qc_stat(csv_paths, dice_threshold=0.95):
+    """
+    Analyse the relationship between QC_raw and Dice from validation CSV files
+    and suggest a calibrated QC_raw threshold.
+
+    Reads any CSV(s) produced by ``val_bet_NFBS`` or ``val_bet_synstrip`` that
+    contain ``DICE`` and ``QC_raw`` columns, then prints:
+
+    * Distribution statistics for QC_raw and DICE.
+    * Pearson correlation between QC_raw and DICE.
+    * A suggested ``qc_score`` warning threshold such that ≥ 90 % of cases
+      with Dice < *dice_threshold* are flagged, with the lowest possible
+      false-alarm rate on good cases.
+
+    Parameters
+    ----------
+    csv_paths : str or list of str
+        Path(s) to validation CSVs.  Glob patterns are accepted
+        (e.g. ``'val_out/*.csv'``).
+    dice_threshold : float
+        Dice below which a case is considered failed.  Default 0.95.
+
+    Returns
+    -------
+    dict with keys ``dice``, ``qc_raw``, ``suggested_threshold``, ``pearson_r``.
+
+    Examples
+    --------
+    >>> tigerbx.qc_stat('val_out/val_bet_NFBS.csv')
+    >>> tigerbx.qc_stat(['val_out/val_bet_NFBS.csv',
+    ...                  'val_out/val_bet_synstrip.csv'])
+    """
+    import glob as _glob
+
+    if isinstance(csv_paths, str):
+        expanded = _glob.glob(csv_paths)
+        csv_paths = expanded if expanded else [csv_paths]
+
+    dice_all, qcraw_all = [], []
+    for path in csv_paths:
+        with open(path, newline='') as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                if 'DICE' in row and 'QC_raw' in row:
+                    dice_all.append(float(row['DICE']))
+                    qcraw_all.append(float(row['QC_raw']))
+
+    if not dice_all:
+        print('No DICE / QC_raw columns found in the provided CSVs.')
+        return {}
+
+    dice  = np.array(dice_all)
+    qcraw = np.array(qcraw_all)
+    n     = len(dice)
+    n_fail = int(np.sum(dice < dice_threshold))
+    sep = '─' * 62
+
+    # ── descriptive stats ─────────────────────────────────────────────────────
+    print(f'\n{sep}')
+    print(f'QC calibration report   (n={n},  fail = Dice < {dice_threshold})')
+    print(sep)
+    print(f'  QC_raw  mean={np.mean(qcraw):.4f}  std={np.std(qcraw):.4f}  '
+          f'min={np.min(qcraw):.4f}  '
+          f'p1={np.percentile(qcraw, 1):.4f}  p5={np.percentile(qcraw, 5):.4f}')
+    print(f'  DICE    mean={np.mean(dice):.4f}  std={np.std(dice):.4f}  '
+          f'min={np.min(dice):.4f}')
+    print(f'  Failed (Dice < {dice_threshold}): {n_fail} / {n}  '
+          f'({100 * n_fail / n:.1f} %)')
+
+    pearson_r = None
+    if n > 2:
+        pearson_r = float(np.corrcoef(qcraw, dice)[0, 1])
+        print(f'  Pearson r(QC_raw, DICE) = {pearson_r:.4f}')
+
+    # ── threshold search ──────────────────────────────────────────────────────
+    # Sweep candidate thresholds; find t with sensitivity ≥ 90 % and minimum
+    # false-alarm rate (fraction of good cases incorrectly flagged).
+    best_t, best_far = None, 1.0
+    fail_mask = dice < dice_threshold
+    if n_fail > 0:
+        for t in np.sort(np.unique(qcraw)):
+            flagged = qcraw < t
+            sens    = float(np.sum(flagged & fail_mask)) / n_fail
+            if sens >= 0.90:
+                far = float(np.sum(flagged & ~fail_mask)) / max(1, n - n_fail)
+                if far < best_far:
+                    best_far, best_t = far, float(t)
+
+    # ── guidance ──────────────────────────────────────────────────────────────
+    print(f'\n{sep}')
+    if best_t is not None:
+        suggested_score = int(np.clip(best_t * 100, 0, 100))
+        print(f'  Suggested threshold : QC_raw = {best_t:.4f}  '
+              f'→  qc_score = {suggested_score}')
+        print(f'    → captures ≥ 90 % of failed cases  '
+              f'(false-alarm rate ≈ {100 * best_far:.1f} %)')
+        print(f'')
+        print(f'  Recommendation: change the warning threshold in bx.py run_args()')
+        print(f'    from:  if qc_score < 50:')
+        print(f'    to:    if qc_score < {suggested_score}:')
+    else:
+        print('  Could not determine a threshold.')
+        print('  Possible reasons:')
+        print('    • Too few failed cases — model may already be excellent on this data.')
+        print('    • QC_raw does not vary enough — try including harder / lower-quality scans.')
+    print(f'{sep}\n')
+
+    return {
+        'dice':                dice_all,
+        'qc_raw':              qcraw_all,
+        'suggested_threshold': best_t,
+        'pearson_r':           pearson_r,
+    }
