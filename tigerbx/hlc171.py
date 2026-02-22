@@ -1,11 +1,13 @@
 import os
 from os.path import basename, join, isdir, dirname, commonpath
 import time
+import logging
 import numpy as np
 
 import glob
 import platform
 import nibabel as nib
+from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx.bx import produce_betmask, save_nib, get_template
@@ -14,7 +16,9 @@ from nilearn.image import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False):
+_logger = logging.getLogger('tigerbx')
+
+def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False, verbose=0):
     
     from types import SimpleNamespace as Namespace
     args = Namespace()
@@ -27,6 +31,7 @@ def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch
     args.save = save
     args.patch = patch
     args.gz = gz
+    args.verbose = verbose
     return run_args(args)
 
 from tigerbx.lib_crop import crop_cube, restore_result
@@ -187,6 +192,15 @@ def run_args(args):
 
     if args.save == 'all': args.save = 'mbhtcgw'
 
+    verbose = getattr(args, 'verbose', 0)
+
+    def printer(*msg):
+        if verbose >= 1:
+            _logger.info(' '.join(str(x) for x in msg))
+
+    def _dbg(*msg):
+        if verbose >= 2:
+            _logger.debug(' '.join(str(x) for x in msg))
 
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
@@ -212,7 +226,7 @@ def run_args(args):
             omodel[mm] = model_dict[mm]
 
 
-    print('Total nii files:', len(input_file_list))
+    printer('Total nii files:', len(input_file_list))
 
     #check duplicate basename
     #for detail, check get_template
@@ -220,16 +234,16 @@ def run_args(args):
     common_folder = None
     if len(base_ffs) != len(set(base_ffs)):
         common_folder = commonpath(input_file_list)
-        
-    count = 0
+
     result_all = []
     result_filedict = dict()
-    for f in input_file_list:
-        count += 1
+    _pbar = tqdm(input_file_list, desc='tigerbx-hlc', unit='file', disable=(verbose > 0))
+    for count, f in enumerate(_pbar, 1):
         result_dict = dict()
         result_filedict = dict()
 
-        print(f'{count} Preprocessing :', os.path.basename(f))
+        _pbar.set_postfix_str(os.path.basename(f))
+        printer(f'{count} Preprocessing :', os.path.basename(f))
         t = time.time()
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
@@ -265,7 +279,7 @@ def run_args(args):
             image = image / mx
         image = image[None, ...][None, ...]
         model_ff = lib_tool.get_model(omodel['HLC'])
-        print('Perform HLC model....')
+        printer('Perform HLC model....')
         if args.patch:
             logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
         else:
@@ -342,7 +356,7 @@ def run_args(args):
             result_dict[f'{cgwnames[kk]}'] = pve_nib
             result_filedict[f'{cgwnames[kk]}'] = fn
     
-        print('Processing time: %d seconds' %  (time.time() - t))
+        printer('Processing time: %d seconds' %  (time.time() - t))
         if len(input_file_list) == 1:
             result_all = result_dict
         else:
