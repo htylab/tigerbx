@@ -100,7 +100,7 @@ def _print_col_means(column_names, mean_per_column):
     print(f'  {"Overall mean":<{w}} : {overall:.4f}')
 
 
-# ── registration pipeline helper (extracted from val_reg_60) ──────────────────
+# ── registration pipeline helper ──────────────────────────────────────────────
 
 def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
                       model_affine_transform, model_transform, reorder_img_fn):
@@ -278,39 +278,27 @@ def val_reg_60(input_dir, output_dir=None, model=None, GPU=False,
 
 # ── dataset registry ──────────────────────────────────────────────────────────
 #
-# Expected directory layout under val_dir:
+# 'relative_probe' : glob pattern relative to the candidate input_dir.
+#                   Used to detect whether a directory is this dataset type.
+# 'funcs'          : list of (display_name, callable) to run on this dataset.
 #
-#   val_dir/
-#   ├── synstrip/          → val_bet_synstrip  (input_dir = val_dir/synstrip)
-#   │   └── */image.nii.gz
-#   ├── NFBS/              → val_bet_NFBS      (input_dir = val_dir/NFBS)
-#   │   └── */*T1w.nii.gz
-#   ├── raw123/            → aseg/dgm/syn/hlc  (input_dir = val_dir)
-#   ├── label123/
-#   ├── raw60/             → val_reg_60        (input_dir = val_dir)
-#   └── label60/
-#
-# 'probe'        : glob pattern relative to val_dir used to detect the dataset
-# 'input_subdir' : sub-directory passed as input_dir; '' means val_dir itself
-# 'funcs'        : list of (display_name, callable) to run on this dataset
+# Directory names are NOT hard-coded here — _discover_datasets() scans
+# val_dir and all its immediate sub-directories for each probe pattern.
 
 DATASET_REGISTRY = [
     {
-        'id':           'synstrip',
-        'probe':        join('synstrip', '*', 'image.nii.gz'),
-        'input_subdir': 'synstrip',
-        'funcs':        [('bet_synstrip', val_bet_synstrip)],
+        'id':             'synstrip',
+        'relative_probe': join('*', 'image.nii.gz'),
+        'funcs':          [('bet_synstrip', val_bet_synstrip)],
     },
     {
-        'id':           'NFBS',
-        'probe':        join('NFBS', '*', '*T1w.nii.gz'),
-        'input_subdir': 'NFBS',
-        'funcs':        [('bet_NFBS', val_bet_NFBS)],
+        'id':             'NFBS',
+        'relative_probe': join('*', '*T1w.nii.gz'),
+        'funcs':          [('bet_NFBS', val_bet_NFBS)],
     },
     {
-        'id':           'seg123',
-        'probe':        join('raw123', '*.nii.gz'),
-        'input_subdir': '',
+        'id':             'seg123',
+        'relative_probe': join('raw123', '*.nii.gz'),
         'funcs': [
             ('aseg_123', lambda **kw: _val_seg_123('aseg', 'a', **kw)),
             ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw)),
@@ -319,44 +307,68 @@ DATASET_REGISTRY = [
         ],
     },
     {
-        'id':           'reg60',
-        'probe':        join('raw60', '*.nii.gz'),
-        'input_subdir': '',
-        'funcs':        [('reg_60', val_reg_60)],
+        'id':             'reg60',
+        'relative_probe': join('raw60', '*.nii.gz'),
+        'funcs':          [('reg_60', val_reg_60)],
     },
 ]
 
 
-# ── lite-list helpers ─────────────────────────────────────────────────────────
 
-def _build_lite_list(val_dir, n=_LITE_N, seed=42):
+# ── auto-discovery helpers ────────────────────────────────────────────────────
+
+def _discover_datasets(val_dir):
+    """
+    Scan *val_dir* and its immediate sub-directories for known dataset patterns.
+    Returns ``{ds_id: abs_input_dir}`` for every dataset found.
+    Directories are checked in alphabetical order; first match wins.
+    """
+    val_dir = os.path.abspath(val_dir)
+    candidates = [val_dir] + sorted([
+        join(val_dir, d) for d in os.listdir(val_dir)
+        if os.path.isdir(join(val_dir, d))
+    ])
+    found = {}
+    for ds in DATASET_REGISTRY:
+        for candidate in candidates:
+            if glob.glob(join(candidate, ds['relative_probe'])):
+                found[ds['id']] = candidate
+                break
+    return found
+
+
+def _build_lite_list(val_dir, discovered, n=_LITE_N, seed=42):
     """
     Randomly sample *n* files per dataset and save to ``lite_list.json``
-    inside *val_dir*. Paths stored relative to *val_dir* for portability.
-    Returns ``{dataset_id: set_of_absolute_paths}``.
+    in *val_dir*.  Paths stored relative to *val_dir* for portability.
+    Returns ``{ds_id: set(abs_path)}``.
     """
+    val_dir = os.path.abspath(val_dir)
     rng  = random.Random(seed)
     lite = {}
     for ds in DATASET_REGISTRY:
-        all_files = sorted(glob.glob(join(val_dir, ds['probe'])))
+        if ds['id'] not in discovered:
+            continue
+        input_dir = discovered[ds['id']]
+        all_files = sorted(glob.glob(join(input_dir, ds['relative_probe'])))
         if not all_files:
             continue
-        selected = sorted(rng.sample(all_files, min(n, len(all_files))))
+        selected  = sorted(rng.sample(all_files, min(n, len(all_files))))
         lite[ds['id']] = [os.path.relpath(f, val_dir) for f in selected]
 
     lite_path = join(val_dir, 'lite_list.json')
     with open(lite_path, 'w') as fh:
         json.dump(lite, fh, indent=2)
-    counts = {k: len(v) for k, v in lite.items()}
     print(f'Lite list saved → {lite_path}')
-    print(f'  Files per dataset: {counts}')
+    print(f'  Files per dataset: { {k: len(v) for k, v in lite.items()} }')
 
     return {k: set(os.path.abspath(join(val_dir, p)) for p in v)
             for k, v in lite.items()}
 
 
 def _load_lite_list(val_dir):
-    """Load ``lite_list.json`` and return ``{dataset_id: set(abs_path)}``."""
+    """Load ``lite_list.json`` and return ``{ds_id: set(abs_path)}``."""
+    val_dir = os.path.abspath(val_dir)
     with open(join(val_dir, 'lite_list.json')) as fh:
         rel = json.load(fh)
     return {k: set(os.path.abspath(join(val_dir, p)) for p in v)
@@ -370,76 +382,39 @@ def _mean_dice(metric):
     return float(metric)
 
 
-# ── public entry point ────────────────────────────────────────────────────────
+# ── internal runner ───────────────────────────────────────────────────────────
 
-def val(val_dir=None, output_dir=None, model=None, GPU=False,
-        full=False, template=None):
-    """
-    Auto-discover available validation datasets under *val_dir* and run them.
-
-    Parameters
-    ----------
-    val_dir    : str, optional
-        Root directory containing dataset sub-folders (synstrip/, NFBS/,
-        raw123/, raw60/, …).  Defaults to the current working directory.
-    output_dir : str, optional
-        Where to write per-validation CSV files.  No CSV saved when None.
-    model      : str, optional
-        Override the default model for every validation run.
-    GPU        : bool
-        Use GPU for inference.
-    full       : bool
-        False (default) → **lite mode**: up to ``_LITE_N`` randomly sampled
-        files per dataset (list built on first run, cached in lite_list.json).
-        True → run on the complete dataset.
-    template   : str, optional
-        Registration template path (forwarded to val_reg_60 only).
-
-    Returns
-    -------
-    dict  {validation_name: metric}
-        metric is a float (mean Dice) for BET tasks, or a
-        {region: mean_dice} dict for segmentation / registration tasks.
-
-    Examples
-    --------
-    >>> tigerbx.val('/data/val_home')              # lite mode
-    >>> tigerbx.val('/data/val_home', full=True)   # full dataset
-    >>> tigerbx.val()                              # cwd, lite mode
-    """
+def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
+              full=False, template=None):
+    """Auto-discover datasets under val_dir and run all of them."""
     if val_dir is None:
         val_dir = os.getcwd()
-    val_dir = os.path.abspath(val_dir)
+    val_dir  = os.path.abspath(val_dir)
     mode_tag = 'full' if full else 'lite'
 
-    # ── lite mode: load or build file list ───────────────────────────────────
+    discovered = _discover_datasets(val_dir)
+    if not discovered:
+        print(f'No recognised datasets found under: {val_dir}')
+        print('Expected patterns: */image.nii.gz  |  */*T1w.nii.gz  |  raw123/  |  raw60/')
+        return {}
+    print(f'Datasets found: {list(discovered.keys())}')
+
+    # lite mode: load or build file list
     lite = None
     if not full:
         lite_path = join(val_dir, 'lite_list.json')
         if os.path.exists(lite_path):
             lite = _load_lite_list(val_dir)
-            print(f'Lite mode: loaded existing {lite_path}')
+            print(f'Lite mode: loaded {lite_path}')
         else:
             print('Lite mode: lite_list.json not found, building …')
-            lite = _build_lite_list(val_dir)
+            lite = _build_lite_list(val_dir, discovered)
 
-    # ── scan datasets ─────────────────────────────────────────────────────────
-    available = []
-    for ds in DATASET_REGISTRY:
-        if glob.glob(join(val_dir, ds['probe'])):
-            available.append(ds)
-
-    if not available:
-        print(f'No recognised datasets found under: {val_dir}')
-        print('Expected sub-folders: synstrip/, NFBS/, raw123/+label123/, raw60/+label60/')
-        return {}
-
-    print(f'\nDatasets found: {[ds["id"] for ds in available]}')
-
-    # ── run each validation ───────────────────────────────────────────────────
     summary = {}
-    for ds in available:
-        input_dir    = join(val_dir, ds['input_subdir']) if ds['input_subdir'] else val_dir
+    for ds in DATASET_REGISTRY:
+        if ds['id'] not in discovered:
+            continue
+        input_dir    = discovered[ds['id']]
         files_filter = lite.get(ds['id']) if lite is not None else None
 
         for name, func in ds['funcs']:
@@ -460,7 +435,7 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
                 print(f'  SKIPPED ({exc})')
                 summary[name] = None
 
-    # ── final summary table ───────────────────────────────────────────────────
+    # final summary table
     if summary:
         sep = '=' * 60
         print(f'\n{sep}')
@@ -475,3 +450,43 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
         print(sep)
 
     return summary
+
+
+# ── public entry point ────────────────────────────────────────────────────────
+
+def val(val_dir=None, output_dir=None, model=None, GPU=False,
+        full=False, template=None):
+    """
+    Auto-discover datasets under *val_dir* and run all available validations.
+
+    Parameters
+    ----------
+    val_dir    : str, optional
+        Root directory containing dataset sub-folders.  Defaults to cwd.
+        The function scans *val_dir* and all immediate sub-directories for
+        recognisable dataset patterns — directory names are not fixed.
+    output_dir : str, optional
+        Where to write per-validation CSV files.  No CSV saved when None.
+    model      : str, optional
+        Override the default model for every validation run.
+    GPU        : bool
+        Use GPU for inference.
+    full       : bool
+        False (default) → **lite mode**: ≤ ``_LITE_N`` randomly sampled files
+        per dataset, list built on first run and cached in ``lite_list.json``.
+        True → run on the complete dataset.
+    template   : str, optional
+        Registration template path (forwarded to val_reg_60 only).
+
+    Returns
+    -------
+    dict  {validation_name: metric}
+
+    Examples
+    --------
+    >>> tigerbx.val()                              # cwd, lite mode
+    >>> tigerbx.val('/data/val_home')              # lite mode
+    >>> tigerbx.val('/data/val_home', full=True)   # full dataset
+    """
+    return _val_auto(val_dir=val_dir, output_dir=output_dir,
+                     model=model, GPU=GPU, full=full, template=template)
