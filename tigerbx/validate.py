@@ -128,17 +128,19 @@ def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
 
 # ── individual validation functions ──────────────────────────────────────────
 
-def val_bet_synstrip(input_dir, output_dir=None, model=None, GPU=False,
-                     debug=False, files_filter=None, **kwargs):
+def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
+                     debug=False, files_filter=None,
+                     bet_model=None, seg_model=None, **kwargs):
     import pandas as pd          # kept for groupby category summary
     ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
+    run_model = {'bet': bet_model} if bet_model else None
 
     tt_list, cat_list = [], []
 
     def compute(f, _tmp):
         tt_list.append(basename(dirname(f)).split('_')[1])
         cat_list.append('_'.join(basename(dirname(f)).split('_')[:2]))
-        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=model)
+        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=run_model)
         mask_pred = result['tbetmask'].get_fdata()
         mask_gt   = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
         dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
@@ -161,12 +163,14 @@ def val_bet_synstrip(input_dir, output_dir=None, model=None, GPU=False,
     return df, metric
 
 
-def val_bet_NFBS(input_dir, output_dir=None, model=None, GPU=False,
-                 debug=False, files_filter=None, **kwargs):
+def val_bet_NFBS(input_dir, output_dir=None, GPU=False,
+                 debug=False, files_filter=None,
+                 bet_model=None, seg_model=None, **kwargs):
     ffs = sorted(glob.glob(join(input_dir, '*', '*T1w.nii.gz')))
+    run_model = {'bet': bet_model} if bet_model else None
 
     def compute(f, _tmp):
-        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=model)
+        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=run_model)
         mask_pred = result['tbetmask'].get_fdata()
         mask_gt   = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
         dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
@@ -185,7 +189,8 @@ def val_bet_NFBS(input_dir, output_dir=None, model=None, GPU=False,
 
 
 def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
-                 model=None, GPU=False, debug=False, files_filter=None, **kwargs):
+                 GPU=False, debug=False, files_filter=None,
+                 bet_model=None, seg_model=None, **kwargs):
     column_names = ['Left-Thalamus',    'Right-Thalamus',
                     'Left-Caudate',     'Right-Caudate',
                     'Left-Putamen',     'Right-Putamen',
@@ -193,9 +198,13 @@ def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
                     'Left-Hippocampus', 'Right-Hippocampus',
                     'Left-Amygdala',    'Right-Amygdala']
     ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
+    run_model = {}
+    if bet_model: run_model['bet'] = bet_model
+    if seg_model: run_model[model_str] = seg_model
+    run_model = run_model or None
 
     def compute(f, _tmp):
-        result    = tigerbx.run(('g' if GPU else '') + run_option, f, _tmp, model=model)
+        result    = tigerbx.run(('g' if GPU else '') + run_option, f, _tmp, model=run_model)
         mask_pred = result[model_str].get_fdata().astype(int)
         mask_gt   = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
         return get_dice12(mask_gt, mask_pred, model_str)
@@ -211,8 +220,9 @@ def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
     return data, mean_per_column
 
 
-def val_hlc_123(input_dir, output_dir=None, model=None, GPU=False,
-                debug=False, files_filter=None, **kwargs):
+def val_hlc_123(input_dir, output_dir=None, GPU=False,
+                debug=False, files_filter=None,
+                bet_model=None, seg_model=None, **kwargs):
     column_names = ['Left-Thalamus',    'Right-Thalamus',
                     'Left-Caudate',     'Right-Caudate',
                     'Left-Putamen',     'Right-Putamen',
@@ -220,9 +230,13 @@ def val_hlc_123(input_dir, output_dir=None, model=None, GPU=False,
                     'Left-Hippocampus', 'Right-Hippocampus',
                     'Left-Amygdala',    'Right-Amygdala']
     ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
+    run_model = {}
+    if bet_model: run_model['bet'] = bet_model
+    if seg_model: run_model['HLC'] = seg_model   # hlc171 uses uppercase 'HLC' key
+    run_model = run_model or None
 
     def compute(f, _tmp):
-        result    = tigerbx.hlc(f, _tmp, model=model, GPU=GPU, save='h')
+        result    = tigerbx.hlc(f, _tmp, model=run_model, GPU=GPU, save='h')
         mask_pred = result['hlc'].get_fdata().astype(int)
         mask_gt   = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
         return get_dice12(mask_gt, mask_pred, 'aseg')
@@ -238,8 +252,9 @@ def val_hlc_123(input_dir, output_dir=None, model=None, GPU=False,
     return data, mean_per_column
 
 
-def val_reg_60(input_dir, output_dir=None, model=None, GPU=False,
-               debug=False, files_filter=None, template=None, **kwargs):
+def val_reg_60(input_dir, output_dir=None, GPU=False,
+               debug=False, files_filter=None, template=None,
+               bet_model=None, seg_model=None, **kwargs):
     from nilearn.image import reorder_img     # lazy import — nilearn is heavy
     column_names = [
         'Left-Cerebral WM',       'Right-Cerebral WM',
@@ -257,6 +272,10 @@ def val_reg_60(input_dir, output_dir=None, model=None, GPU=False,
         'Brain Stem',             'CSF',
     ]
     ffs = sorted(glob.glob(join(input_dir, 'raw60', '*.nii.gz')))
+    run_model = {}
+    if bet_model: run_model['bet'] = bet_model
+    if seg_model: run_model['reg'] = seg_model
+    run_model = run_model or None
 
     # load models and template once, outside the per-file loop
     model_transform        = lib_tool.get_model('mprage_transform_v002_near.onnx')
@@ -268,7 +287,7 @@ def val_reg_60(input_dir, output_dir=None, model=None, GPU=False,
 
     def compute(f, _tmp):
         result = tigerbx.reg(('g' if GPU else '') + 'r', f, _tmp,
-                             model=model, template=template)
+                             model=run_model, template=template)
         mask_pred = _apply_reg_to_seg(
             result, f.replace('raw60', 'label60'),
             template_nib, pad_width,
@@ -299,27 +318,27 @@ DATASET_REGISTRY = [
     {
         'id':             'synstrip',
         'relative_probe': join('*', 'image.nii.gz'),
-        'funcs':          [('bet_synstrip', val_bet_synstrip)],
+        'funcs':          [('bet_synstrip', val_bet_synstrip, None)],
     },
     {
         'id':             'NFBS',
         'relative_probe': join('*', '*T1w.nii.gz'),
-        'funcs':          [('bet_NFBS', val_bet_NFBS)],
+        'funcs':          [('bet_NFBS', val_bet_NFBS, None)],
     },
     {
         'id':             'seg123',
         'relative_probe': join('raw123', '*.nii.gz'),
         'funcs': [
-            ('aseg_123', lambda **kw: _val_seg_123('aseg', 'a', **kw)),
-            ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw)),
-            ('syn_123',  lambda **kw: _val_seg_123('syn',  'S', **kw)),
-            ('hlc_123',  val_hlc_123),
+            ('aseg_123', lambda **kw: _val_seg_123('aseg', 'a', **kw), 'aseg'),
+            ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw), 'dgm'),
+            ('syn_123',  lambda **kw: _val_seg_123('syn',  'S', **kw), 'syn'),
+            ('hlc_123',  val_hlc_123,                                  'hlc'),
         ],
     },
     {
         'id':             'reg60',
         'relative_probe': join('raw60', '*.nii.gz'),
-        'funcs':          [('reg_60', val_reg_60)],
+        'funcs':          [('reg_60', val_reg_60, 'reg')],
     },
 ]
 
@@ -402,6 +421,9 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
     val_dir  = os.path.abspath(val_dir)
     mode_tag = 'full' if full else 'lite'
 
+    model_dict = model or {}
+    bet_model  = model_dict.get('bet')
+
     discovered = _discover_datasets(val_dir)
     if not discovered:
         print(f'No recognised datasets found under: {val_dir}')
@@ -434,7 +456,8 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
         input_dir    = discovered[ds['id']]
         files_filter = lite.get(ds['id']) if lite is not None else None
 
-        for name, func in ds['funcs']:
+        for name, func, seg_key in ds['funcs']:
+            seg_model = model_dict.get(seg_key) if seg_key else None
             print(f'\n{"="*60}')
             print(f'  {name}  [{mode_tag}]')
             print(f'{"="*60}')
@@ -442,10 +465,11 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
                 _, metric = func(
                     input_dir=input_dir,
                     output_dir=output_dir,
-                    model=model,
                     GPU=GPU,
                     files_filter=files_filter,
                     template=template,
+                    bet_model=bet_model,
+                    seg_model=seg_model,
                 )
                 summary[name] = metric
             except Exception as exc:
@@ -484,8 +508,12 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
         recognisable dataset patterns — directory names are not fixed.
     output_dir : str, optional
         Where to write per-validation CSV files.  No CSV saved when None.
-    model      : str, optional
-        Override the default model for every validation run.
+    model      : dict, optional
+        Override specific task models.  Keys match those used in ``run()``:
+        ``{'bet': 'filename.onnx', 'aseg': 'filename.onnx', ...}``.
+        Each validation function uses only the keys relevant to its task
+        (``'bet'`` applies everywhere; ``'aseg'``/``'dgm'``/``'syn'``/
+        ``'hlc'``/``'reg'`` apply to their respective tasks only).
     GPU        : bool
         Use GPU for inference.
     full       : bool
@@ -504,6 +532,8 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
     >>> tigerbx.val()                              # cwd, lite mode
     >>> tigerbx.val('/data/val_home')              # lite mode
     >>> tigerbx.val('/data/val_home', full=True)   # full dataset
+    >>> tigerbx.val('/data/val_home', model={'bet': 'new_bet.onnx'})
+    >>> tigerbx.val('/data/val_home', model={'aseg': 'new_aseg.onnx'})  # BET stays default
     """
     return _val_auto(val_dir=val_dir, output_dir=output_dir,
                      model=model, GPU=GPU, full=full, template=template)
