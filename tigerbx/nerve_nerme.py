@@ -18,15 +18,20 @@ import tigerbx
 import time
 import glob
 import platform
+import logging
 import nibabel as nib
 from tigerbx import lib_tool
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+from tqdm import tqdm
 
 from tigerbx.lib_nerve import nerve_preprocess_nib, get_ftemplate
 from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
+
+_logger = logging.getLogger('tigerbx')
+_logger.addHandler(logging.NullHandler())
 
 # ------------------------------------------------------------
 # Encode: NIfTI → latent .npz
@@ -60,7 +65,7 @@ def encode_nii(
 
     # Temporary workspace for tigerbx preprocessing
     with tempfile.TemporaryDirectory() as tmpdir:
-        result = tigerbx.run(bx_string, raw_path, tmpdir, silent=True)
+        result = tigerbx.run(bx_string, raw_path, tmpdir, verbose=0)
 
     # Patch extraction
     patches = nerve_preprocess_nib(result["aseg"], result["tbet"])
@@ -70,7 +75,7 @@ def encode_nii(
         z_mu, z_sigma = onnx_encode(enc_sess, img)
         latent_dict[tag] = z_mu[0]
         latent_dict[tag + '_sigma'] = z_sigma[0]
-        print(f"{tag} > latent shape {z_mu.shape}")
+        _logger.debug(f"{tag} > latent shape {z_mu.shape}")
 
         patch_arrays.append(img.get_fdata())
         if first_affine is None:
@@ -83,7 +88,7 @@ def encode_nii(
 
     npz_ff = os.path.join(output_dir, f"{f_template}_nerve.npz")
     np.savez_compressed(npz_ff, **latent_dict)
-    print(f"[Encode] Latents saved → {npz_ff}")
+    _logger.info(f"[Encode] Latents saved → {npz_ff}")
 
     # Optional: save original patches
     patch_ff = ''
@@ -94,7 +99,7 @@ def encode_nii(
             nib.Nifti1Image(merged, first_affine),
             patch_ff,
         )
-        print("[Encode] Patch stack saved.")
+        _logger.info("[Encode] Patch stack saved.")
 
     return npz_ff, patch_ff
 
@@ -132,7 +137,7 @@ def decode_npz(
 
     for tag in tags:
         mu = data[tag]
-        sigma = data[tag + '_sigma'] 
+        sigma = data[tag + '_sigma']
         latent = mu + eps*np.random.randn(*mu.shape).astype(np.float32) * sigma
         recon = onnx_decode(dec_sess, latent[None, ...]).squeeze()
         recon_arrays.append(recon)
@@ -140,12 +145,12 @@ def decode_npz(
     merged = np.stack(recon_arrays, axis=-1).astype(np.float32)
     recon_ff = os.path.join(output_dir, f"{f_template}_nerve_recon.nii.gz")
     nib.save(nib.Nifti1Image(merged, affine), recon_ff)
-    print(f"[Decode] Merged reconstruction saved → {recon_ff}")
+    _logger.info(f"[Decode] Merged reconstruction saved → {recon_ff}")
 
     return recon_ff
 
 
-def nerve(argstring, input, output=None, model=None, method='NERVE'):
+def nerve(argstring, input, output=None, model=None, method='NERVE', verbose=0):
     from types import SimpleNamespace as Namespace
     args = Namespace()
     if not isinstance(input, list):
@@ -160,6 +165,7 @@ def nerve(argstring, input, output=None, model=None, method='NERVE'):
     args.gpu = 'g' in argstring
     args.evaluate = 'v' in argstring
     args.sigma = 's' in argstring
+    args.verbose = verbose
     return run_args(args)
 
 
@@ -167,15 +173,24 @@ def nerve(argstring, input, output=None, model=None, method='NERVE'):
 
 def run_args(args):
 
+    verbose = getattr(args, 'verbose', 0)
+
+    def printer(*msg):
+        if verbose >= 1:
+            _logger.info(' '.join(str(x) for x in msg))
+
+    def _warn(*msg):
+        _logger.warning(' '.join(str(x) for x in msg))
+
     #run_d = vars(args) #store all arg in dict
 
-    if args.evaluate: 
-        print('[Evaluation mode] Saving patches for encoding and decoding')
+    if args.evaluate:
+        printer('[Evaluation mode] Saving patches for encoding and decoding')
         args.encode = True
         args.decode = True
         args.save_patch = True
-    
- 
+
+
     input_file_list = args.input
     if os.path.isdir(args.input[0]):
         if args.decode and (not args.evaluate):
@@ -210,7 +225,7 @@ def run_args(args):
             omodel[mm] = model_dict[mm]
 
 
-    print('Total files:', len(input_file_list))
+    printer('Total files:', len(input_file_list))
 
     #check duplicate basename
     #for detail, check get_template
@@ -222,17 +237,17 @@ def run_args(args):
     ftemplate, f_output_dir = get_ftemplate(input_file_list[0], output_dir, common_folder)
 
     os.makedirs(f_output_dir, exist_ok=True)
-        
-    count = 0
+
     fcount = len(input_file_list)
     recon_pairs = []
     max_value = 0 # for calculating PSNR
     results = []
-    for f in input_file_list:
-        count += 1
+    _pbar = tqdm(input_file_list, desc='tigerbx-nerve', unit='file', disable=(verbose > 0))
+    for count, f in enumerate(_pbar, 1):
         ftemplate, f_output_dir = get_ftemplate(f, output_dir, common_folder)
 
-        print(f'Preprocessing {count}/{fcount}:\n', os.path.basename(f))
+        _pbar.set_postfix_str(os.path.basename(f))
+        printer(f'Preprocessing {count}/{fcount}:', os.path.basename(f))
         t = time.time()
 
         encode_ok = True
@@ -250,7 +265,7 @@ def run_args(args):
                 results.append(patch_ff)
             except Exception as e:
                 encode_ok = False
-                print('Encoding error:', e)
+                _warn('Encoding error:', e)
         if args.decode:
             try:
                 if args.evaluate: f = npz_ff
@@ -263,9 +278,9 @@ def run_args(args):
                 results.append(recon_ff)
             except Exception as e:
                 decode_ok = False
-                print('Decoding error:', e)
-        
-            
+                _warn('Decoding error:', e)
+
+
         if args.evaluate and encode_ok and decode_ok: # for calculating PSNR
             recon_pairs.append((f, patch_ff, recon_ff))
             max_e = nib.load(patch_ff).get_fdata().max()
@@ -294,15 +309,13 @@ def run_args(args):
                 writer = csv.DictWriter(fh, fieldnames=["ID", "MAE", "MSE", "PSNR", "SSIM"])
                 writer.writeheader()
                 writer.writerows(records)
-            print(f'[Evaluation] Saving {csv_ff} report')
+            printer(f'[Evaluation] Saving {csv_ff} report')
 
-            print(f"[Average] MAE = {avg['MAE']:.6f}, "
+            printer(f"[Average] MAE = {avg['MAE']:.6f}, "
                   f"MSE = {avg['MSE']:.6f}, "
                   f"PSNR = {avg['PSNR']:.2f}, "
                   f"SSIM = {avg['SSIM']:.4f}")
             results = records
 
-        print('Processing time: %d seconds' % (time.time() - t))
+        printer('Processing time: %d seconds' % (time.time() - t))
     return results
-
-
