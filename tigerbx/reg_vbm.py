@@ -13,7 +13,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tigerbx import lib_tool
 from tigerbx import lib_reg
-from tigerbx.bx import produce_mask, save_nib, get_template
+from tigerbx.bx import produce_mask, produce_betmask, save_nib, get_template
 
 
 def reg(argstring, input=None, output=None, model=None, template=None, save_displacement=False, affine_type='C2FViT'):
@@ -107,7 +107,7 @@ def run_args(args):
             vbm_ftemplate = os.path.join(dir_path, prefix, filename)
 
 
-        tbetmask_nib, qc_score = produce_mask(omodel['bet'], f, GPU=args.gpu, QC=True)
+        tbetmask_nib, qc_score, _ = produce_betmask(omodel['bet'], f, GPU=args.gpu)
         input_nib = nib.load(f)
         tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
