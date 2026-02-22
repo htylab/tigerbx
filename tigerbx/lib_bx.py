@@ -5,8 +5,6 @@ from scipy.special import softmax
 from nilearn.image import reorder_img, resample_img
 
 from tigerbx import lib_tool
-import optuna
-optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 label_all = dict()
 label_all['aseg43'] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,
@@ -81,7 +79,6 @@ def logit_to_prob(logits, seg_mode):
     label_num['wmp'] = 74
     label_num['seg3'] = 4
     label_num['wmh'] = 2
-    label_num['tumor'] = 2
     label_num['synthseg'] = 33
     #so far we only use sigmoid in tBET
     if label_num[seg_mode] > logits.shape[0]:

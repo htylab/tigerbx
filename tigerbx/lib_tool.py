@@ -374,24 +374,6 @@ def patch_inference_3d_lite(session,
     return prob_tensor[np.newaxis, :]
 
 
-    
-def patch_inference_3d(session, 
-                       vol_d: np.ndarray, 
-                       patch_size : Tuple[int, ...] = (128,)*3, 
-                       tile_step_size: float = 0.5, 
-                       gaussian = False ):
-    patches, point_list = img_to_patches(vol_d, patch_size, tile_step_size)#patches.shape = (patch_num, 1, 1, 128, 128, 128)  
-    output_patch_list = []
-    for patch in patches:
-        logits = session.run(None, {session.get_inputs()[0].name: patch}, )[0]#logits.shape = (1, 1, 128, 128, 128)             
-        output_patch_list.append(logits.squeeze(0))
-    output_patches = np.concatenate([s[np.newaxis, ...] for s in output_patch_list], axis=0)#shape = (patch_num, 1, 128, 128, 128)  
-    if gaussian:    
-        gaussian_map = compute_gaussian(patch_size)
-        output_patches = output_patches*gaussian_map
-    # print(output_patches.shape) # (patch_num, channel, w, h, d)
-    mean_prob = patches_to_img(output_patches, vol_d.shape[-3:], point_list)
-    return mean_prob
 def compute_steps_for_sliding_window(image_size: Tuple[int, ...], 
                                      tile_size: Tuple[int, ...], 
                                      tile_step_size: float) ->  List[List[int]]:

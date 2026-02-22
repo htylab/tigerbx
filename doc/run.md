@@ -42,7 +42,6 @@ tiger bx <input> [input ...] [-o OUTPUT] [flags ...]
 | `d`      | `-d`     | `_dgm`               | Deep gray matter mask (12 structures) |
 | `S`      | `-S`     | `_syn`               | SynthSeg-style ASEG segmentation |
 | `W`      | `-W`     | `_wmh`               | White matter hypointensity mask |
-| `t`      | `-t`     | `_tumor`             | Tumor mask |
 | `q`      | `-q`     | `_qc-<score>.log`    | QC score log (also written automatically when QC < 50) |
 | `g`      | `-g`     | —                    | Use GPU for inference |
 | `z`      | `-z`     | —                    | Force `.nii.gz` output format |
@@ -122,7 +121,6 @@ For an input named `sub-001_T1w.nii.gz`, outputs are:
 | `-d` | `sub-001_T1w_dgm.nii.gz` |
 | `-S` | `sub-001_T1w_syn.nii.gz` |
 | `-W` | `sub-001_T1w_wmh.nii.gz` |
-| `-t` | `sub-001_T1w_tumor.nii.gz` |
 | `-q` | `sub-001_T1w_qc-<score>.log` |
 
 ---
