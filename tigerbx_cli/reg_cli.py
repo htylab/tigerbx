@@ -1,4 +1,5 @@
 import argparse
+import logging
 from tigerbx import reg_vbm
 
 
@@ -19,7 +20,17 @@ def setup_parser(parser):
     parser.add_argument('-v', '--vbm', action='store_true', help='vbm analysis')
     parser.add_argument('--save_displacement', action='store_true', help='Flag to save the displacement field')
     parser.add_argument('--affine_type', choices=['C2FViT', 'ANTs'], default='C2FViT', help='Specify affine transformation type')
+    parser.add_argument('--verbose', type=int, default=1, metavar='N',
+                        help='Verbosity: 0=quiet (tqdm only), 1=progress (default), 2=debug')
 
 
 def run_args(args):
+    verbose = getattr(args, 'verbose', 1)
+    level = logging.DEBUG if verbose >= 2 else logging.INFO
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    handler.setLevel(level)
+    logger = logging.getLogger('tigerbx')
+    logger.addHandler(handler)
+    logger.setLevel(level)
     reg_vbm.run_args(args)
