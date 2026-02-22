@@ -1,4 +1,5 @@
 import argparse
+import logging
 from tigerbx import gdmi
 
 
@@ -9,7 +10,17 @@ def setup_parser(parser):
     parser.add_argument('-n', '--no_resample', action='store_true', help="Don't resample to 1.7x1.7x1.7mm3")
     parser.add_argument('-m', '--dmap', action='store_true', help='Producing the virtual displacement map')
     parser.add_argument('-g', '--gpu', action='store_true', help='Using GPU')
+    parser.add_argument('--verbose', type=int, default=1, metavar='N',
+                        help='Verbosity: 0=quiet (tqdm only), 1=progress (default), 2=debug')
 
 
 def run_args(args):
+    verbose = getattr(args, 'verbose', 1)
+    level = logging.DEBUG if verbose >= 2 else logging.INFO
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    handler.setLevel(level)
+    logger = logging.getLogger('tigerbx')
+    logger.addHandler(handler)
+    logger.setLevel(level)
     gdmi.run_args(args)
