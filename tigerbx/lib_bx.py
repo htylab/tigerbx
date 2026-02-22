@@ -79,7 +79,6 @@ def logit_to_prob(logits, seg_mode):
     label_num['wmp'] = 74
     label_num['seg3'] = 4
     label_num['wmh'] = 2
-    label_num['tumor'] = 2
     label_num['synthseg'] = 33
     #so far we only use sigmoid in tBET
     if label_num[seg_mode] > logits.shape[0]:
