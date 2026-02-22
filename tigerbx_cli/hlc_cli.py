@@ -1,4 +1,5 @@
 import argparse
+import logging
 from tigerbx import hlc171
 
 
@@ -10,7 +11,17 @@ def setup_parser(parser):
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
+    parser.add_argument('--verbose', type=int, default=1, metavar='N',
+                        help='Verbosity: 0=quiet (tqdm only), 1=progress (default), 2=debug')
 
 
 def run_args(args):
+    verbose = getattr(args, 'verbose', 1)
+    level = logging.DEBUG if verbose >= 2 else logging.INFO
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    handler.setLevel(level)
+    logger = logging.getLogger('tigerbx')
+    logger.addHandler(handler)
+    logger.setLevel(level)
     hlc171.run_args(args)

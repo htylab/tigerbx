@@ -2,10 +2,12 @@ import sys
 import os
 from os.path import basename, join, isdir, dirname, commonpath, relpath
 import time
+import logging
 import numpy as np
 
 import glob
 import nibabel as nib
+from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
@@ -14,6 +16,9 @@ import copy
 from nilearn.image import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+_logger = logging.getLogger('tigerbx')
+_logger.addHandler(logging.NullHandler())
 
 
 # determine if application is a script file or frozen exe
@@ -147,7 +152,13 @@ def get_template(f, output_dir, get_z, common_folder=None):
     return ftemplate, f_output_dir
 
 
-def run(argstring, input=None, output=None, model=None, silent=False):
+def run(argstring, input=None, output=None, model=None, verbose=0, silent=False):
+
+    if silent:
+        warnings.warn(
+            "silent= is deprecated, use verbose=0 (default).",
+            DeprecationWarning, stacklevel=2)
+        verbose = 0
 
     from types import SimpleNamespace as Namespace
     args = Namespace()
@@ -159,7 +170,7 @@ def run(argstring, input=None, output=None, model=None, silent=False):
     args.clean_onnx = 'clean_onnx' in argstring
     args.gpu = 'g' in argstring
 
-    args.silent = silent
+    args.verbose = verbose
 
     if args.clean_onnx:
         argstring = ''
@@ -182,10 +193,18 @@ def run_args(args):
 
     run_d = vars(args) #store all arg in dict
 
-    if run_d.get('silent', 0):
-        printer = lambda *args, **kwargs: None
-    else:
-        printer = print
+    verbose = run_d.get('verbose', 0)
+
+    def printer(*msg):
+        if verbose >= 1:
+            _logger.info(' '.join(str(x) for x in msg))
+
+    def _dbg(*msg):
+        if verbose >= 2:
+            _logger.debug(' '.join(str(x) for x in msg))
+
+    def _warn(*msg):
+        _logger.warning(' '.join(str(x) for x in msg))
 
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['ct'], run_d['qc'], run_d['wmh'], run_d['tumor'],
@@ -240,10 +259,12 @@ def run_args(args):
         common_folder = commonpath(input_file_list)
         
     result_all = []
-    for count, f in enumerate(input_file_list, 1):
+    _pbar = tqdm(input_file_list, desc='tigerbx', unit='file', disable=(verbose > 0))
+    for count, f in enumerate(_pbar, 1):
         result_dict = dict()
         result_filedict = dict()
 
+        _pbar.set_postfix_str(os.path.basename(f))
         printer(f'{count} Processing :', os.path.basename(f))
         t = time.time()
 
@@ -287,17 +308,17 @@ def run_args(args):
         result_dict['QC_raw'] = qc_raw
         result_filedict['QC'] = qc_score
         if qc_score < 50:
-            printer('Pay attention to the result with QC < 50. ')
+            _warn(f'Low QC score ({qc_score}) for {os.path.basename(f)} — check result carefully.')
         if run_d['qc'] or qc_score < 50:
             qcfile = ftemplate.replace('.nii','').replace('.gz', '')
             qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
             with open(qcfile, 'a') as the_file:
                 the_file.write(f'QC: {qc_score} \n')
-            printer('Writing output file: ', qcfile)
+            _dbg('Writing output file: ', qcfile)
 
         if run_d['betmask']:
             fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
-            printer('Writing output file: ', fn)
+            _dbg('Writing output file: ', fn)
             result_dict['tbetmask'] = tbetmask_nib
             result_filedict['tbetmask'] = fn
 
@@ -309,7 +330,7 @@ def run_args(args):
                 tbet_nib = nib.Nifti1Image(imabet, tbet_nib.affine, tbet_nib.header)
 
             fn = save_nib(tbet_nib, ftemplate, 'tbet')
-            printer('Writing output file: ', fn)
+            _dbg('Writing output file: ', fn)
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         
@@ -319,7 +340,7 @@ def run_args(args):
                                          brainmask_nib=tbetmask_nib, tbet111=tbet_seg_crop, patch=run_d['patch'])
                 
                 fn = save_nib(result_nib, ftemplate, seg_str)
-                printer('Writing output file: ', fn)
+                _dbg('Writing output file: ', fn)
                 result_filedict[seg_str] = fn
                 result_dict[seg_str] = result_nib
 
@@ -345,7 +366,7 @@ def run_args(args):
                 pve_nib.header.set_data_dtype(float)
 
                 fn = save_nib(pve_nib, ftemplate, f'cgw_pve{kk-1}')
-                printer('Writing output file: ', fn)
+                _dbg('Writing output file: ', fn)
                 result_filedict['cgw'].append(fn)
                 result_dict['cgw'].append(pve_nib)
 
@@ -369,7 +390,7 @@ def run_args(args):
             ct_nib.header.set_data_dtype(float)
             
             fn = save_nib(ct_nib, ftemplate, 'ct')
-            printer('Writing output file: ', fn)
+            _dbg('Writing output file: ', fn)
             result_dict['ct'] = ct_nib
             result_filedict['ct'] = fn
             

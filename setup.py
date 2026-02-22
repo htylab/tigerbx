@@ -26,6 +26,7 @@ setup(
              'antspyx',
              'platformdirs',
              'filelock',
+             'tqdm',
          ],
      extras_require={
          'cpu': ['onnxruntime>=1.18.0'],
