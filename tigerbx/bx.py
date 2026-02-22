@@ -22,6 +22,11 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
 
+# Calibrated QC threshold: qc_raw at which BET Dice ≈ 0.95 (from qc_stat calibration).
+# qc_raw values at or above this level are considered "good" and displayed as 100.
+_QC_RAW_GOOD = 0.7581
+
+
 def _crop_nib(nib_img, xyz6):
     """Crop a nibabel image to xyz6 bounds and correct the affine origin."""
     x_min, x_max, y_min, y_max, z_min, z_max = xyz6
@@ -69,7 +74,11 @@ def produce_betmask(model, f, GPU=False, patch=False):
     """Run BET model and return (output_nib, qc_score, qc_raw).
 
     QC is always computed: qc_raw in [0, 1] based on mean binary entropy
-    across all predicted brain voxels.  qc_score = int(qc_raw * 100).
+    across all predicted brain voxels.
+
+    qc_score is rescaled so that qc_raw >= _QC_RAW_GOOD (calibrated Dice >= 0.95
+    boundary) displays as 100:
+        qc_score = int(clip(qc_raw / _QC_RAW_GOOD * 100, 0, 100))
     """
     if not isinstance(model, list):
         model = [model]
@@ -87,7 +96,7 @@ def produce_betmask(model, f, GPU=False, patch=False):
     # mean entropy across all brain voxels, normalised by ln2
     # use mean (not percentile) so interior voxels dominate over boundary voxels
     qc_raw   = 1.0 - float(np.mean(entropy[within_mask])) / np.log(2)
-    qc_score = int(np.clip(qc_raw * 100, 0, 100))
+    qc_score = int(np.clip(qc_raw / _QC_RAW_GOOD * 100, 0, 100))
 
     return output_nib, qc_score, qc_raw
 

@@ -108,23 +108,25 @@ tigerbx.qc_stat(['val_out/val_bet_synstrip.csv',
 
 ```
 Example output:
-  Suggested threshold : QC_raw = 0.6123  →  qc_score = 61
+  Suggested threshold : QC_raw = 0.6123  →  qc_score = 81
   Recommendation: change the warning threshold in bx.py run_args()
-    from:  if qc_score < 50:
-    to:    if qc_score < 61:
+    from:  if qc_score < 66:
+    to:    if qc_score < 81:
 ```
 
 ### QC formula
 
 ```
-qc_raw   = 1 - mean(entropy[brain_voxels]) / ln2
-qc_score = int(clip(qc_raw × 100, 0, 100))
+qc_raw      = 1 - mean(entropy[brain_voxels]) / ln2
+_QC_RAW_GOOD = 0.7581           # calibrated: qc_raw at Dice ≈ 0.95
+qc_score    = int(clip(qc_raw / _QC_RAW_GOOD × 100, 0, 100))
 
 entropy  = -(p · log p + (1−p) · log(1−p))   # binary entropy, p = P(brain)
 ```
 
-- High score (→ 100): model is confident about the brain boundary
-- Low score  (→ 0):   model is uncertain; extraction likely poor
+- Score = 100: qc_raw ≥ 0.7581 (predicted Dice ≥ 0.95 — good extraction)
+- Score < 100: qc_raw below calibrated good threshold; extraction may be imperfect
+- Score → 0: model is very uncertain; extraction likely poor
 - Only predicted-brain voxels are used — captures false positives, not false negatives
 
 ---

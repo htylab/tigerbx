@@ -558,7 +558,7 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
 
 # ── QC calibration ────────────────────────────────────────────────────────────
 
-def qc_stat(csv_paths, dice_threshold=0.95):
+def qc_stat(csv_paths, dice_threshold=0.9):
     """
     Analyse the relationship between QC_raw and Dice from validation CSV files
     and suggest a calibrated QC_raw threshold.
@@ -578,7 +578,7 @@ def qc_stat(csv_paths, dice_threshold=0.95):
         Path(s) to validation CSVs.  Glob patterns are accepted
         (e.g. ``'val_out/*.csv'``).
     dice_threshold : float
-        Dice below which a case is considered failed.  Default 0.95.
+        Dice below which a case is considered failed.  Default 0.9.
 
     Returns
     -------
