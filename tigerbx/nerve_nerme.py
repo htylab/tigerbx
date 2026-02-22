@@ -242,13 +242,13 @@ def run_args(args):
     recon_pairs = []
     max_value = 0 # for calculating PSNR
     results = []
+    t = time.time()
     _pbar = tqdm(input_file_list, desc='tigerbx-nerve', unit='file', disable=(verbose > 0))
     for count, f in enumerate(_pbar, 1):
         ftemplate, f_output_dir = get_ftemplate(f, output_dir, common_folder)
 
         _pbar.set_postfix_str(os.path.basename(f))
         printer(f'Preprocessing {count}/{fcount}:', os.path.basename(f))
-        t = time.time()
 
         encode_ok = True
         decode_ok = True
