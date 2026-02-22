@@ -1,14 +1,16 @@
-from os.path import basename, join, isdir, dirname, commonpath, relpath
+from os.path import basename, join, dirname
 import numpy as np
 import glob
 import nibabel as nib
 import tigerbx
 from tigerbx import lib_tool
 from tigerbx import lib_reg
-from nilearn.image import reorder_img
 import sys
 import os
-import inspect
+import csv
+import json
+import random
+import tempfile
 
 # determine if application is a script file or frozen exe
 if getattr(sys, 'frozen', False):
@@ -16,313 +18,460 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
 
-def getdice(mask1, mask2):
-    return 2*np.sum(mask1 & mask2)/(np.sum(mask1) + np.sum(mask2) + 1e-6)
+_LITE_N = 20    # default files per dataset in lite mode
 
-def get_dice12(gt, pd, model_str):
+
+# ── metric helpers ────────────────────────────────────────────────────────────
+
+def getdice(mask1, mask2):
+    denom = np.sum(mask1) + np.sum(mask2)
+    if denom == 0:
+        return 1.0          # both empty → perfect agreement by convention
+    return 2 * np.sum(mask1 & mask2) / denom
+
+
+def get_dice12(gt, pd_arr, model_str):
     iigt = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     if model_str == 'dgm':
         iipd = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     else:
-        #aseg
         iipd = [10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54]
-    d12 = []
-    for ii in range(12):
-        d12.append(getdice(gt==iigt[ii], pd==iipd[ii]))
-    return np.array(d12)
-
-#labels used by Synthmorph
-def get_dice26(gt, pd):
-    iigt = [2, 41, 3, 42, 4, 43, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 28, 60, 16, 24]
-    d26 = []
-    for ii in range(26):
-        d26.append(getdice(gt==iigt[ii], pd==iigt[ii]))
-    return np.array(d26)
+    return np.array([getdice(gt == a, pd_arr == b) for a, b in zip(iigt, iipd)])
 
 
-def val_bet_synstrip(input_dir, output_dir, model=None, GPU=False, debug=False):
-    import pandas as pd
-    ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
-    if debug:
-        ffs = ffs[:5]
-    print(f'Total files: {len(ffs)}')
-    tt_list = []
-    dsc_list = []
-    f_list = []
-    cat_list = []
-    count = 0
-    for f in ffs:
-        count += 1
-        tt = basename(dirname(f)).split('_')[1]
-        cat = '_'.join(basename(dirname(f)).split('_')[:2])
-        f_list.append(f)
-        tt_list.append(tt)
-        cat_list.append(cat)
-        result = tigerbx.run(('g' if GPU else '') + 'm', f, output_dir, model=model)
-        mask_pred = result['tbetmask'].get_fdata()
-
-        mask_gt = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
-        mask1 = (mask_pred > 0).flatten()
-        mask2 = (mask_gt > 0).flatten()
-
-        dsc = getdice(mask1, mask2)
-        dsc_list.append(dsc)
-
-        print(count, len(ffs), f, f'Dice: {dsc:.3f}, mean Dice: {np.mean(dsc_list):.3f}')
-
-    result = {
-        'Filename': f_list,
-        'type': tt_list,
-        'category': cat_list,
-        'DICE': dsc_list
-    }
-
-    df = pd.DataFrame(result)
-    df.to_csv(join(output_dir, 'val_bet_synstrip.csv'), index=False)
-
-    average_dice_per_category = df.groupby('category')['DICE'].mean()
-
-    print(average_dice_per_category)
-    metric = df['DICE'].mean()
-    print('mean Dice of all data:', df['DICE'].mean())
-
-    return df, metric
+def get_dice26(gt, pd_arr):
+    iigt = [2, 41, 3, 42, 4, 43, 7, 46, 8, 47, 10, 49, 11, 50,
+            12, 51, 13, 52, 17, 53, 18, 54, 28, 60, 16, 24]
+    return np.array([getdice(gt == lbl, pd_arr == lbl) for lbl in iigt])
 
 
-def val_bet_NFBS(input_dir, output_dir, model=None, GPU=False, debug=False):
-    import pandas as pd
-    ffs = sorted(glob.glob(join(input_dir, '*', '*T1w.nii.gz')))
-    if debug:
-        ffs = ffs[:5]
-    print(f'Total files: {len(ffs)}')
-    dsc_list = []
-    f_list = []
-    count = 0
-    for f in ffs:
-        count += 1
-        f_list.append(f)
-        result = tigerbx.run(('g' if GPU else '') + 'm', f, output_dir, model=model)
+# ── loop / IO helpers ─────────────────────────────────────────────────────────
 
-        mask_pred = result['tbetmask'].get_fdata()
-
-        mask_gt = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
-        mask1 = (mask_pred > 0).flatten()
-        mask2 = (mask_gt > 0).flatten()
-
-        dsc = getdice(mask1, mask2)
-        dsc_list.append(dsc)
-
-        print(count, len(ffs), f, f'Dice: {dsc:.3f}, mean Dice: {np.mean(dsc_list):.3f}')
-
-    result = {
-        'Filename': f_list,
-        'DICE': dsc_list
-    }
-
-    df = pd.DataFrame(result)
-    df.to_csv(join(output_dir, 'val_bet_NFBS.csv'), index=False)
-
-    metric = df['DICE'].mean()
-    print('mean Dice of all data:', df['DICE'].mean())
-
-    return df, metric
-
-
-def _val_seg_123(model_str, run_option, input_dir, output_dir, model=None, GPU=False, debug=False):
-    import pandas as pd
-    ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
-    if debug:
-        ffs = ffs[:5]
-
-    print(f'Total files: {len(ffs)}')
-    dsc_list = []
-    f_list = []
-    count = 0
-    for f in ffs:
-        count += 1
-        f_list.append(f)
-        result = tigerbx.run(('g' if GPU else '') + run_option, f, output_dir, model=model)
-
-        mask_pred = result[model_str].get_fdata().astype(int)
-        mask_gt = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
-        dice12 = get_dice12(mask_gt, mask_pred, model_str)
-        dsc_list.append(dice12)
-
-        print(count, len(ffs), f, f'Dice: {np.mean(dice12):.3f}')
-
-    column_names = ['Left-Thalamus', 'Right-Thalamus',
-                    'Left-Caudate', 'Right-Caudate',
-                    'Left-Putamen', 'Right-Putamen',
-                    'Left-Pallidum', 'Right-Pallidum',
-                    'Left-Hippocampus', 'Right-Hippocampus',
-                    'Left-Amygdala', 'Right-Amygdala']
-
-    df = pd.DataFrame(dsc_list, columns=column_names)
-    df.insert(0, 'Filename', f_list)
-    df.to_csv(join(output_dir, f'val_{model_str}_123.csv'), index=False)
-    print('mean Dice of all data:', np.mean(np.array(dsc_list).flatten()))
-    mean_per_column = df.mean(numeric_only=True)
-    print(mean_per_column)
-
-    return df, mean_per_column
-
-
-def val_hlc_123(input_dir, output_dir, model=None, GPU=False, debug=False):
-    import pandas as pd
-    ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
-    if debug:
-        ffs = ffs[:5]
-
-    print(f'Total files: {len(ffs)}')
-    dsc_list = []
-    f_list = []
-    count = 0
-    for f in ffs:
-        count += 1
-        f_list.append(f)
-        result = tigerbx.hlc(f, output_dir, model=model, GPU=GPU, save='h')
-
-        mask_pred = result['hlc'].get_fdata().astype(int)
-        mask_gt = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
-        dice12 = get_dice12(mask_gt, mask_pred, 'aseg')
-        dsc_list.append(dice12)
-
-        print(count, len(ffs), f, f'Dice: {np.mean(dice12):.3f}')
-
-    column_names = ['Left-Thalamus', 'Right-Thalamus',
-                    'Left-Caudate', 'Right-Caudate',
-                    'Left-Putamen', 'Right-Putamen',
-                    'Left-Pallidum', 'Right-Pallidum',
-                    'Left-Hippocampus', 'Right-Hippocampus',
-                    'Left-Amygdala', 'Right-Amygdala']
-
-    df = pd.DataFrame(dsc_list, columns=column_names)
-    df.insert(0, 'Filename', f_list)
-    df.to_csv(join(output_dir, 'val_hlc_123.csv'), index=False)
-    print('mean Dice of all data:', np.mean(np.array(dsc_list).flatten()))
-    mean_per_column = df.mean(numeric_only=True)
-    print(mean_per_column)
-
-    return df, mean_per_column
-
-
-def val_reg_60(input_dir, output_dir, model=None, GPU=False, debug=False, template=None):
-    import pandas as pd
-    ffs = sorted(glob.glob(join(input_dir, 'raw60', '*.nii.gz')))
-    if debug:
-        ffs = ffs[:5]
-    print(f'Total files: {len(ffs)}')
-
-    dsc_list = []
-    f_list = []
-    count = 0
-    for f in ffs:
-        count += 1
-        f_list.append(f)
-        result = tigerbx.reg(('g' if GPU else '') + 'r', f, output_dir, model=model, template=template)
-
-        model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
-        model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
-
-        template_nib = lib_reg.get_template(template)
-        template_nib = reorder_img(template_nib, resample='continuous')
-        template_data = template_nib.get_fdata()
-        template_data, pad_width = lib_reg.pad_to_shape(template_data, (256, 256, 256))
-
-        moving_seg_nib = nib.load(f.replace('raw60', 'label60'))
-        moving_seg_nib = reorder_img(moving_seg_nib, resample='nearest')
-        moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
-        moving_seg_data, _ = lib_reg.pad_to_shape(moving_seg_data, (256, 256, 256))
-        moving_seg_data, _ = lib_reg.crop_image(moving_seg_data, target_shape=(256, 256, 256))
-        moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
-
-        init_flow = result['init_flow'].get_fdata().astype(np.float32)
-        Affine_matrix = result['Affine_matrix'].astype(np.float32)
-
-        Affine_matrix = np.expand_dims(Affine_matrix, axis=0)
-
-        output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
-        moved_seg = np.squeeze(output[0])
-
-        moved_seg = lib_reg.remove_padding(moved_seg, pad_width)
-
-        moved_seg = np.expand_dims(np.expand_dims(moved_seg, axis=0), axis=1)
-        warp = result['dense_warp'].get_fdata().astype(np.float32)
-        warp = np.expand_dims(warp, axis=0)
-        output = lib_tool.predict(model_transform, [moved_seg, warp], GPU=None, mode='reg')
-        moved_seg = np.squeeze(output[0])
-        moved_seg_nib = nib.Nifti1Image(moved_seg, template_nib.affine, template_nib.header)
-
-        mask_pred = reorder_img(moved_seg_nib, resample='nearest').get_fdata().astype(int)
-        template_seg = lib_reg.get_template_seg(template)
-        mask_gt = reorder_img(template_seg, resample='nearest').get_fdata().astype(int)
-
-        dice26 = get_dice26(mask_gt, mask_pred)
-        dsc_list.append(dice26)
-
-        print(count, len(ffs), f, f'Dice: {np.mean(dice26):.3f}')
-
-    column_names = [
-        'Left-Cerebral WM', 'Right-Cerebral WM', 'Left-Cerebral Cortex', 'Right-Cerebral Cortex', 'Left-Lateral Ventricle',
-        'Right-Lateral Ventricle', 'Left-Cerebellum WM', 'Right-Cerebellum WM', 'Left-Cerebellum Cortex', 'Right-Cerebellum Cortex',
-        'Left-Thalamus', 'Right-Thalamus', 'Left-Caudate', 'Right-Caudate', 'Left-Putamen', 'Right-Putamen',
-        'Left-Pallidum', 'Right-Pallidum', 'Left-Hippocampus', 'Right-Hippocampus', 'Left-Amygdala', 'Right-Amygdala',
-        'Left-VentralDC', 'Right-VentralDC', 'Brain Stem', 'CSF'
-    ]
-
-    df = pd.DataFrame(dsc_list, columns=column_names)
-    df.insert(0, 'Filename', f_list)
-    df.to_csv(join(output_dir, 'val_reg_60.csv'), index=False)
-    print('mean Dice of all data:', np.mean(np.array(dsc_list).flatten()))
-    mean_per_column = df.mean(numeric_only=True)
-    print(mean_per_column)
-
-    return df, mean_per_column
-
-
-
-def val(argstring, input_dir, output_dir=None, model=None, GPU=False,
-        debug=False, template=None):
+def _run_loop(ffs, compute_fn, debug=False, files_filter=None):
     """
-    argstring : str   -- execution mode (see mapping for valid keys)
-    input_dir : str   -- root directory of input data
-    output_dir: str   -- output directory; auto-created under input_dir if None
-    model     : str   -- model name or path (depends on the sub-function)
-    GPU       : bool  -- whether to use GPU
-    debug     : bool  -- if True, process only a small number of files
-    template  : str   -- registration template for reg_60 mode; not needed for other modes
+    Iterate over *ffs* calling ``compute_fn(f, tmp_dir)`` for each file.
+
+    - files_filter : set of absolute paths; restricts *ffs* to these files.
+                     Takes priority over *debug*.
+    - debug        : if True (and files_filter is None), limit to first 5 files.
+
+    All prediction outputs written to *tmp_dir* are deleted automatically.
+    Returns *(f_list, results_list)*.
     """
+    if files_filter is not None:
+        ffs = [f for f in ffs if os.path.abspath(f) in files_filter]
+    elif debug:
+        ffs = ffs[:5]
+    print(f'Total files: {len(ffs)}')
+    f_list, results = [], []
+    with tempfile.TemporaryDirectory() as _tmp:
+        for count, f in enumerate(ffs, 1):
+            f_list.append(f)
+            val = compute_fn(f, _tmp)
+            results.append(val)
+            print(count, len(ffs), f, f'Dice: {float(np.mean(val)):.3f}')
+    return f_list, results
+
+
+def _write_csv(output_dir, filename, header, f_list, rows):
+    """Write a CSV using the stdlib *csv* module (no pandas required)."""
     if output_dir is None:
-        output_dir = join(input_dir, 'tigerbx_validate_temp')
-    print('Using output directory:', output_dir)
+        return
+    os.makedirs(output_dir, exist_ok=True)
+    with open(join(output_dir, filename), 'w', newline='') as fh:
+        writer = csv.writer(fh)
+        writer.writerow(['Filename'] + header)
+        for fname, row in zip(f_list, rows):
+            if isinstance(row, (list, tuple)):
+                vals = list(row)
+            elif hasattr(row, '__len__'):
+                vals = np.asarray(row).tolist()
+            else:
+                vals = [float(row)]
+            writer.writerow([fname] + vals)
 
-    # map each mode string to its validation function
-    mapping = {
-        'bet_synstrip': val_bet_synstrip,
-        'bet_NFBS':     val_bet_NFBS,
-        'aseg_123':     lambda **kw: _val_seg_123('aseg', 'a', **kw),
-        'dgm_123':      lambda **kw: _val_seg_123('dgm', 'd', **kw),
-        'syn_123':      lambda **kw: _val_seg_123('syn', 'S', **kw),
-        'hlc_123':      val_hlc_123,
-        'reg_60':       val_reg_60,
-    }
 
-    if argstring not in mapping:
-        raise ValueError(f'Unknown validation mode: {argstring}')
+def _print_col_means(column_names, mean_per_column):
+    """Print per-column mean Dice in a compact aligned format."""
+    w = max(len(c) for c in column_names)
+    for col in column_names:
+        print(f'  {col:<{w}} : {mean_per_column[col]:.4f}')
+    overall = float(np.mean(list(mean_per_column.values())))
+    print(f'  {"Overall mean":<{w}} : {overall:.4f}')
 
-    func = mapping[argstring]
 
-    # collect shared keyword arguments
-    common_kwargs = dict(
-        input_dir=input_dir,
-        output_dir=output_dir,
-        model=model,
-        GPU=GPU,
-        debug=debug,
-    )
+# ── registration pipeline helper (extracted from val_reg_60) ──────────────────
 
-    # pass template only if the target function accepts it
-    if 'template' in inspect.signature(func).parameters:
-        common_kwargs['template'] = template
+def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
+                      model_affine_transform, model_transform, reorder_img_fn):
+    """Apply affine + dense-warp registration result to a segmentation file."""
+    moving_seg_nib  = reorder_img_fn(nib.load(seg_file), resample='nearest')
+    moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
+    moving_seg_data, _ = lib_reg.pad_to_shape(moving_seg_data, (256, 256, 256))
+    moving_seg_data, _ = lib_reg.crop_image(moving_seg_data, target_shape=(256, 256, 256))
+    moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
 
-    return func(**common_kwargs)
+    init_flow  = result['init_flow'].get_fdata().astype(np.float32)
+    affine_mat = np.expand_dims(result['Affine_matrix'].astype(np.float32), axis=0)
+    out = lib_tool.predict(model_affine_transform,
+                           [moving_seg, init_flow, affine_mat],
+                           GPU=None, mode='affine_transform')
+    moved_seg = lib_reg.remove_padding(np.squeeze(out[0]), pad_width)
+
+    moved_seg = np.expand_dims(np.expand_dims(moved_seg, axis=0), axis=1)
+    warp = np.expand_dims(result['dense_warp'].get_fdata().astype(np.float32), axis=0)
+    out  = lib_tool.predict(model_transform, [moved_seg, warp], GPU=None, mode='reg')
+    moved_nib = nib.Nifti1Image(np.squeeze(out[0]), template_nib.affine, template_nib.header)
+    return reorder_img_fn(moved_nib, resample='nearest').get_fdata().astype(int)
+
+
+# ── individual validation functions ──────────────────────────────────────────
+
+def val_bet_synstrip(input_dir, output_dir=None, model=None, GPU=False,
+                     debug=False, files_filter=None, **kwargs):
+    import pandas as pd          # kept for groupby category summary
+    ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
+
+    tt_list, cat_list = [], []
+
+    def compute(f, _tmp):
+        tt_list.append(basename(dirname(f)).split('_')[1])
+        cat_list.append('_'.join(basename(dirname(f)).split('_')[:2]))
+        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=model)
+        mask_pred = result['tbetmask'].get_fdata()
+        mask_gt   = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
+        return getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
+
+    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    _write_csv(output_dir, 'val_bet_synstrip.csv',
+               ['type', 'category', 'DICE'],
+               f_list,
+               [[t, c, d] for t, c, d in zip(tt_list, cat_list, dsc_list)])
+
+    df = pd.DataFrame({'Filename': f_list, 'type': tt_list,
+                       'category': cat_list, 'DICE': dsc_list})
+    print(df.groupby('category')['DICE'].mean().to_string())
+    metric = float(df['DICE'].mean())
+    print(f'mean Dice of all data: {metric:.4f}')
+    return df, metric
+
+
+def val_bet_NFBS(input_dir, output_dir=None, model=None, GPU=False,
+                 debug=False, files_filter=None, **kwargs):
+    ffs = sorted(glob.glob(join(input_dir, '*', '*T1w.nii.gz')))
+
+    def compute(f, _tmp):
+        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=model)
+        mask_pred = result['tbetmask'].get_fdata()
+        mask_gt   = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
+        return getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
+
+    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    _write_csv(output_dir, 'val_bet_NFBS.csv', ['DICE'], f_list, dsc_list)
+
+    metric = float(np.mean(dsc_list))
+    print(f'mean Dice of all data: {metric:.4f}')
+    return {'Filename': f_list, 'DICE': dsc_list}, metric
+
+
+def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
+                 model=None, GPU=False, debug=False, files_filter=None, **kwargs):
+    column_names = ['Left-Thalamus',    'Right-Thalamus',
+                    'Left-Caudate',     'Right-Caudate',
+                    'Left-Putamen',     'Right-Putamen',
+                    'Left-Pallidum',    'Right-Pallidum',
+                    'Left-Hippocampus', 'Right-Hippocampus',
+                    'Left-Amygdala',    'Right-Amygdala']
+    ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
+
+    def compute(f, _tmp):
+        result    = tigerbx.run(('g' if GPU else '') + run_option, f, _tmp, model=model)
+        mask_pred = result[model_str].get_fdata().astype(int)
+        mask_gt   = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
+        return get_dice12(mask_gt, mask_pred, model_str)
+
+    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    _write_csv(output_dir, f'val_{model_str}_123.csv', column_names, f_list, dsc_list)
+
+    dsc_array       = np.array(dsc_list)
+    mean_per_column = dict(zip(column_names, dsc_array.mean(axis=0).tolist()))
+    _print_col_means(column_names, mean_per_column)
+    data = {'Filename': f_list,
+            **{col: dsc_array[:, i].tolist() for i, col in enumerate(column_names)}}
+    return data, mean_per_column
+
+
+def val_hlc_123(input_dir, output_dir=None, model=None, GPU=False,
+                debug=False, files_filter=None, **kwargs):
+    column_names = ['Left-Thalamus',    'Right-Thalamus',
+                    'Left-Caudate',     'Right-Caudate',
+                    'Left-Putamen',     'Right-Putamen',
+                    'Left-Pallidum',    'Right-Pallidum',
+                    'Left-Hippocampus', 'Right-Hippocampus',
+                    'Left-Amygdala',    'Right-Amygdala']
+    ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
+
+    def compute(f, _tmp):
+        result    = tigerbx.hlc(f, _tmp, model=model, GPU=GPU, save='h')
+        mask_pred = result['hlc'].get_fdata().astype(int)
+        mask_gt   = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
+        return get_dice12(mask_gt, mask_pred, 'aseg')
+
+    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    _write_csv(output_dir, 'val_hlc_123.csv', column_names, f_list, dsc_list)
+
+    dsc_array       = np.array(dsc_list)
+    mean_per_column = dict(zip(column_names, dsc_array.mean(axis=0).tolist()))
+    _print_col_means(column_names, mean_per_column)
+    data = {'Filename': f_list,
+            **{col: dsc_array[:, i].tolist() for i, col in enumerate(column_names)}}
+    return data, mean_per_column
+
+
+def val_reg_60(input_dir, output_dir=None, model=None, GPU=False,
+               debug=False, files_filter=None, template=None, **kwargs):
+    from nilearn.image import reorder_img     # lazy import — nilearn is heavy
+    column_names = [
+        'Left-Cerebral WM',       'Right-Cerebral WM',
+        'Left-Cerebral Cortex',   'Right-Cerebral Cortex',
+        'Left-Lateral Ventricle', 'Right-Lateral Ventricle',
+        'Left-Cerebellum WM',     'Right-Cerebellum WM',
+        'Left-Cerebellum Cortex', 'Right-Cerebellum Cortex',
+        'Left-Thalamus',          'Right-Thalamus',
+        'Left-Caudate',           'Right-Caudate',
+        'Left-Putamen',           'Right-Putamen',
+        'Left-Pallidum',          'Right-Pallidum',
+        'Left-Hippocampus',       'Right-Hippocampus',
+        'Left-Amygdala',          'Right-Amygdala',
+        'Left-VentralDC',         'Right-VentralDC',
+        'Brain Stem',             'CSF',
+    ]
+    ffs = sorted(glob.glob(join(input_dir, 'raw60', '*.nii.gz')))
+
+    # load models and template once, outside the per-file loop
+    model_transform        = lib_tool.get_model('mprage_transform_v002_near.onnx')
+    model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
+    template_nib = reorder_img(lib_reg.get_template(template), resample='continuous')
+    _, pad_width = lib_reg.pad_to_shape(template_nib.get_fdata(), (256, 256, 256))
+    mask_gt      = reorder_img(lib_reg.get_template_seg(template),
+                               resample='nearest').get_fdata().astype(int)
+
+    def compute(f, _tmp):
+        result = tigerbx.reg(('g' if GPU else '') + 'r', f, _tmp,
+                             model=model, template=template)
+        mask_pred = _apply_reg_to_seg(
+            result, f.replace('raw60', 'label60'),
+            template_nib, pad_width,
+            model_affine_transform, model_transform, reorder_img)
+        return get_dice26(mask_gt, mask_pred)
+
+    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    _write_csv(output_dir, 'val_reg_60.csv', column_names, f_list, dsc_list)
+
+    dsc_array       = np.array(dsc_list)
+    mean_per_column = dict(zip(column_names, dsc_array.mean(axis=0).tolist()))
+    _print_col_means(column_names, mean_per_column)
+    data = {'Filename': f_list,
+            **{col: dsc_array[:, i].tolist() for i, col in enumerate(column_names)}}
+    return data, mean_per_column
+
+
+# ── dataset registry ──────────────────────────────────────────────────────────
+#
+# Expected directory layout under val_dir:
+#
+#   val_dir/
+#   ├── synstrip/          → val_bet_synstrip  (input_dir = val_dir/synstrip)
+#   │   └── */image.nii.gz
+#   ├── NFBS/              → val_bet_NFBS      (input_dir = val_dir/NFBS)
+#   │   └── */*T1w.nii.gz
+#   ├── raw123/            → aseg/dgm/syn/hlc  (input_dir = val_dir)
+#   ├── label123/
+#   ├── raw60/             → val_reg_60        (input_dir = val_dir)
+#   └── label60/
+#
+# 'probe'        : glob pattern relative to val_dir used to detect the dataset
+# 'input_subdir' : sub-directory passed as input_dir; '' means val_dir itself
+# 'funcs'        : list of (display_name, callable) to run on this dataset
+
+DATASET_REGISTRY = [
+    {
+        'id':           'synstrip',
+        'probe':        join('synstrip', '*', 'image.nii.gz'),
+        'input_subdir': 'synstrip',
+        'funcs':        [('bet_synstrip', val_bet_synstrip)],
+    },
+    {
+        'id':           'NFBS',
+        'probe':        join('NFBS', '*', '*T1w.nii.gz'),
+        'input_subdir': 'NFBS',
+        'funcs':        [('bet_NFBS', val_bet_NFBS)],
+    },
+    {
+        'id':           'seg123',
+        'probe':        join('raw123', '*.nii.gz'),
+        'input_subdir': '',
+        'funcs': [
+            ('aseg_123', lambda **kw: _val_seg_123('aseg', 'a', **kw)),
+            ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw)),
+            ('syn_123',  lambda **kw: _val_seg_123('syn',  'S', **kw)),
+            ('hlc_123',  val_hlc_123),
+        ],
+    },
+    {
+        'id':           'reg60',
+        'probe':        join('raw60', '*.nii.gz'),
+        'input_subdir': '',
+        'funcs':        [('reg_60', val_reg_60)],
+    },
+]
+
+
+# ── lite-list helpers ─────────────────────────────────────────────────────────
+
+def _build_lite_list(val_dir, n=_LITE_N, seed=42):
+    """
+    Randomly sample *n* files per dataset and save to ``lite_list.json``
+    inside *val_dir*. Paths stored relative to *val_dir* for portability.
+    Returns ``{dataset_id: set_of_absolute_paths}``.
+    """
+    rng  = random.Random(seed)
+    lite = {}
+    for ds in DATASET_REGISTRY:
+        all_files = sorted(glob.glob(join(val_dir, ds['probe'])))
+        if not all_files:
+            continue
+        selected = sorted(rng.sample(all_files, min(n, len(all_files))))
+        lite[ds['id']] = [os.path.relpath(f, val_dir) for f in selected]
+
+    lite_path = join(val_dir, 'lite_list.json')
+    with open(lite_path, 'w') as fh:
+        json.dump(lite, fh, indent=2)
+    counts = {k: len(v) for k, v in lite.items()}
+    print(f'Lite list saved → {lite_path}')
+    print(f'  Files per dataset: {counts}')
+
+    return {k: set(os.path.abspath(join(val_dir, p)) for p in v)
+            for k, v in lite.items()}
+
+
+def _load_lite_list(val_dir):
+    """Load ``lite_list.json`` and return ``{dataset_id: set(abs_path)}``."""
+    with open(join(val_dir, 'lite_list.json')) as fh:
+        rel = json.load(fh)
+    return {k: set(os.path.abspath(join(val_dir, p)) for p in v)
+            for k, v in rel.items()}
+
+
+def _mean_dice(metric):
+    """Return a single float mean-Dice from either a float or a per-label dict."""
+    if isinstance(metric, dict):
+        return float(np.mean(list(metric.values())))
+    return float(metric)
+
+
+# ── public entry point ────────────────────────────────────────────────────────
+
+def val(val_dir=None, output_dir=None, model=None, GPU=False,
+        full=False, template=None):
+    """
+    Auto-discover available validation datasets under *val_dir* and run them.
+
+    Parameters
+    ----------
+    val_dir    : str, optional
+        Root directory containing dataset sub-folders (synstrip/, NFBS/,
+        raw123/, raw60/, …).  Defaults to the current working directory.
+    output_dir : str, optional
+        Where to write per-validation CSV files.  No CSV saved when None.
+    model      : str, optional
+        Override the default model for every validation run.
+    GPU        : bool
+        Use GPU for inference.
+    full       : bool
+        False (default) → **lite mode**: up to ``_LITE_N`` randomly sampled
+        files per dataset (list built on first run, cached in lite_list.json).
+        True → run on the complete dataset.
+    template   : str, optional
+        Registration template path (forwarded to val_reg_60 only).
+
+    Returns
+    -------
+    dict  {validation_name: metric}
+        metric is a float (mean Dice) for BET tasks, or a
+        {region: mean_dice} dict for segmentation / registration tasks.
+
+    Examples
+    --------
+    >>> tigerbx.val('/data/val_home')              # lite mode
+    >>> tigerbx.val('/data/val_home', full=True)   # full dataset
+    >>> tigerbx.val()                              # cwd, lite mode
+    """
+    if val_dir is None:
+        val_dir = os.getcwd()
+    val_dir = os.path.abspath(val_dir)
+    mode_tag = 'full' if full else 'lite'
+
+    # ── lite mode: load or build file list ───────────────────────────────────
+    lite = None
+    if not full:
+        lite_path = join(val_dir, 'lite_list.json')
+        if os.path.exists(lite_path):
+            lite = _load_lite_list(val_dir)
+            print(f'Lite mode: loaded existing {lite_path}')
+        else:
+            print('Lite mode: lite_list.json not found, building …')
+            lite = _build_lite_list(val_dir)
+
+    # ── scan datasets ─────────────────────────────────────────────────────────
+    available = []
+    for ds in DATASET_REGISTRY:
+        if glob.glob(join(val_dir, ds['probe'])):
+            available.append(ds)
+
+    if not available:
+        print(f'No recognised datasets found under: {val_dir}')
+        print('Expected sub-folders: synstrip/, NFBS/, raw123/+label123/, raw60/+label60/')
+        return {}
+
+    print(f'\nDatasets found: {[ds["id"] for ds in available]}')
+
+    # ── run each validation ───────────────────────────────────────────────────
+    summary = {}
+    for ds in available:
+        input_dir    = join(val_dir, ds['input_subdir']) if ds['input_subdir'] else val_dir
+        files_filter = lite.get(ds['id']) if lite is not None else None
+
+        for name, func in ds['funcs']:
+            print(f'\n{"="*60}')
+            print(f'  {name}  [{mode_tag}]')
+            print(f'{"="*60}')
+            try:
+                _, metric = func(
+                    input_dir=input_dir,
+                    output_dir=output_dir,
+                    model=model,
+                    GPU=GPU,
+                    files_filter=files_filter,
+                    template=template,
+                )
+                summary[name] = metric
+            except Exception as exc:
+                print(f'  SKIPPED ({exc})')
+                summary[name] = None
+
+    # ── final summary table ───────────────────────────────────────────────────
+    if summary:
+        sep = '=' * 60
+        print(f'\n{sep}')
+        print(f'  Validation Summary  [{mode_tag}]')
+        print(sep)
+        w = max(len(k) for k in summary)
+        for name, metric in summary.items():
+            if metric is None:
+                print(f'  {name:<{w}} : SKIPPED')
+            else:
+                print(f'  {name:<{w}} : mean Dice = {_mean_dice(metric):.4f}')
+        print(sep)
+
+    return summary
