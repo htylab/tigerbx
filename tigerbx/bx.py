@@ -354,10 +354,10 @@ def run_args(args):
 
         # Phase 1: BET (all files in chunk, one shared session)
         bet_session = lib_tool.create_session(bet_model_ff, args.gpu)
-        _pbar = tqdm(chunk, desc='tigerbx BET', unit='file', disable=(verbose > 0))
+        _pbar = tqdm(chunk, desc='BET', unit='file', disable=(verbose >= 2))
         for count, f in enumerate(_pbar, chunk_start + 1):
             _pbar.set_postfix_str(os.path.basename(f))
-            printer(f'{count} Processing: {os.path.basename(f)}')
+            _dbg(f'{count} Processing: {os.path.basename(f)}')
 
             ftemplate, _ = get_template(f, output_dir, args.gz, common_folder)
 
@@ -389,7 +389,7 @@ def run_args(args):
                     _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
                     tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
 
-            printer('QC score:', qc_score)
+            _pbar.set_postfix({'QC': qc_score})
             rd  = result_accum[f][0]
             rfd = result_accum[f][1]
             rd['QC'] = qc_score
@@ -397,8 +397,8 @@ def run_args(args):
             rfd['QC'] = qc_score
 
             if qc_score < 50:
-                _warn(f'Low QC score ({qc_score}) for {os.path.basename(f)}'
-                      ' — check result carefully.')
+                tqdm.write(f'[WARNING] Low QC score ({qc_score}) for {os.path.basename(f)}'
+                           ' — check result carefully.')
             if run_d['qc'] or qc_score < 50:
                 qcfile = ftemplate.replace('.nii', '').replace('.gz', '')
                 qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
@@ -434,8 +434,9 @@ def run_args(args):
         for key, runner in active_models:
             model_ff = lib_tool.get_model(omodel[key])
             session  = lib_tool.create_session(model_ff, args.gpu)
-            printer(f'Running {key} for {len(chunk)} files...')
-            for f in chunk:
+            _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(verbose >= 2))
+            for f in _seg_pbar:
+                _seg_pbar.set_postfix_str(os.path.basename(f))
                 rd_upd, rfd_upd = runner(
                     key, session, model_ff, f, bet_cache[f], args.gpu, run_d['patch'])
                 result_accum[f][0].update(rd_upd)
