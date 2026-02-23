@@ -92,15 +92,10 @@ def logit_to_prob(logits, seg_mode):
         prob = softmax(logits, axis=0)
     return prob
 
-def run(model_ff_list, input_nib, GPU, patch=False):
+def run(model_ff, input_nib, GPU, patch=False, session=None):
 
-    if not isinstance(model_ff_list, list):
-        model_ff_list = [model_ff_list]
+    seg_mode, _, model_str = get_mode(model_ff)
 
-
-    seg_mode, _ , model_str = get_mode(model_ff_list[0])
-
-    #data = input_nib.get_fdata()
     data = lib_tool.read_nib(input_nib)
 
     image = data[None, ...][None, ...]
@@ -113,16 +108,11 @@ def run(model_ff_list, input_nib, GPU, patch=False):
         if mx > 0:
             image = image / mx
 
-    prob = 0
-    count = 0
-    for model_ff in model_ff_list:
-        count += 1
-        if patch:
-            logits = lib_tool.predict(model_ff, image, GPU, mode='patch')[0, ...]
-        else:
-            logits = lib_tool.predict(model_ff, image, GPU)[0, ...]
-        prob += logit_to_prob(logits, seg_mode)
-    prob = prob/count # average the prob
+    if patch:
+        logits = lib_tool.predict(model_ff, image, GPU, mode='patch', session=session)[0, ...]
+    else:
+        logits = lib_tool.predict(model_ff, image, GPU, session=session)[0, ...]
+    prob = logit_to_prob(logits, seg_mode)
 
     if seg_mode =='bet': #sigmoid 1 channel
         th = 0.5

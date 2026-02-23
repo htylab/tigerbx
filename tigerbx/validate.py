@@ -74,6 +74,44 @@ def _run_loop(ffs, compute_fn, debug=False, files_filter=None):
     return f_list, results
 
 
+def _nib_data(res, key):
+    """Return fdata from a result entry that is either a nib object or a file path."""
+    val = res[key]
+    return nib.load(val).get_fdata() if isinstance(val, str) else val.get_fdata()
+
+
+def _run_bx_batch(ffs, argstr, GPU, model, compute_metrics_fn,
+                  debug=False, files_filter=None):
+    """
+    Run all files in one ``tigerbx.run()`` call (session-cache benefit),
+    then compute metrics per file via *compute_metrics_fn(f, res)*.
+
+    *res* is result_filedict (paths) for N>1 files, result_dict (nib objects)
+    for a single file — ``_nib_data()`` handles both transparently.
+
+    Returns *(f_list, results_list)*.
+    """
+    if files_filter is not None:
+        ffs = [f for f in ffs if os.path.abspath(f) in files_filter]
+    elif debug:
+        ffs = ffs[:5]
+    print(f'Total files: {len(ffs)}')
+    if not ffs:
+        return [], []
+    f_list, results = [], []
+    with tempfile.TemporaryDirectory() as _tmp:
+        batch = tigerbx.run(argstr, ffs, _tmp, model=model)
+        if not isinstance(batch, list):
+            batch = [batch]   # single-file path returns dict, not list
+        for count, (f, res) in enumerate(zip(ffs, batch), 1):
+            f_list.append(f)
+            val = compute_metrics_fn(f, res)
+            results.append(val)
+            primary = val[0] if isinstance(val, tuple) else val
+            print(count, len(ffs), f, f'Dice: {float(np.mean(primary)):.3f}')
+    return f_list, results
+
+
 def _write_csv(output_dir, filename, header, f_list, rows):
     """Write a CSV using the stdlib *csv* module (no pandas required)."""
     if output_dir is None:
@@ -134,19 +172,20 @@ def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
     import pandas as pd          # kept for groupby category summary
     ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
     run_model = {'bet': bet_model} if bet_model else None
+    argstr = ('g' if GPU else '') + 'm'
 
     tt_list, cat_list = [], []
 
-    def compute(f, _tmp):
+    def compute_metrics(f, res):
         tt_list.append(basename(dirname(f)).split('_')[1])
         cat_list.append('_'.join(basename(dirname(f)).split('_')[:2]))
-        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=run_model)
-        mask_pred = result['tbetmask'].get_fdata()
+        mask_pred = _nib_data(res, 'tbetmask')
         mask_gt   = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
         dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
-        return dice, result['QC_raw']
+        return dice, res['QC_raw']
 
-    f_list, results = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    f_list, results = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
+                                    debug=debug, files_filter=files_filter)
     dsc_list   = [r[0] for r in results]
     qcraw_list = [r[1] for r in results]
 
@@ -168,15 +207,16 @@ def val_bet_NFBS(input_dir, output_dir=None, GPU=False,
                  bet_model=None, seg_model=None, **kwargs):
     ffs = sorted(glob.glob(join(input_dir, '*', '*T1w.nii.gz')))
     run_model = {'bet': bet_model} if bet_model else None
+    argstr = ('g' if GPU else '') + 'm'
 
-    def compute(f, _tmp):
-        result    = tigerbx.run(('g' if GPU else '') + 'm', f, _tmp, model=run_model)
-        mask_pred = result['tbetmask'].get_fdata()
+    def compute_metrics(f, res):
+        mask_pred = _nib_data(res, 'tbetmask')
         mask_gt   = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
         dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
-        return dice, result['QC_raw']
+        return dice, res['QC_raw']
 
-    f_list, results = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    f_list, results = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
+                                    debug=debug, files_filter=files_filter)
     dsc_list   = [r[0] for r in results]
     qcraw_list = [r[1] for r in results]
 
@@ -202,14 +242,15 @@ def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
     if bet_model: run_model['bet'] = bet_model
     if seg_model: run_model[model_str] = seg_model
     run_model = run_model or None
+    argstr = ('g' if GPU else '') + run_option
 
-    def compute(f, _tmp):
-        result    = tigerbx.run(('g' if GPU else '') + run_option, f, _tmp, model=run_model)
-        mask_pred = result[model_str].get_fdata().astype(int)
+    def compute_metrics(f, res):
+        mask_pred = _nib_data(res, model_str).astype(int)
         mask_gt   = nib.load(f.replace('raw123', 'label123')).get_fdata().astype(int)
         return get_dice12(mask_gt, mask_pred, model_str)
 
-    f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
+    f_list, dsc_list = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
+                                     debug=debug, files_filter=files_filter)
     _write_csv(output_dir, f'val_{model_str}_123.csv', column_names, f_list, dsc_list)
 
     dsc_array       = np.array(dsc_list)
