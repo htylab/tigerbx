@@ -22,6 +22,10 @@ def setup_parser(parser):
                         help='Verbosity: 0=quiet (tqdm only), 1=progress (default), 2=debug')
     parser.add_argument('--model', default=None, type=str, help='Specifying the model name')
     parser.add_argument('--clean_onnx', action='store_true', help='Clean onnx models')
+    parser.add_argument('--chunk-size', type=int, default=50, dest='chunk_size',
+                        help='Number of files per session-cache batch (default: 50)')
+    parser.add_argument('--continue', action='store_true', dest='continue_',
+                        help='Skip files whose outputs already exist')
 
 
 def run_args(args):
