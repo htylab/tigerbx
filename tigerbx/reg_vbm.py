@@ -115,6 +115,7 @@ def run_args(args):
         t = time.time()
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
+        vbm_ftemplate = ftemplate  # default; overridden below when vbm is enabled
         if run_d['vbm']:
             dir_path, filename = os.path.split(ftemplate)
             prefix = filename.split('_@@@@')[0]

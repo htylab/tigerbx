@@ -165,7 +165,6 @@ def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
 def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
                      debug=False, files_filter=None,
                      bet_model=None, seg_model=None, **kwargs):
-    import pandas as pd          # kept for groupby category summary
     ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
     run_model = {'bet': bet_model} if bet_model else None
     argstr = ('g' if GPU else '') + 'm'
@@ -190,12 +189,18 @@ def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
                f_list,
                [[t, c, d, q] for t, c, d, q in zip(tt_list, cat_list, dsc_list, qcraw_list)])
 
-    df = pd.DataFrame({'Filename': f_list, 'type': tt_list,
-                       'category': cat_list, 'DICE': dsc_list, 'QC_raw': qcraw_list})
-    print(df.groupby('category')['DICE'].mean().to_string())
-    metric = float(df['DICE'].mean())
+    # per-category mean Dice (stdlib + numpy; no pandas required)
+    from collections import defaultdict
+    cat_dice = defaultdict(list)
+    for cat, dice in zip(cat_list, dsc_list):
+        cat_dice[cat].append(dice)
+    for cat in sorted(cat_dice):
+        print(f'  {cat}: {np.mean(cat_dice[cat]):.4f}')
+    metric = float(np.mean(dsc_list))
     print(f'mean Dice of all data: {metric:.4f}')
-    return df, metric
+    data = {'Filename': f_list, 'type': tt_list,
+            'category': cat_list, 'DICE': dsc_list, 'QC_raw': qcraw_list}
+    return data, metric
 
 
 def val_bet_NFBS(input_dir, output_dir=None, GPU=False,

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
      name='tigerbx',
-     version='0.2.2',
+     version='0.2.3',
      license='CC BY-NC 4.0',
      license_files=['LICENSE'],
 

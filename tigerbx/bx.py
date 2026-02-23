@@ -115,9 +115,9 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None,
     return output_nib
 
 
-def _all_outputs_exist(f, output_dir, run_d, gz):
+def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
     """Return True if all requested outputs for file f already exist on disk."""
-    ftemplate, _ = get_template(f, output_dir, gz)
+    ftemplate, _ = get_template(f, output_dir, gz, common_folder)
     checks = {
         'betmask': 'tbetmask',
         'bet':     'tbet',
@@ -333,7 +333,7 @@ def run_args(args):
     if run_d.get('continue_'):
         original_n = len(input_file_list)
         input_file_list = [f for f in input_file_list
-                           if not _all_outputs_exist(f, output_dir, run_d, args.gz)]
+                           if not _all_outputs_exist(f, output_dir, run_d, args.gz, common_folder)]
         printer(f'Skipping {original_n - len(input_file_list)} already-processed files')
 
     printer('Total nii files:', len(input_file_list))
