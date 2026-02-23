@@ -388,7 +388,8 @@ def run_args(args):
                     _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
                     tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
 
-            _pbar.set_postfix_str(f"{os.path.basename(f)} | QC={qc_score}")
+            name12 = f"{os.path.basename(f)[:12]:<12}"
+            _pbar.set_postfix_str(f"{name12} | QC={qc_score}")
             rd  = result_accum[f][0]
             rfd = result_accum[f][1]
             rd['QC'] = qc_score
