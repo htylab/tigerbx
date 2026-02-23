@@ -346,6 +346,7 @@ def run_args(args):
 
     result_accum = {f: [{}, {}] for f in input_file_list}
     bet_model_ff = lib_tool.get_model(omodel['bet'])
+    _low_qc = []   # collect (basename, qc_score) across all chunks for end-of-run summary
 
     # ── Chunked loop ──────────────────────────────────────────────────────────
     for chunk_start in range(0, len(input_file_list), chunk_size):
@@ -354,7 +355,7 @@ def run_args(args):
 
         # Phase 1: BET (all files in chunk, one shared session)
         bet_session = lib_tool.create_session(bet_model_ff, args.gpu)
-        _pbar = tqdm(chunk, desc='BET', unit='file', disable=(verbose >= 2))
+        _pbar = tqdm(chunk, desc='tBET', unit='file', disable=(verbose >= 2))
         for count, f in enumerate(_pbar, chunk_start + 1):
             _dbg(f'{count} Processing: {os.path.basename(f)}')
 
@@ -388,8 +389,8 @@ def run_args(args):
                     _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
                     tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
 
-            name12 = f"{os.path.basename(f)[:12]:<12}"
-            _pbar.set_postfix_str(f"{name12} | QC={qc_score}")
+            name18 = f"{os.path.basename(f)[:18]:<18}"
+            _pbar.set_postfix_str(f"{name18} | QC={qc_score}")
             rd  = result_accum[f][0]
             rfd = result_accum[f][1]
             rd['QC'] = qc_score
@@ -400,6 +401,7 @@ def run_args(args):
             if qc_score < 50:
                 tqdm.write(f'[WARNING] Low QC score ({qc_score}) for {os.path.basename(f)}'
                            ' — check result carefully.')
+                _low_qc.append((os.path.basename(f), qc_score))
             if run_d['qc'] or qc_score < 50:
                 qcfile = ftemplate.replace('.nii', '').replace('.gz', '')
                 qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
@@ -445,6 +447,12 @@ def run_args(args):
             del session
 
         bet_cache.clear()
+
+    # ── low-QC summary (ensure warnings aren't missed in long runs) ───────────
+    if _low_qc:
+        printer(f'\n[WARNING] {len(_low_qc)} file(s) with low QC score — check results carefully:')
+        for fname, qc in _low_qc:
+            printer(f'  QC={qc}: {fname}')
 
     # ── return (format unchanged) ─────────────────────────────────────────────
     if len(input_file_list) == 1:
