@@ -65,12 +65,10 @@ def _run_loop(ffs, compute_fn, debug=False, files_filter=None):
     print(f'Total files: {len(ffs)}')
     f_list, results = [], []
     with tempfile.TemporaryDirectory() as _tmp:
-        for count, f in enumerate(ffs, 1):
+        for f in ffs:
             f_list.append(f)
             val = compute_fn(f, _tmp)
             results.append(val)
-            primary = val[0] if isinstance(val, tuple) else val
-            print(count, len(ffs), f, f'Dice: {float(np.mean(primary)):.3f}')
     return f_list, results
 
 
@@ -103,12 +101,10 @@ def _run_bx_batch(ffs, argstr, GPU, model, compute_metrics_fn,
         batch = tigerbx.run(argstr, ffs, _tmp, model=model)
         if not isinstance(batch, list):
             batch = [batch]   # single-file path returns dict, not list
-        for count, (f, res) in enumerate(zip(ffs, batch), 1):
+        for f, res in zip(ffs, batch):
             f_list.append(f)
             val = compute_metrics_fn(f, res)
             results.append(val)
-            primary = val[0] if isinstance(val, tuple) else val
-            print(count, len(ffs), f, f'Dice: {float(np.mean(primary)):.3f}')
     return f_list, results
 
 
