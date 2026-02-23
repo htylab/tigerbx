@@ -356,7 +356,6 @@ def run_args(args):
         bet_session = lib_tool.create_session(bet_model_ff, args.gpu)
         _pbar = tqdm(chunk, desc='BET', unit='file', disable=(verbose >= 2))
         for count, f in enumerate(_pbar, chunk_start + 1):
-            _pbar.set_postfix_str(os.path.basename(f))
             _dbg(f'{count} Processing: {os.path.basename(f)}')
 
             ftemplate, _ = get_template(f, output_dir, args.gz, common_folder)
@@ -389,7 +388,7 @@ def run_args(args):
                     _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
                     tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
 
-            _pbar.set_postfix({'QC': qc_score})
+            _pbar.set_postfix_str(f"{os.path.basename(f)} | QC={qc_score}")
             rd  = result_accum[f][0]
             rfd = result_accum[f][1]
             rd['QC'] = qc_score
