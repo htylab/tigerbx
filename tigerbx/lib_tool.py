@@ -279,25 +279,28 @@ def cpu_count():
     raise Exception('Can not determine number of CPUs on this system')
 
 
-def predict(model, data, GPU, mode=None, patch_size=None, tile_step_size=0.5, gaussian=True):
+def create_session(model_ff, GPU):
+    """Build an ort.InferenceSession for the given model path."""
     import onnxruntime as ort
     ort.set_default_logger_severity(3)
-
     so = ort.SessionOptions()
-    cpu = max(int(cpu_count()*0.7), 1)
+    cpu = max(int(cpu_count() * 0.7), 1)
     so.intra_op_num_threads = cpu
     so.inter_op_num_threads = cpu
     so.log_severity_level = 3
+    if GPU and ort.get_device() == 'GPU':
+        return ort.InferenceSession(model_ff,
+                                    providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                                    sess_options=so)
+    return ort.InferenceSession(model_ff,
+                                providers=['CPUExecutionProvider'],
+                                sess_options=so)
 
-    if GPU and (ort.get_device() == "GPU"):
 
-        session = ort.InferenceSession(model,
-                                       providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
-                                       sess_options=so)
-    else:
-        session = ort.InferenceSession(model,
-                                       providers=['CPUExecutionProvider'],
-                                       sess_options=so)
+def predict(model, data, GPU, mode=None, patch_size=None, tile_step_size=0.5,
+            gaussian=True, session=None):
+    if session is None:
+        session = create_session(model, GPU)
 
     data_type = 'float64'
     if session.get_inputs()[0].type == 'tensor(float)':

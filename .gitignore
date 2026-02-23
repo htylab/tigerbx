@@ -8,6 +8,7 @@ test_output/
 .claude/
 temp/
 venv*/
+rustbx/
 # C extensions
 #*.so
 
