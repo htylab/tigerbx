@@ -395,6 +395,7 @@ def run_args(args):
             rd['QC'] = qc_score
             rd['QC_raw'] = qc_raw
             rfd['QC'] = qc_score
+            rfd['QC_raw'] = qc_raw
 
             if qc_score < 50:
                 tqdm.write(f'[WARNING] Low QC score ({qc_score}) for {os.path.basename(f)}'
