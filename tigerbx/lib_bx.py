@@ -2,7 +2,7 @@ from os.path import basename
 import numpy as np
 import nibabel as nib
 from scipy.special import softmax
-from nilearn.image import reorder_img, resample_img
+from tigerbx._resample import reorder_img, resample_img
 
 from tigerbx import lib_tool
 

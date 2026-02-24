@@ -13,7 +13,7 @@ from tigerbx import lib_tool
 from tigerbx import lib_bx
 from tigerbx.lib_crop import crop_cube
 import copy
-from nilearn.image import resample_to_img, reorder_img
+from tigerbx._resample import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -458,5 +458,4 @@ def run_args(args):
     if len(input_file_list) == 1:
         return result_accum[input_file_list[0]][0]   # result_dict with nib objects
     return [result_accum[f][1] for f in input_file_list]  # list of result_filedict
-
 

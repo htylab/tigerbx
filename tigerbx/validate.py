@@ -297,7 +297,7 @@ def val_hlc_123(input_dir, output_dir=None, GPU=False,
 def val_reg_60(input_dir, output_dir=None, GPU=False,
                debug=False, files_filter=None, template=None,
                bet_model=None, seg_model=None, **kwargs):
-    from nilearn.image import reorder_img     # lazy import — nilearn is heavy
+    from tigerbx._resample import reorder_img  # lazy import - local resample helper
     column_names = [
         'Left-Cerebral WM',       'Right-Cerebral WM',
         'Left-Cerebral Cortex',   'Right-Cerebral Cortex',

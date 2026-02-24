@@ -8,7 +8,7 @@ import numpy as np
 import time
 import logging
 import warnings
-from nilearn.image import resample_to_img, reorder_img, resample_img
+from tigerbx._resample import resample_to_img, reorder_img, resample_img
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tqdm import tqdm

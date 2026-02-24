@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx.bx import produce_betmask, save_nib, get_template
-from nilearn.image import resample_to_img, reorder_img
+from tigerbx._resample import resample_to_img, reorder_img
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)

@@ -12,7 +12,7 @@ _logger = logging.getLogger('tigerbx')
 from scipy.special import softmax
 from scipy.ndimage import median_filter
 from scipy.ndimage import binary_dilation
-from nilearn.image import resample_img
+from tigerbx._resample import resample_img
 
 
 nib.Nifti1Header.quaternion_threshold = -100
@@ -122,8 +122,7 @@ def resample_to_new_resolution(data_nii, target_resolution, target_shape=None, i
         target_affine[:3, i] = target_affine[:3, i]*factor[i]
         
     new_nii = resample_img(data_nii, target_affine=target_affine,
-                            target_shape=target_shape, interpolation=interpolation,
-                            force_resample=True)
+                            target_shape=target_shape, interpolation=interpolation)
     return new_nii
 
 
