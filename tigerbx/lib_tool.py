@@ -12,7 +12,7 @@ import nibabel as nib
 import numpy as np
 import sys
 from os.path import isfile, join
-from nilearn.image import resample_img
+from tigerbx._resample import resample_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -459,8 +459,7 @@ def resample_voxel(data_nib, voxelsize, target_shape=None, interpolation='contin
             np.sqrt(affine[0, i]**2 + affine[1, i]**2 + affine[2, i]**2)
         target_affine[:3, i] = target_affine[:3, i] * factor[i]
     new_nib = resample_img(data_nib, target_affine=target_affine,
-                           target_shape=target_shape, interpolation=interpolation,
-                           force_resample=True)
+                           target_shape=target_shape, interpolation=interpolation)
     return new_nib
 
 

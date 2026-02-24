@@ -10,7 +10,7 @@ import sys
 from os.path import isfile, join
 from tigerbx import lib_tool
 from tigerbx import bx
-from nilearn.image import resample_img, reorder_img
+from tigerbx._resample import resample_img, reorder_img
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)

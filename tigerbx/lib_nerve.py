@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import nibabel as nib
-from nilearn.image import reorder_img, resample_img
+from tigerbx._resample import reorder_img, resample_img
 from os.path import basename, join, isdir, dirname, relpath
 from math import log10
 from tigerbx.eval import ssim as ssim_metric

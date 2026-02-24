@@ -13,7 +13,7 @@ from tigerbx import lib_tool
 from tigerbx import lib_bx
 from tigerbx.lib_crop import crop_cube
 import copy
-from nilearn.image import resample_to_img, reorder_img
+from tigerbx._resample import resample_to_img, reorder_img
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -115,9 +115,9 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None,
     return output_nib
 
 
-def _all_outputs_exist(f, output_dir, run_d, gz):
+def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
     """Return True if all requested outputs for file f already exist on disk."""
-    ftemplate, _ = get_template(f, output_dir, gz)
+    ftemplate, _ = get_template(f, output_dir, gz, common_folder)
     checks = {
         'betmask': 'tbetmask',
         'bet':     'tbet',
@@ -333,7 +333,7 @@ def run_args(args):
     if run_d.get('continue_'):
         original_n = len(input_file_list)
         input_file_list = [f for f in input_file_list
-                           if not _all_outputs_exist(f, output_dir, run_d, args.gz)]
+                           if not _all_outputs_exist(f, output_dir, run_d, args.gz, common_folder)]
         printer(f'Skipping {original_n - len(input_file_list)} already-processed files')
 
     printer('Total nii files:', len(input_file_list))
@@ -355,7 +355,7 @@ def run_args(args):
 
         # Phase 1: BET (all files in chunk, one shared session)
         bet_session = lib_tool.create_session(bet_model_ff, args.gpu)
-        _pbar = tqdm(chunk, desc='tBET', unit='file', disable=(verbose >= 2))
+        _pbar = tqdm(chunk, desc='tBET', unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
         for count, f in enumerate(_pbar, chunk_start + 1):
             _dbg(f'{count} Processing: {os.path.basename(f)}')
 
@@ -437,7 +437,7 @@ def run_args(args):
         for key, runner in active_models:
             model_ff = lib_tool.get_model(omodel[key])
             session  = lib_tool.create_session(model_ff, args.gpu)
-            _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(verbose >= 2))
+            _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
             for f in _seg_pbar:
                 _seg_pbar.set_postfix_str(os.path.basename(f))
                 rd_upd, rfd_upd = runner(
@@ -458,5 +458,4 @@ def run_args(args):
     if len(input_file_list) == 1:
         return result_accum[input_file_list[0]][0]   # result_dict with nib objects
     return [result_accum[f][1] for f in input_file_list]  # list of result_filedict
-
 

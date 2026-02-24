@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
      name='tigerbx',
-     version='0.2.2',
+     version='0.2.3',
      license='CC BY-NC 4.0',
      license_files=['LICENSE'],
 
@@ -22,9 +22,7 @@ setup(
              'numpy>=1.21.6',
              'scipy',
              'nibabel',
-             'nilearn>=0.9.2',
              'optuna',
-             'SimpleITK>=2.1.0',
              'antspyx',
              'platformdirs',
              'filelock',
