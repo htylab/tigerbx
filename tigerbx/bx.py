@@ -355,7 +355,7 @@ def run_args(args):
 
         # Phase 1: BET (all files in chunk, one shared session)
         bet_session = lib_tool.create_session(bet_model_ff, args.gpu)
-        _pbar = tqdm(chunk, desc='tBET', unit='file', disable=(verbose >= 2))
+        _pbar = tqdm(chunk, desc='tBET', unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
         for count, f in enumerate(_pbar, chunk_start + 1):
             _dbg(f'{count} Processing: {os.path.basename(f)}')
 
@@ -437,7 +437,7 @@ def run_args(args):
         for key, runner in active_models:
             model_ff = lib_tool.get_model(omodel[key])
             session  = lib_tool.create_session(model_ff, args.gpu)
-            _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(verbose >= 2))
+            _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
             for f in _seg_pbar:
                 _seg_pbar.set_postfix_str(os.path.basename(f))
                 rd_upd, rfd_upd = runner(
