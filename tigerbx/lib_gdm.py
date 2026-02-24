@@ -1,7 +1,5 @@
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, map_coordinates
 from scipy.signal import medfilt2d
-from os.path import basename, join
-import SimpleITK as sitk
 from os.path import join, basename, isdir
 import numpy as np
 import nibabel as nib
@@ -75,10 +73,19 @@ def write_file(model_ff, input_file, output_dir, vol_out, inmem=False, postfix='
     input_nib = nib.load(input_file)
     affine = input_nib.affine
     zoom = input_nib.header.get_zooms()
-    
+
+    def _set_output_zooms(result_img):
+        out_ndim = len(result_img.shape)
+        header_zooms = result_img.header.get_zooms()
+        out_zooms = tuple(zoom[:out_ndim])
+        if len(out_zooms) < out_ndim:
+            out_zooms = out_zooms + tuple(header_zooms[len(out_zooms):out_ndim])
+        result_img.header.set_zooms(out_zooms)
+      
 
     if postfix=='vdm':
         result = nib.Nifti1Image(vol_out.astype('float32'), affine)
+        _set_output_zooms(result)
     else:
         overflow = 0
         if np.issubdtype(input_nib.get_data_dtype(), np.integer):
@@ -89,7 +96,7 @@ def write_file(model_ff, input_file, output_dir, vol_out, inmem=False, postfix='
                 overflow = 1
 
         result = nib.Nifti1Image(vol_out.astype(input_nib.get_data_dtype()), affine) if not overflow else nib.Nifti1Image(vol_out, affine)
-        result.header.set_zooms(zoom)
+        _set_output_zooms(result)
 
 
     if not inmem:
@@ -126,50 +133,118 @@ def resample_to_new_resolution(data_nii, target_resolution, target_shape=None, i
     return new_nii
 
 
-def apply_vdm_2d(ima, vdm, readout=1, AP_RL='AP'):
+def _edge_padded_central_diff(arr, axis):
+    pads = [(0, 0)] * arr.ndim
+    pads[axis] = (1, 1)
+    arr_pad = np.pad(arr, pads, mode='edge')
 
+    sl_forward = [slice(None)] * arr.ndim
+    sl_backward = [slice(None)] * arr.ndim
+    sl_forward[axis] = slice(2, None)
+    sl_backward[axis] = slice(None, -2)
+    return (arr_pad[tuple(sl_forward)] - arr_pad[tuple(sl_backward)]) * 0.5
+
+
+def _jacobian_det_displacement_2d(disp):
+    # disp components follow SITK vector order [x, y], while numpy axes are [y, x].
+    ux = disp[..., 0]
+    uy = disp[..., 1]
+    dux_dy = _edge_padded_central_diff(ux, axis=0)
+    dux_dx = _edge_padded_central_diff(ux, axis=1)
+    duy_dy = _edge_padded_central_diff(uy, axis=0)
+    duy_dx = _edge_padded_central_diff(uy, axis=1)
+    return (1.0 + dux_dx) * (1.0 + duy_dy) - dux_dy * duy_dx
+
+
+def _jacobian_det_displacement_3d(disp):
+    # disp components follow SITK vector order [x, y, z], numpy axes are [z, y, x].
+    ux = disp[..., 0]
+    uy = disp[..., 1]
+    uz = disp[..., 2]
+
+    dux_dz = _edge_padded_central_diff(ux, axis=0)
+    dux_dy = _edge_padded_central_diff(ux, axis=1)
+    dux_dx = _edge_padded_central_diff(ux, axis=2)
+
+    duy_dz = _edge_padded_central_diff(uy, axis=0)
+    duy_dy = _edge_padded_central_diff(uy, axis=1)
+    duy_dx = _edge_padded_central_diff(uy, axis=2)
+
+    duz_dz = _edge_padded_central_diff(uz, axis=0)
+    duz_dy = _edge_padded_central_diff(uz, axis=1)
+    duz_dx = _edge_padded_central_diff(uz, axis=2)
+
+    a11 = 1.0 + dux_dx
+    a12 = dux_dy
+    a13 = dux_dz
+    a21 = duy_dx
+    a22 = 1.0 + duy_dy
+    a23 = duy_dz
+    a31 = duz_dx
+    a32 = duz_dy
+    a33 = 1.0 + duz_dz
+
+    return (
+        a11 * (a22 * a33 - a23 * a32)
+        - a12 * (a21 * a33 - a23 * a31)
+        + a13 * (a21 * a32 - a22 * a31)
+    )
+
+
+def _warp_displacement_linear_sitk_like(image, disp):
+    """Linear warp that matches SITK DisplacementFieldTransform + sitkLinear in index space."""
+    image = np.asarray(image, dtype=np.float64)
+    disp = np.asarray(disp, dtype=np.float64)
+
+    if disp.shape[:-1] != image.shape:
+        raise ValueError(f'displacement shape {disp.shape[:-1]} does not match image shape {image.shape}')
+    if disp.shape[-1] != image.ndim:
+        raise ValueError(f'displacement last dim {disp.shape[-1]} must equal image ndim {image.ndim}')
+
+    coords = np.indices(image.shape, dtype=np.float64)
+    coords = coords + np.moveaxis(disp[..., ::-1], -1, 0)
+
+    valid = np.ones(image.shape, dtype=bool)
+    coords_clipped = coords.copy()
+    for axis, size in enumerate(image.shape):
+        valid &= (coords[axis] >= -0.5) & (coords[axis] <= size - 0.5)
+        coords_clipped[axis] = np.clip(coords_clipped[axis], 0.0, size - 1.0)
+
+    warped = map_coordinates(
+        image,
+        coords_clipped,
+        order=1,
+        mode='nearest',
+        prefilter=False,
+    )
+    warped[~valid] = 0.0
+    return warped
+
+
+def _build_vdm_displacement_2d(vdm, readout=1, AP_RL='AP'):
     if AP_RL == 'AP':
-        arr = np.stack([vdm*readout, vdm*0], axis=-1)
-    else:
-        arr = np.stack([vdm*0, vdm*readout], axis=-1)
-    displacement_image = sitk.GetImageFromArray(arr, isVector=True)
+        return np.stack([vdm * readout, vdm * 0], axis=-1)
+    return np.stack([vdm * 0, vdm * readout], axis=-1)
 
-    jac = sitk.DisplacementFieldJacobianDeterminant(displacement_image)
-    tx = sitk.DisplacementFieldTransform(displacement_image)
-    ref = sitk.GetImageFromArray(ima*0)
-    resampler = sitk.ResampleImageFilter()
-    resampler.SetReferenceImage(ref)
-    # sitkNearestNeighbor, sitk.sitkLinear
-    resampler.SetInterpolator(sitk.sitkLinear)
-    resampler.SetTransform(tx)
 
-    new_ima = resampler.Execute(sitk.GetImageFromArray(ima))
-    new_ima = sitk.GetArrayFromImage(new_ima)
-    jac_np = sitk.GetArrayFromImage(jac)
-    return new_ima*jac_np
+def _build_vdm_displacement_3d(vdm, readout=1, AP_RL='AP'):
+    if AP_RL == 'AP':
+        return np.stack([vdm * 0, vdm * readout, vdm * 0], axis=-1)
+    return np.stack([vdm * 0, vdm * 0, vdm * readout], axis=-1)
+
+
+def apply_vdm_2d(ima, vdm, readout=1, AP_RL='AP'):
+    disp = _build_vdm_displacement_2d(np.asarray(vdm, dtype=np.float64), readout=readout, AP_RL=AP_RL)
+    new_ima = _warp_displacement_linear_sitk_like(ima, disp)
+    jac_np = _jacobian_det_displacement_2d(disp)
+    return new_ima * jac_np
 
 
 def apply_vdm_3d(ima, vdm, readout=1, AP_RL='AP'):
-
-    if AP_RL == 'AP':
-        arr = np.stack([vdm*0, vdm*readout, vdm*0], axis=-1)
-    else:
-        arr = np.stack([vdm*0, vdm*0, vdm*readout], axis=-1)
-    displacement_image = sitk.GetImageFromArray(arr, isVector=True)
-
-    jac = sitk.DisplacementFieldJacobianDeterminant(displacement_image)
-    tx = sitk.DisplacementFieldTransform(displacement_image)
-    ref = sitk.GetImageFromArray(ima*0)
-    resampler = sitk.ResampleImageFilter()
-    resampler.SetReferenceImage(ref)
-    # sitkNearestNeighbor, sitk.sitkLinear
-    resampler.SetInterpolator(sitk.sitkLinear)
-    resampler.SetTransform(tx)
-
-    new_ima = resampler.Execute(sitk.GetImageFromArray(ima))
-    new_ima = sitk.GetArrayFromImage(new_ima)
-    jac_np = sitk.GetArrayFromImage(jac)
-    return new_ima*jac_np
+    disp = _build_vdm_displacement_3d(np.asarray(vdm, dtype=np.float64), readout=readout, AP_RL=AP_RL)
+    new_ima = _warp_displacement_linear_sitk_like(ima, disp)
+    jac_np = _jacobian_det_displacement_3d(disp)
+    return new_ima * jac_np
 
 
 

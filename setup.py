@@ -23,7 +23,6 @@ setup(
              'scipy',
              'nibabel',
              'optuna',
-             'SimpleITK>=2.1.0',
              'antspyx',
              'platformdirs',
              'filelock',
