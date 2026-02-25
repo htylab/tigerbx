@@ -8,14 +8,16 @@ import numpy as np
 import time
 import logging
 import warnings
-from tigerbx._resample import resample_to_img, reorder_img, resample_img
+from tigerbx.core.resample import resample_to_img, reorder_img, resample_img, resample_voxel
+from tigerbx.core.onnx import predict
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_reg
-from tigerbx.bx import produce_mask, produce_betmask, save_nib, get_template
+from tigerbx.bx import produce_mask, produce_betmask
+from tigerbx.core.io import get_template, save_nib
 
 _logger = logging.getLogger('tigerbx')
 _logger.addHandler(logging.NullHandler())
@@ -132,7 +134,7 @@ def run_args(args):
             tbet_nib = tbet_nib.astype(input_nib.dataobj.dtype)
 
         tbet_nib = nib.Nifti1Image(tbet_nib, input_nib.affine, input_nib.header)
-        tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+        tbet_nib111 = resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
         tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
 
         zoom = tbet_nib.header.get_zooms()
@@ -160,12 +162,12 @@ def run_args(args):
         if run_d.get('cgw', False): # FSL style segmentation of CSF, GM, WM
             model_ff = lib_tool.get_model(omodel['cgw'])
             normalize_factor = np.max(input_nib.get_fdata())
-            #tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
+            #tbet_nib111 = resample_voxel(tbet_nib, (1, 1, 1),interpolation='linear')
             bet_img = lib_tool.read_nib(tbet_nib111)
 
             image = bet_img[None, ...][None, ...]
             image = image/normalize_factor
-            cgw = lib_tool.predict(model_ff, image, args.gpu)[0]
+            cgw = predict(model_ff, image, args.gpu)[0]
 
             result_dict['cgw'] = []
             result_filedict['cgw'] = []
@@ -223,7 +225,7 @@ def run_args(args):
                 fixed = lib_reg.min_max_norm(fixed)
 
                 model_ff = lib_tool.get_model(omodel['rigid'])
-                output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
+                output = predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
                 rigided, rigid_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
 
                 displacement_dict["init_flow"] = init_flow
@@ -252,7 +254,7 @@ def run_args(args):
 
                 if run_d['affine_type'] == 'C2FViT':
                     model_ff = lib_tool.get_model(omodel['affine'])
-                    output = lib_tool.predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
+                    output = predict(model_ff, [moving, fixed], GPU=args.gpu, mode='reg')
                     affined, affine_matrix, init_flow = np.squeeze(output[0]), np.squeeze(output[1]), output[2]
                     initflow_nib = nib.Nifti1Image(init_flow, ori_affine)
                     displacement_dict["init_flow"] = init_flow
@@ -290,7 +292,7 @@ def run_args(args):
 
                     model_ff = lib_tool.get_model(omodel['reg'])
 
-                    output = lib_tool.predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
+                    output = predict(model_ff, [moving_image, fixed_image], GPU=args.gpu, mode='reg')
                     moved, warp = np.squeeze(output[0]), np.squeeze(output[1])
                     moved_nib = nib.Nifti1Image(moved,
                                              fixed_affine, template_nib.header)
@@ -353,7 +355,7 @@ def run_args(args):
                         moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
 
                         affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                        output = lib_tool.predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
+                        output = predict(model_affine_transform, [moving_seg, init_flow, affine_matrix], GPU=args.gpu, mode='affine_transform')
                         affine_matrix = np.squeeze(affine_matrix, axis=0)
                         moving_seg = np.squeeze(output[0])
 
@@ -370,11 +372,11 @@ def run_args(args):
                     warps = []
 
                     for i in range(1, 4):
-                        output = lib_tool.predict(model_ff, [moving_image_current, fixed_image], GPU=args.gpu, mode='reg')
+                        output = predict(model_ff, [moving_image_current, fixed_image], GPU=args.gpu, mode='reg')
                         moved, warp = output[0], output[1]
 
                         warps.append(warp)
-                        output = lib_tool.predict(model_transform, [moving_seg_current, warp], GPU=args.gpu, mode='reg')
+                        output = predict(model_transform, [moving_seg_current, warp], GPU=args.gpu, mode='reg')
                         moved_seg = output[0]
                         moving_image_current = moved
                         moving_seg_current = moved_seg
@@ -382,7 +384,7 @@ def run_args(args):
                         # fn = save_nib(moving_nib, ftemplate, str(i))
 
                     _, _, best_warp = lib_reg.optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args)
-                    output = lib_tool.predict(model_transform_bili, [moving_image, best_warp], GPU=args.gpu, mode='reg')
+                    output = predict(model_transform_bili, [moving_image, best_warp], GPU=args.gpu, mode='reg')
 
                     moved = np.squeeze(output[0])
                     warp = np.squeeze(best_warp)
@@ -412,7 +414,7 @@ def run_args(args):
                     raw_GM = np.expand_dims(np.expand_dims(raw_GM, axis=0), axis=1)
 
                     Affine_matrix= np.expand_dims(affine_matrix, axis=0)
-                    output = lib_tool.predict(model_affine_transform_bili, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
+                    output = predict(model_affine_transform_bili, [raw_GM, init_flow, Affine_matrix], GPU=None, mode='affine_transform')
                     affined_GM = np.squeeze(output[0])
                     affined_GM = lib_reg.remove_padding(affined_GM, pad_width)
                 else:
@@ -422,7 +424,7 @@ def run_args(args):
                 affined_GM = np.expand_dims(np.expand_dims(affined_GM, axis=0), axis=1)
                 warp = np.expand_dims(warp, axis=0)
 
-                output = lib_tool.predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
+                output = predict(model_transform, [affined_GM, warp], GPU=None, mode='reg')
                 reg_GM = np.squeeze(output[0])
                 reg_GM_nib = nib.Nifti1Image(reg_GM, template_nib.affine, template_nib.header)
                 fn = save_nib(reg_GM_nib, vbm_ftemplate, 'RegGM')

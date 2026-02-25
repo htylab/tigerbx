@@ -10,8 +10,11 @@ import nibabel as nib
 from tqdm import tqdm
 
 from tigerbx import lib_tool
-from tigerbx.bx import produce_betmask, save_nib, get_template
-from tigerbx._resample import resample_to_img, reorder_img
+from tigerbx.bx import produce_betmask
+from tigerbx.core.io import get_template, save_nib
+from tigerbx.core.onnx import predict
+from tigerbx.core.resample import resample_to_img, reorder_img, resample_voxel
+from tigerbx.core.spatial import crop_cube, restore_result
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -33,10 +36,6 @@ def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch
     args.gz = gz
     args.verbose = verbose
     return run_args(args)
-
-from tigerbx.lib_crop import crop_cube, restore_result
-
-
 
 def get_argmax(logits, start, end):
     import numpy as np
@@ -258,7 +257,7 @@ def run_args(args):
         zoom = tbet_nib.header.get_zooms() 
 
         if max(zoom) > 1.1 or min(zoom) < 0.9:
-            tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            tbet_nib111 = resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
         else:
             tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
@@ -281,9 +280,9 @@ def run_args(args):
         model_ff = lib_tool.get_model(omodel['HLC'])
         printer('Perform HLC model....')
         if args.patch:
-            logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
+            logits = predict(model_ff, image, args.gpu, mode='patch')
         else:
-            logits = lib_tool.predict(model_ff, image, args.gpu)
+            logits = predict(model_ff, image, args.gpu)
 
 
         if 'm' in args.save:            

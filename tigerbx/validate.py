@@ -5,6 +5,7 @@ import nibabel as nib
 import tigerbx
 from tigerbx import lib_tool
 from tigerbx import lib_reg
+from tigerbx.core.onnx import predict
 import sys
 import os
 import csv
@@ -148,14 +149,14 @@ def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
 
     init_flow  = result['init_flow'].get_fdata().astype(np.float32)
     affine_mat = np.expand_dims(result['Affine_matrix'].astype(np.float32), axis=0)
-    out = lib_tool.predict(model_affine_transform,
+    out = predict(model_affine_transform,
                            [moving_seg, init_flow, affine_mat],
                            GPU=None, mode='affine_transform')
     moved_seg = lib_reg.remove_padding(np.squeeze(out[0]), pad_width)
 
     moved_seg = np.expand_dims(np.expand_dims(moved_seg, axis=0), axis=1)
     warp = np.expand_dims(result['dense_warp'].get_fdata().astype(np.float32), axis=0)
-    out  = lib_tool.predict(model_transform, [moved_seg, warp], GPU=None, mode='reg')
+    out  = predict(model_transform, [moved_seg, warp], GPU=None, mode='reg')
     moved_nib = nib.Nifti1Image(np.squeeze(out[0]), template_nib.affine, template_nib.header)
     return reorder_img_fn(moved_nib, resample='nearest').get_fdata().astype(int)
 
@@ -297,7 +298,7 @@ def val_hlc_123(input_dir, output_dir=None, GPU=False,
 def val_reg_60(input_dir, output_dir=None, GPU=False,
                debug=False, files_filter=None, template=None,
                bet_model=None, seg_model=None, **kwargs):
-    from tigerbx._resample import reorder_img  # lazy import - local resample helper
+    from tigerbx.core.resample import reorder_img  # lazy import - local resample helper
     column_names = [
         'Left-Cerebral WM',       'Right-Cerebral WM',
         'Left-Cerebral Cortex',   'Right-Cerebral Cortex',

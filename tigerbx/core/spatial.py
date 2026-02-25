@@ -1,6 +1,63 @@
 import numpy as np
 
 
+def pad_to_shape(img, target_shape):
+    """Pad with zeros to the requested shape and return pad metadata."""
+    padding = [(max(0, t - s)) for s, t in zip(img.shape, target_shape)]
+    pad_width = [(p // 2, p - (p // 2)) for p in padding]
+    padded_img = np.pad(img, pad_width, mode="constant", constant_values=0)
+    return padded_img, pad_width
+
+
+def crop_image(image, target_shape):
+    """Crop centrally to the requested shape and return the crop slices."""
+    current_shape = image.shape
+    crop_slices = []
+
+    for i in range(len(target_shape)):
+        start = (current_shape[i] - target_shape[i]) // 2
+        end = start + target_shape[i]
+        crop_slices.append(slice(start, end))
+
+    cropped_image = image[tuple(crop_slices)]
+    return cropped_image, crop_slices
+
+
+def remove_padding(padded_img, pad_width):
+    """Remove padding created by :func:`pad_to_shape`."""
+    slices = [slice(p[0], -p[1] if p[1] != 0 else None) for p in pad_width]
+    cropped_img = padded_img[tuple(slices)]
+    return cropped_img
+
+
+def resize_with_pad_or_crop(image, image_size):
+    slices = tuple()
+    padding = []
+    for i, size in enumerate(image_size):
+        if image.shape[i] > size:
+            d = image.shape[i] - size
+            slices += (slice(int(d // 2), int(image.shape[i]) - int(d / 2 + 0.5)),)
+            padding.append((0, 0))
+        elif image.shape[i] < size:
+            d = size - image.shape[i]
+            slices += (slice(0, image.shape[i]),)
+            padding.append((int(d // 2), int(d / 2 + 0.5)))
+        else:
+            slices += (slice(0, image.shape[i]),)
+            padding.append((0, 0))
+
+    image_resize = image.copy()
+    image_resize = image_resize[slices]
+    image_resize = np.pad(
+        image_resize,
+        padding,
+        "constant",
+        constant_values=np.zeros((len(image_size), 2)),
+    )
+
+    return image_resize
+
+
 def _expand_bounds_to_min_size(start: int, end: int, min_size: int, axis_size: int):
     current = end - start + 1
     if current >= min_size:
@@ -67,4 +124,3 @@ def restore_result(ABC_shape, result, xyz6):
     x_min, x_max, y_min, y_max, z_min, z_max = xyz6
     output[x_min:x_max + 1, y_min:y_max + 1, z_min:z_max + 1] = result
     return output
-

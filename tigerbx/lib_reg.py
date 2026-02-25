@@ -9,8 +9,11 @@ import numpy as np
 import sys
 from os.path import isfile, join
 from tigerbx import lib_tool
-from tigerbx import bx
-from tigerbx._resample import resample_img, reorder_img
+from tigerbx.core.deform import jacobian_determinant
+from tigerbx.core.io import get_template as build_output_template, save_nib
+from tigerbx.core.onnx import predict
+from tigerbx.core.spatial import crop_image, pad_to_shape, remove_padding
+from tigerbx.core.resample import resample_img, reorder_img, resample_voxel
 from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -36,13 +39,13 @@ def get_template(template_ff):
         
         if isfile(full_path):
             user_template_nib = nib.load(full_path)
-            #resampled_template = lib_tool.resample_voxel(user_template_nib, (1, 1, 1), (256, 256, 256))
+            #resampled_template = resample_voxel(user_template_nib, (1, 1, 1), (256, 256, 256))
             resampled_template = resample_img(user_template_nib, target_affine=mni_affine, target_shape=[160, 224, 192])
             return resampled_template
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        template_nib = lib_tool.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
+        template_nib = resample_voxel(mni_template, (1, 1, 1), (160, 224, 192))
         return template_nib
 
 
@@ -63,33 +66,9 @@ def get_template_seg(template_ff):
         else:
             raise FileNotFoundError("Template file does not exist.")
     else:
-        template_nib = lib_tool.resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
+        template_nib = resample_voxel(mni_template, (1, 1, 1), (160, 224, 192), interpolation='nearest')
         return template_nib
     
-
-def pad_to_shape(img, target_shape):
-    """
-    Pads the input image with zeros to match the target shape.
-    """
-    padding = [(max(0, t - s)) for s, t in zip(img.shape, target_shape)]
-    pad_width = [(p // 2, p - (p // 2)) for p in padding]
-    padded_img = np.pad(img, pad_width, mode='constant', constant_values=0)
-    return padded_img, pad_width
-
-
-def crop_image(image, target_shape):
-    """Crops the image to the target shape."""
-    current_shape = image.shape
-    crop_slices = []
-
-    for i in range(len(target_shape)):
-        start = (current_shape[i] - target_shape[i]) // 2
-        end = start + target_shape[i]
-        crop_slices.append(slice(start, end))
-
-    cropped_image = image[tuple(crop_slices)]
-    return cropped_image, crop_slices
-
 
 def min_max_norm(img):
     max = np.max(img)
@@ -99,60 +78,6 @@ def min_max_norm(img):
     norm_img = (img - min) / (max - min)
 
     return norm_img
-
-
-def remove_padding(padded_img, pad_width):
-    """
-    Removes the padding from the input image based on the pad_width.
-    """
-    slices = [slice(p[0], -p[1] if p[1] != 0 else None) for p in pad_width]
-    cropped_img = padded_img[tuple(slices)]
-    return cropped_img
-
-
-def jacobian_determinant(disp):
-    """
-    jacobian determinant of a displacement field.
-    to compute the spatial gradients, we use np.gradient.
-
-    Parameters:
-        disp: 2D or 3D displacement field of size [*vol_shape, nb_dims], 
-              where vol_shape is of len nb_dims
-
-    Returns:
-        jacobian determinant (scalar)
-    """
-
-    # check inputs
-    volshape = disp.shape[:-1]
-    nb_dims = len(volshape)
-    assert len(volshape) in (2, 3), 'flow has to be 2D or 3D'
-
-    # compute grid
-    grid_lst = np.meshgrid(*[np.arange(s) for s in volshape], indexing='ij')
-    grid = np.stack(grid_lst, axis=-1)
-
-    # compute gradients
-    J = np.gradient(disp + grid, axis=tuple(range(nb_dims)))
-
-    # 3D glow
-    if nb_dims == 3:
-        dx = J[0]
-        dy = J[1]
-        dz = J[2]
-
-        # compute jacobian components
-        Jdet0 = dx[..., 0] * (dy[..., 1] * dz[..., 2] - dy[..., 2] * dz[..., 1])
-        Jdet1 = dx[..., 1] * (dy[..., 0] * dz[..., 2] - dy[..., 2] * dz[..., 0])
-        Jdet2 = dx[..., 2] * (dy[..., 0] * dz[..., 1] - dy[..., 1] * dz[..., 0])
-
-        return Jdet0 - Jdet1 + Jdet2
-
-    else:  # must be 2
-        dfdx = J[0]
-        dfdy = J[1]
-
-        return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
 
 
 def fwhm_to_sigma(fwhm):
@@ -210,8 +135,8 @@ def dice(array1, array2, labels=None, include_zero=False):
 def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_seg_image, gpu):
     x, y, z = params
     warp = warps[0]*x + warps[1]*y + warps[2]*z
-    output = lib_tool.predict(model_transform, [moving_seg, warp], GPU=gpu, mode='reg')
-    #dice_output = lib_tool.predict(model_dice, [output[0], fixed_seg_image], GPU=gpu, mode='reg')
+    output = predict(model_transform, [moving_seg, warp], GPU=gpu, mode='reg')
+    #dice_output = predict(model_dice, [output[0], fixed_seg_image], GPU=gpu, mode='reg')
     #dice_score = np.mean(dice_output[0])
     output_np = output[0]
     fixed_seg_image_np = fixed_seg_image
@@ -273,7 +198,7 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     if init_flow is None or init_flow.shape == ():
         method_check['affine'] = 'ants'
     
-    ftemplate, f_output_dir = bx.get_template(image_path, output_dir, None)
+    ftemplate, f_output_dir = build_output_template(image_path, output_dir, None)
     
     model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
     model_transform_bili = lib_tool.get_model('mprage_transform_v002_bili.onnx')
@@ -298,22 +223,22 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     if rigid_matrix is not None and rigid_matrix.shape != ():
         rigid_matrix = np.expand_dims(rigid_matrix.astype(np.float32), axis=0)
         model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
-        output = lib_tool.predict(model, [input_data, init_flow, rigid_matrix], GPU=GPU, mode='affine_transform')
+        output = predict(model, [input_data, init_flow, rigid_matrix], GPU=GPU, mode='affine_transform')
         rigid = remove_padding(np.squeeze(output[0]), pad_width)
         rigid_nib = nib.Nifti1Image(rigid,
                                       template_nib.affine, template_nib.header)
-        fn = bx.save_nib(rigid_nib, ftemplate, 'rigid')
+        fn = save_nib(rigid_nib, ftemplate, 'rigid')
     #Affine
     affined = None
     if method_check['affine'] == 'C2FViT':
         if affine_matrix is not None and affine_matrix.shape != ():
             affine_matrix = np.expand_dims(affine_matrix.astype(np.float32), axis=0)
             model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
-            output = lib_tool.predict(model, [input_data, init_flow, affine_matrix], GPU=GPU, mode='affine_transform')
+            output = predict(model, [input_data, init_flow, affine_matrix], GPU=GPU, mode='affine_transform')
             affined = remove_padding(np.squeeze(output[0]), pad_width)
             affined_nib = nib.Nifti1Image(affined,
                                           template_nib.affine, template_nib.header)
-            fn = bx.save_nib(affined_nib, ftemplate, 'Af')
+            fn = save_nib(affined_nib, ftemplate, 'Af')
     elif method_check['affine'] == 'ants':
         if isinstance(affine_matrix["parameters"], np.ndarray) and affine_matrix["parameters"].shape != ():
             ants_input, _ = get_ants_info(input_data, input_nib.affine)
@@ -321,7 +246,7 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
             
             affined_nib = nib.Nifti1Image(affined,
                                           template_nib.affine, template_nib.header)
-            fn = bx.save_nib(affined_nib, ftemplate, 'Af')
+            fn = save_nib(affined_nib, ftemplate, 'Af')
     #Nonlinear(SyN, SyNCC)
     for ants_reg_str in ['SyN_dense_warp', 'SyNCC_dense_warp']:
         if displacement_dict[ants_reg_str] is not None and displacement_dict[ants_reg_str].shape != ():
@@ -331,7 +256,7 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
             
             ants_output_nib = nib.Nifti1Image(ants_output,
                                           template_nib.affine, template_nib.header)
-            fn = bx.save_nib(ants_output_nib, ftemplate, ants_reg_str.split("_")[0])
+            fn = save_nib(ants_output_nib, ftemplate, ants_reg_str.split("_")[0])
     #Nonlinear(VMnet)
     if dense_warp is not None and dense_warp.shape != ():
         if affined is None:
@@ -339,11 +264,11 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         dense_warp = np.expand_dims(dense_warp.astype(np.float32), axis=0)
         model = model_transform if interpolation == 'nearest' else model_transform_bili
-        output = lib_tool.predict(model, [affined_exp, dense_warp], GPU=GPU, mode='reg')
+        output = predict(model, [affined_exp, dense_warp], GPU=GPU, mode='reg')
         reged = np.squeeze(output[0])
         reged_nib = nib.Nifti1Image(reged,
                                     template_nib.affine, template_nib.header)
-        fn = bx.save_nib(reged_nib, ftemplate, 'reg')
+        fn = save_nib(reged_nib, ftemplate, 'reg')
     #Nonlinear(FuseMorph)
     if Fuse_dense_warp is not None and Fuse_dense_warp.shape != ():
         if affined is None:
@@ -351,11 +276,11 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
         affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
         Fuse_dense_warp = np.expand_dims(Fuse_dense_warp.astype(np.float32), axis=0)
         model = model_transform if interpolation == 'nearest' else model_transform_bili
-        output = lib_tool.predict(model, [affined_exp, Fuse_dense_warp], GPU=GPU, mode='reg')
+        output = predict(model, [affined_exp, Fuse_dense_warp], GPU=GPU, mode='reg')
         Fused = np.squeeze(output[0])
         Fused_nib = nib.Nifti1Image(Fused,
                                     template_nib.affine, template_nib.header)
-        fn = bx.save_nib(Fused_nib, ftemplate, 'Fuse')
+        fn = save_nib(Fused_nib, ftemplate, 'Fuse')
 
 def get_ants_info(image, affine):
     import ants

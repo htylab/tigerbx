@@ -21,13 +21,14 @@ import platform
 import logging
 import nibabel as nib
 from tigerbx import lib_tool
+from tigerbx.core.io import get_ftemplate
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tqdm import tqdm
 
-from tigerbx.lib_nerve import nerve_preprocess_nib, get_ftemplate
+from tigerbx.lib_nerve import nerve_preprocess_nib
 from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
 
 _logger = logging.getLogger('tigerbx')
@@ -82,7 +83,8 @@ def encode_nii(
             first_affine = img.affine.copy()
 
     # Save latents
-    latent_dict["encoder"] = np.array(encoder, dtype=object)
+    # Store only the model filename so outputs are stable across model cache locations.
+    latent_dict["encoder"] = np.array(basename(encoder), dtype=object)
     latent_dict["affine"] = first_affine
 
 

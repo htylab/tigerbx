@@ -3,7 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import nibabel as nib
-from tigerbx._resample import reorder_img, resample_img
+from tigerbx.core.onnx import decode_latent as core_decode_latent, encode_latent as core_encode_latent
+from tigerbx.core.resample import reorient_and_resample_voxel
 from os.path import basename, join, isdir, dirname, relpath
 from math import log10
 from tigerbx.eval import ssim as ssim_metric
@@ -13,11 +14,12 @@ from tigerbx.eval import ssim as ssim_metric
 # ------------------------------------------------------------
 def _resample_voxel(nib_obj, voxelsize=(1, 1, 1),
                     target_shape=None, interpolation="linear"):
-    nib_obj = reorder_img(nib_obj, resample=interpolation)
-    affine = nib_obj.affine.copy()
-    affine[:3, :3] *= voxelsize / np.linalg.norm(affine[:3, :3], axis=0)
-    return resample_img(nib_obj, target_affine=affine,
-                        target_shape=target_shape, interpolation=interpolation)
+    return reorient_and_resample_voxel(
+        nib_obj,
+        voxelsize=voxelsize,
+        target_shape=target_shape,
+        interpolation=interpolation,
+    )
 
 def _make_patch(aseg_nib, tbet_nib, roi_label,
                 patch_size=(64, 64, 64)):
@@ -70,11 +72,11 @@ def nerve_preprocess_nib(aseg, tbet):
 # ------------------------------------------------------------
 def onnx_encode(enc_sess, patch_img):
     vol = patch_img.get_fdata().astype(np.float32)[None, None]
-    z_mu, z_sigma = enc_sess.run(None, {enc_sess.get_inputs()[0].name: vol})
+    z_mu, z_sigma = core_encode_latent(enc_sess, vol)
     return z_mu, z_sigma
 
 def onnx_decode(dec_sess, latent, affine=None):
-    recon = dec_sess.run(None, {dec_sess.get_inputs()[0].name: latent})[0]
+    recon = core_decode_latent(dec_sess, latent)
     recon_vol = recon.squeeze()
     return recon_vol if affine is None else nib.Nifti1Image(recon_vol, affine)
 
@@ -83,34 +85,6 @@ def onnx_decode(dec_sess, latent, affine=None):
 # ------------------------------------------------------------------
 # Utility metrics
 # ------------------------------------------------------------------
-
-def get_ftemplate(f, output_dir, common_folder=None):
-    f_output_dir = output_dir
-    ftemplate = basename(f)
-
-    if f_output_dir is None: #save the results in the same dir of T1_raw.nii.gz
-        f_output_dir = os.path.dirname(os.path.abspath(f))
-        
-    else:
-        os.makedirs(f_output_dir, exist_ok=True)
-        #ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
-        # When we save results in the same directory, sometimes the result
-        # filenames will all be the same, e.g., aseg.nii.gz, aseg.nii.gz.
-        # In this case, the program tries to add a header to it.
-        # For example, IXI001_aseg.nii.gz.
-        if common_folder is not None:
-            header = relpath(dirname(f), common_folder).replace(os.sep, '_')
-            ftemplate = header + '_' + ftemplate
-
-    ftemplate = ftemplate.replace('.nii.gz', '').replace('.nii', '')
-    
-    ftemplate = ftemplate.replace("_nerve.npz", "").replace(".npz", "")
-    
-    return ftemplate, f_output_dir
-
-
-
-
 
 def psnr(mse, peak):
     return float("inf") if mse == 0 else 20 * log10(peak) - 10 * log10(mse)

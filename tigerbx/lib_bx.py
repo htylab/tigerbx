@@ -2,7 +2,8 @@ from os.path import basename
 import numpy as np
 import nibabel as nib
 from scipy.special import softmax
-from tigerbx._resample import reorder_img, resample_img
+from tigerbx.core.onnx import predict
+from tigerbx.core.resample import reorder_img, resample_img, resample_voxel
 
 from tigerbx import lib_tool
 
@@ -109,9 +110,9 @@ def run(model_ff, input_nib, GPU, patch=False, session=None):
             image = image / mx
 
     if patch:
-        logits = lib_tool.predict(model_ff, image, GPU, mode='patch', session=session)[0, ...]
+        logits = predict(model_ff, image, GPU, mode='patch', session=session)[0, ...]
     else:
-        logits = lib_tool.predict(model_ff, image, GPU, session=session)[0, ...]
+        logits = predict(model_ff, image, GPU, session=session)[0, ...]
     prob = logit_to_prob(logits, seg_mode)
 
     if seg_mode =='bet': #sigmoid 1 channel
@@ -152,7 +153,7 @@ def read_file(model_ff, input_file):
 
         if max(zoom) > 1.1 or min(zoom) < 0.9 or mat_size == 111:
 
-            vol_nib = lib_tool.resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
+            vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
             vol_nib = reorder_img(vol_nib, resample='continuous')
         else:
             vol_nib = reorder_img(input_nib, resample='continuous')

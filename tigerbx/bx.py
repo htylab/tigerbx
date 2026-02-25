@@ -11,9 +11,11 @@ from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
-from tigerbx.lib_crop import crop_cube
 import copy
-from tigerbx._resample import resample_to_img, reorder_img
+from tigerbx.core.io import get_template, save_nib
+from tigerbx.core.onnx import create_session, predict
+from tigerbx.core.resample import resample_to_img, reorder_img, resample_voxel
+from tigerbx.core.spatial import crop_cube
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -134,37 +136,6 @@ def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
                 return False
     return True
 
-def save_nib(data_nib, ftemplate, postfix):
-    output_file = ftemplate.replace('@@@@', postfix)
-    nib.save(data_nib, output_file)
-    
-    return output_file
-
-def get_template(f, output_dir, get_z, common_folder=None):
-    f_output_dir = output_dir
-    ftemplate = basename(f).replace('.nii', f'_@@@@.nii').replace('.npz', f'_@@@@.nii.gz')
-
-    if f_output_dir is None: #save the results in the same dir of T1_raw.nii.gz
-        f_output_dir = os.path.dirname(os.path.abspath(f))
-        
-    else:
-        os.makedirs(f_output_dir, exist_ok=True)
-        #ftemplate = basename(f).replace('.nii', f'_@@@@.nii')
-        # When we save results in the same directory, sometimes the result
-        # filenames will all be the same, e.g., aseg.nii.gz, aseg.nii.gz.
-        # In this case, the program tries to add a header to it.
-        # For example, IXI001_aseg.nii.gz.
-        if common_folder is not None:
-            header = relpath(dirname(f), common_folder).replace(os.sep, '_')
-            ftemplate = header + '_' + ftemplate
-    
-    if get_z and '.gz' not in ftemplate:
-        ftemplate += '.gz'
-    ftemplate = join(f_output_dir, ftemplate)
-
-    return ftemplate, f_output_dir
-
-
 def run(argstring, input=None, output=None, model=None, verbose=0,
         chunk_size=50, continue_=False, silent=False):
 
@@ -221,7 +192,7 @@ def _run_cgw(key, session, model_ff, f, cache, GPU, patch):
     normalize_factor = np.max(input_nib.get_fdata())
     bet_img = lib_tool.read_nib(tbet_nib111_crop)
     image = bet_img[None, ...][None, ...] / normalize_factor
-    cgw = lib_tool.predict(model_ff, image, GPU, session=session)[0]
+    cgw = predict(model_ff, image, GPU, session=session)[0]
     rd, rfd = {'cgw': []}, {'cgw': []}
     for kk in [1, 2, 3]:
         pve = cgw[kk] * (bet_img > 0)
@@ -243,7 +214,7 @@ def _run_ct(key, session, model_ff, f, cache, GPU, patch):
     mx = np.max(image)
     if mx > 0:
         image = image / mx
-    ct = lib_tool.predict(model_ff, image, GPU, session=session)[0, 0, ...]
+    ct = predict(model_ff, image, GPU, session=session)[0, 0, ...]
     ct[ct < 0.2] = 0
     ct[ct > 5] = 5
     ct = ct * (bet_img > 0).astype(int)
@@ -354,7 +325,7 @@ def run_args(args):
         bet_cache = {}
 
         # Phase 1: BET (all files in chunk, one shared session)
-        bet_session = lib_tool.create_session(bet_model_ff, args.gpu)
+        bet_session = create_session(bet_model_ff, args.gpu)
         _pbar = tqdm(chunk, desc='tBET', unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
         for count, f in enumerate(_pbar, chunk_start + 1):
             _dbg(f'{count} Processing: {os.path.basename(f)}')
@@ -371,7 +342,7 @@ def run_args(args):
 
             tbet_nib111_crop = tbet_seg_crop = None
             if _needs_111:
-                tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),
+                tbet_nib111 = resample_voxel(tbet_nib, (1, 1, 1),
                                                        interpolation='continuous')
                 tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
                 zoom = tbet_nib.header.get_zooms()
@@ -436,7 +407,7 @@ def run_args(args):
         # Phase 2+: one session per model, loop over all files in chunk
         for key, runner in active_models:
             model_ff = lib_tool.get_model(omodel[key])
-            session  = lib_tool.create_session(model_ff, args.gpu)
+            session  = create_session(model_ff, args.gpu)
             _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
             for f in _seg_pbar:
                 _seg_pbar.set_postfix_str(os.path.basename(f))
@@ -458,4 +429,3 @@ def run_args(args):
     if len(input_file_list) == 1:
         return result_accum[input_file_list[0]][0]   # result_dict with nib objects
     return [result_accum[f][1] for f in input_file_list]  # list of result_filedict
-
