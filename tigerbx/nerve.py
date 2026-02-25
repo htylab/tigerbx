@@ -5,7 +5,7 @@
 # ------------------------------------------------------------
 from math import log10
 import os
-from os.path import basename, join, commonpath
+from os.path import basename, join
 
 import numpy as np
 import nibabel as nib
@@ -16,7 +16,7 @@ import time
 import glob
 import logging
 from tigerbx import lib_tool
-from tigerbx.core.io import get_ftemplate
+from tigerbx.core.io import get_template, detect_common_folder
 from tigerbx.core.onnx import decode_latent as core_decode_latent, encode_latent as core_encode_latent
 from tigerbx.core.resample import reorient_and_resample_voxel
 from tigerbx.core.metrics import ssim as ssim_metric
@@ -308,14 +308,9 @@ def run_args(args):
 
     printer('Total files:', len(input_file_list))
 
-    #check duplicate basename
-    #for detail, check get_template
-    base_ffs = [basename(f) for f in input_file_list]
-    common_folder = None
-    if len(base_ffs) != len(set(base_ffs)):
-        common_folder = commonpath(input_file_list)
+    common_folder = detect_common_folder(input_file_list)
 
-    ftemplate, f_output_dir = get_ftemplate(input_file_list[0], output_dir, common_folder)
+    ftemplate, f_output_dir = get_template(input_file_list[0], output_dir, common_folder=common_folder)
 
     os.makedirs(f_output_dir, exist_ok=True)
 
@@ -326,7 +321,7 @@ def run_args(args):
     t = time.time()
     _pbar = tqdm(input_file_list, desc='tigerbx-nerve', unit='file', disable=(verbose > 0))
     for count, f in enumerate(_pbar, 1):
-        ftemplate, f_output_dir = get_ftemplate(f, output_dir, common_folder)
+        ftemplate, f_output_dir = get_template(f, output_dir, common_folder=common_folder)
 
         _pbar.set_postfix_str(os.path.basename(f))
         printer(f'Preprocessing {count}/{fcount}:', os.path.basename(f))
@@ -341,7 +336,7 @@ def run_args(args):
                     output_dir=f_output_dir,
                     GPU=args.gpu,
                     save_patch=args.save_patch,
-                    f_template=ftemplate)
+                    f_template=os.path.basename(ftemplate))
                 results.append(npz_ff)
                 results.append(patch_ff)
             except Exception as e:
@@ -354,7 +349,7 @@ def run_args(args):
                         decoder=lib_tool.get_model(omodel['decode']),
                         output_dir=f_output_dir,
                         GPU=args.gpu,
-                        f_template=ftemplate,
+                        f_template=os.path.basename(ftemplate),
                         eps=args.sigma)
                 results.append(recon_ff)
             except Exception as e:

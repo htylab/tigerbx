@@ -1,10 +1,37 @@
 """Shared IO helpers for TigerBx."""
 
+import glob
 import os
 from os.path import basename, dirname, join, relpath
 
 import nibabel as nib
 import numpy as np
+
+
+def resolve_nifti_inputs(input_arg):
+    """Resolve an input argument (dir, glob, or file list) to a list of NIfTI paths."""
+    input_file_list = input_arg
+    if os.path.isdir(input_arg[0]):
+        input_file_list = glob.glob(join(input_arg[0], '*.nii'))
+        input_file_list += glob.glob(join(input_arg[0], '*.nii.gz'))
+    elif '*' in input_arg[0]:
+        input_file_list = glob.glob(input_arg[0])
+    return input_file_list
+
+
+def detect_common_folder(input_file_list):
+    """Return commonpath when duplicate basenames exist, else None."""
+    from os.path import commonpath
+    base_ffs = [basename(f) for f in input_file_list]
+    if len(base_ffs) != len(set(base_ffs)):
+        return commonpath(input_file_list)
+    return None
+
+
+def resolve_inputs(input_arg):
+    """Resolve input to file list and detect common folder for duplicate basenames."""
+    input_file_list = resolve_nifti_inputs(input_arg)
+    return input_file_list, detect_common_folder(input_file_list)
 
 
 def _resolve_output_dir(output_dir, input_file):
@@ -21,31 +48,29 @@ def _apply_common_header(filename, input_file, common_folder):
     return f"{header}_{filename}"
 
 
-def get_template(f, output_dir, get_z, common_folder=None):
+def get_template(f, output_dir, gz=None, common_folder=None):
+    """Build output path template.
+
+    gz=True/False: return '..._@@@@.nii[.gz]' pattern for save_nib.
+    gz=None:       return stem (no extension) for custom suffix handling.
+    """
     explicit_dir = output_dir is not None
     f_output_dir = _resolve_output_dir(output_dir, f)
-    ftemplate = basename(f).replace(".nii", "_@@@@.nii").replace(".npz", "_@@@@.nii.gz")
 
-    if explicit_dir and common_folder is not None:
-        ftemplate = _apply_common_header(ftemplate, f, common_folder)
+    if gz is not None:
+        ftemplate = basename(f).replace(".nii", "_@@@@.nii").replace(".npz", "_@@@@.nii.gz")
+        if explicit_dir and common_folder is not None:
+            ftemplate = _apply_common_header(ftemplate, f, common_folder)
+        if gz and not ftemplate.endswith(".gz"):
+            ftemplate += ".gz"
+    else:
+        ftemplate = basename(f)
+        if explicit_dir and common_folder is not None:
+            ftemplate = _apply_common_header(ftemplate, f, common_folder)
+        ftemplate = ftemplate.replace(".nii.gz", "").replace(".nii", "")
+        ftemplate = ftemplate.replace("_nerve.npz", "").replace(".npz", "")
 
-    if get_z and not ftemplate.endswith(".gz"):
-        ftemplate += ".gz"
-
-    return join(f_output_dir, ftemplate), f_output_dir
-
-
-def get_ftemplate(f, output_dir, common_folder=None):
-    explicit_dir = output_dir is not None
-    f_output_dir = _resolve_output_dir(output_dir, f)
-    ftemplate = basename(f)
-
-    if explicit_dir and common_folder is not None:
-        ftemplate = _apply_common_header(ftemplate, f, common_folder)
-
-    ftemplate = ftemplate.replace(".nii.gz", "").replace(".nii", "")
-    ftemplate = ftemplate.replace("_nerve.npz", "").replace(".npz", "")
-
+    ftemplate = join(f_output_dir, ftemplate)
     return ftemplate, f_output_dir
 def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace("@@@@", postfix)

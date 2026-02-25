@@ -1,18 +1,17 @@
 import sys
 import os
-from os.path import basename, join, isdir, dirname, commonpath, relpath
+from os.path import basename, join, isdir, dirname, relpath
 import time
 import logging
 import numpy as np
 
-import glob
 import nibabel as nib
 from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
 import copy
-from tigerbx.core.io import get_template, save_nib
+from tigerbx.core.io import get_template, save_nib, resolve_inputs
 from tigerbx.core.onnx import create_session, predict
 from tigerbx.core.resample import resample_to_img, reorder_img, resample_voxel
 from tigerbx.core.spatial import crop_cube
@@ -137,7 +136,7 @@ def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
     return True
 
 def run(argstring, input=None, output=None, model=None, verbose=0,
-        chunk_size=50, continue_=False, silent=False):
+        chunk_size=50, continue_=False, silent=False, save_outputs=True):
 
     if silent:
         warnings.warn(
@@ -157,6 +156,7 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
     args.verbose = verbose
     args.chunk_size = chunk_size
     args.continue_ = continue_
+    args.save_outputs = save_outputs
 
     if args.clean_onnx:
         argstring = ''
@@ -176,17 +176,19 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
 
 # ── per-model inference helpers ───────────────────────────────────────────────
 
-def _run_seg(key, session, model_ff, f, cache, GPU, patch):
+def _run_seg(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     result_nib = produce_mask(model_ff, f, GPU=GPU,
                               brainmask_nib=cache['tbetmask_nib'],
                               tbet111=cache['tbet_seg_crop'],
                               patch=patch, session=session)
-    fn = save_nib(result_nib, cache['ftemplate'], key)
-    _logger.debug('Writing output file: %s', fn)
-    return {key: result_nib}, {key: fn}
+    if save_outputs:
+        fn = save_nib(result_nib, cache['ftemplate'], key)
+        _logger.debug('Writing output file: %s', fn)
+        return {key: result_nib}, {key: fn}
+    return {key: result_nib}, {}
 
 
-def _run_cgw(key, session, model_ff, f, cache, GPU, patch):
+def _run_cgw(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     input_nib = nib.load(f)
     tbet_nib111_crop = cache['tbet_nib111_crop']
     normalize_factor = np.max(input_nib.get_fdata())
@@ -199,14 +201,15 @@ def _run_cgw(key, session, model_ff, f, cache, GPU, patch):
         pve_nib = nib.Nifti1Image(pve, tbet_nib111_crop.affine)
         pve_nib = resample_to_img(pve_nib, input_nib, interpolation="linear")
         pve_nib.header.set_data_dtype(float)
-        fn = save_nib(pve_nib, cache['ftemplate'], f'cgw_pve{kk-1}')
-        _logger.debug('Writing output file: %s', fn)
-        rfd['cgw'].append(fn)
+        if save_outputs:
+            fn = save_nib(pve_nib, cache['ftemplate'], f'cgw_pve{kk-1}')
+            _logger.debug('Writing output file: %s', fn)
+            rfd['cgw'].append(fn)
         rd['cgw'].append(pve_nib)
     return rd, rfd
 
 
-def _run_ct(key, session, model_ff, f, cache, GPU, patch):
+def _run_ct(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     input_nib = nib.load(f)
     tbet_nib111_crop = cache['tbet_nib111_crop']
     bet_img = lib_tool.read_nib(tbet_nib111_crop)
@@ -221,9 +224,11 @@ def _run_ct(key, session, model_ff, f, cache, GPU, patch):
     ct_nib = nib.Nifti1Image(ct, tbet_nib111_crop.affine)
     ct_nib = resample_to_img(ct_nib, input_nib, interpolation="nearest")
     ct_nib.header.set_data_dtype(float)
-    fn = save_nib(ct_nib, cache['ftemplate'], 'ct')
-    _logger.debug('Writing output file: %s', fn)
-    return {'ct': ct_nib}, {'ct': fn}
+    if save_outputs:
+        fn = save_nib(ct_nib, cache['ftemplate'], 'ct')
+        _logger.debug('Writing output file: %s', fn)
+        return {'ct': ct_nib}, {'ct': fn}
+    return {'ct': ct_nib}, {}
 
 
 _MODEL_RUNNERS = {
@@ -245,6 +250,7 @@ def run_args(args):
     run_d      = vars(args)
     verbose    = run_d.get('verbose', 0)
     chunk_size = run_d.get('chunk_size', 50)
+    save_outputs = run_d.get('save_outputs', True)
 
     def printer(*msg):
         if verbose >= 1:
@@ -267,12 +273,7 @@ def run_args(args):
         printer('Exiting...')
         return 1
 
-    input_file_list = args.input
-    if os.path.isdir(args.input[0]):
-        input_file_list = glob.glob(join(args.input[0], '*.nii'))
-        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
-    elif '*' in args.input[0]:
-        input_file_list = glob.glob(args.input[0])
+    input_file_list, common_folder = resolve_inputs(args.input)
 
     output_dir = args.output
     omodel = {
@@ -294,14 +295,8 @@ def run_args(args):
         for mm in model_dict.keys():
             omodel[mm] = model_dict[mm]
 
-    # check duplicate basename
-    base_ffs = [basename(f) for f in input_file_list]
-    common_folder = None
-    if len(base_ffs) != len(set(base_ffs)):
-        common_folder = commonpath(input_file_list)
-
     # --continue: skip files whose outputs already exist
-    if run_d.get('continue_'):
+    if run_d.get('continue_') and save_outputs:
         original_n = len(input_file_list)
         input_file_list = [f for f in input_file_list
                            if not _all_outputs_exist(f, output_dir, run_d, args.gz, common_folder)]
@@ -373,28 +368,31 @@ def run_args(args):
                 tqdm.write(f'[WARNING] Low QC score ({qc_score}) for {os.path.basename(f)}'
                            ' — check result carefully.')
                 _low_qc.append((os.path.basename(f), qc_score))
-            if run_d['qc'] or qc_score < 50:
-                qcfile = ftemplate.replace('.nii', '').replace('.gz', '')
-                qcfile = qcfile.replace('@@@@', f'qc-{qc_score}.log')
+            if save_outputs and (run_d['qc'] or qc_score < 50):
+                _dir, _base = os.path.split(ftemplate)
+                _base = _base.replace('.nii', '').replace('.gz', '')
+                qcfile = os.path.join(_dir, _base.replace('@@@@', f'qc-{qc_score}.log'))
                 with open(qcfile, 'a') as the_file:
                     the_file.write(f'QC: {qc_score} \n')
                 _dbg('Writing output file: ', qcfile)
 
             if run_d['betmask']:
-                fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
-                _dbg('Writing output file: ', fn)
                 rd['tbetmask']  = tbetmask_nib
-                rfd['tbetmask'] = fn
+                if save_outputs:
+                    fn = save_nib(tbetmask_nib, ftemplate, 'tbetmask')
+                    _dbg('Writing output file: ', fn)
+                    rfd['tbetmask'] = fn
 
             if run_d['bet']:
                 imabet = tbet_nib.get_fdata()
                 if lib_tool.check_dtype(imabet, input_nib.dataobj.dtype):
                     imabet  = imabet.astype(input_nib.dataobj.dtype)
                     tbet_nib = nib.Nifti1Image(imabet, tbet_nib.affine, tbet_nib.header)
-                fn = save_nib(tbet_nib, ftemplate, 'tbet')
-                _dbg('Writing output file: ', fn)
                 rd['tbet']  = tbet_nib
-                rfd['tbet'] = fn
+                if save_outputs:
+                    fn = save_nib(tbet_nib, ftemplate, 'tbet')
+                    _dbg('Writing output file: ', fn)
+                    rfd['tbet'] = fn
 
             bet_cache[f] = {
                 'tbetmask_nib':     tbetmask_nib,
@@ -412,7 +410,7 @@ def run_args(args):
             for f in _seg_pbar:
                 _seg_pbar.set_postfix_str(os.path.basename(f))
                 rd_upd, rfd_upd = runner(
-                    key, session, model_ff, f, bet_cache[f], args.gpu, run_d['patch'])
+                    key, session, model_ff, f, bet_cache[f], args.gpu, run_d['patch'], save_outputs)
                 result_accum[f][0].update(rd_upd)
                 result_accum[f][1].update(rfd_upd)
             del session

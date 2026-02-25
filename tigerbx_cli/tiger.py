@@ -1,6 +1,6 @@
 import sys
 import argparse
-from tigerbx_cli import bx_cli, gdm_cli, hlc_cli, reg_cli, nerve_cli
+from tigerbx_cli import bx_cli, gdm_cli, hlc_cli, reg_cli, nerve_cli, vbm_cli
 
 _BX_SHORT_FLAGS = set('bmacCdSWtqzpg')
 
@@ -34,6 +34,7 @@ def main():
     gdm_cli.setup_parser(subparsers.add_parser("gdm", help="Run gdm module"))
     hlc_cli.setup_parser(subparsers.add_parser("hlc", help="Run hlc module"))
     reg_cli.setup_parser(subparsers.add_parser("reg", help="Run reg module"))
+    vbm_cli.setup_parser(subparsers.add_parser("vbm", help="Run vbm pipeline"))
     nerve_cli.setup_parser(subparsers.add_parser("nerve", help="Run NERVE module"))
 
     args = parser.parse_args()
@@ -43,10 +44,14 @@ def main():
         "gdm": gdm_cli,
         "hlc": hlc_cli,
         "reg": reg_cli,
+        "vbm": vbm_cli,
         "nerve": nerve_cli,
     }
     if args.command in dispatch:
         dispatch[args.command].run_args(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -110,11 +110,11 @@ See [HLC usage](doc/hlc.md) for a complete description.
 
 ---
 
-### `reg` — Registration and VBM
+### `reg` — Registration
 
-Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration, plus a full VBM pipeline.
+Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration.
 
-The VBM and registration pipeline was developed by **Pei-Mao Sun**.
+The registration pipeline was developed by **Pei-Mao Sun**.
 
 ```python
 import tigerbx
@@ -123,13 +123,13 @@ import tigerbx
 tigerbx.reg('A', r'C:\T1w_dir', r'C:\output_dir')
 
 # Affine + VMnet nonlinear registration
-tigerbx.reg('Ar', r'C:\T1w_dir', r'C:\output_dir', affine_type='C2FViT')
+tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir')
 
-# FuseMorph with ANTs affine
-tigerbx.reg('F', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
+# Affine + FuseMorph with ANTs affine
+tigerbx.reg('AF', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
 
-# VBM pipeline
-tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
+# VBM pipeline (separate subcommand)
+tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 
 # Apply a saved warp field to a label map
 tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
@@ -137,10 +137,10 @@ tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
 ```
 
 ```bash
-tiger reg T1w.nii.gz -A -o output_dir
-tiger reg T1w.nii.gz -A -r -o output_dir --affine_type C2FViT
-tiger reg T1w.nii.gz -F -o output_dir --affine_type ANTs
-tiger reg /data/T1w_dir -v -o /data/output
+tiger reg A T1w.nii.gz -o output_dir
+tiger reg AV T1w.nii.gz -o output_dir
+tiger reg AF T1w.nii.gz -o output_dir --affine_type ANTs
+tiger vbm /data/T1w_dir -o /data/output
 ```
 
 See [registration instructions](doc/reginstruction.md) for detailed usage.

@@ -1,17 +1,16 @@
 import os
-from os.path import basename, join, isdir, dirname, commonpath
+from os.path import basename, join, isdir, dirname
 import time
 import logging
 import numpy as np
 
-import glob
 import platform
 import nibabel as nib
 from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx.bx import produce_betmask
-from tigerbx.core.io import get_template, save_nib
+from tigerbx.core.io import get_template, save_nib, resolve_inputs
 from tigerbx.core.onnx import predict
 from tigerbx.core.resample import resample_to_img, reorder_img, resample_voxel
 from tigerbx.core.spatial import crop_cube, restore_result
@@ -201,19 +200,13 @@ def run_args(args):
         if verbose >= 2:
             _logger.debug(' '.join(str(x) for x in msg))
 
-    input_file_list = args.input
-    if os.path.isdir(args.input[0]):
-        input_file_list = glob.glob(join(args.input[0], '*.nii'))
-        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
-
-    elif '*' in args.input[0]:
-        input_file_list = glob.glob(args.input[0])
+    input_file_list, common_folder = resolve_inputs(args.input)
 
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
     omodel['HLC'] = 'mprage_hlc_v004_resunetplusT2.onnx'
- 
+
     # if you want to use other models
     if isinstance(args.model, dict):
         for mm in args.model.keys():
@@ -224,15 +217,7 @@ def run_args(args):
         for mm in model_dict.keys():
             omodel[mm] = model_dict[mm]
 
-
     printer('Total nii files:', len(input_file_list))
-
-    #check duplicate basename
-    #for detail, check get_template
-    base_ffs = [basename(f) for f in input_file_list]
-    common_folder = None
-    if len(base_ffs) != len(set(base_ffs)):
-        common_folder = commonpath(input_file_list)
 
     result_all = []
     result_filedict = dict()

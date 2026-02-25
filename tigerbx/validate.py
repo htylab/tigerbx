@@ -329,8 +329,8 @@ def val_reg_60(input_dir, output_dir=None, GPU=False,
                                resample='nearest').get_fdata().astype(int)
 
     def compute(f, _tmp):
-        result = tigerbx.reg(('g' if GPU else '') + 'r', f, _tmp,
-                             model=run_model, template=template)
+        result = tigerbx.reg('AV', f, _tmp,
+                             model=run_model, template=template, gpu=GPU)
         mask_pred = _apply_reg_to_seg(
             result, f.replace('raw60', 'label60'),
             template_nib, pad_width,

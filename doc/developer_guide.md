@@ -68,7 +68,8 @@ tigerbx/
 ├── tigerbx/             # Core library
 │   ├── bx.py            # Brain extraction pipeline
 │   ├── hlc.py           # HLC parcellation
-│   ├── reg_vbm.py       # Registration and VBM
+│   ├── reg.py           # Registration (plan-driven)
+│   ├── pipeline/        # High-level pipelines (e.g., VBM)
 │   ├── gdmi.py          # EPI distortion correction
 │   ├── nerve.py         # NERVE hippocampus/amygdala pipeline
 │   ├── eval.py          # Image quality and segmentation metrics
