@@ -1,6 +1,5 @@
 import os
 import re
-import subprocess
 from typing import List, Tuple, Union
 
 import numpy as np
@@ -9,6 +8,10 @@ from scipy.ndimage import gaussian_filter
 PATCH_SIZE_ENV = "TIGERBX_PATCH_SIZE"
 DEFAULT_PATCH_SIZE = (128, 128, 128)
 MIN_CROP_SIZE = (160, 160, 160)
+ORT_INTRA_THREADS_ENV = "TIGERBX_ORT_INTRA_THREADS"
+ORT_INTER_THREADS_ENV = "TIGERBX_ORT_INTER_THREADS"
+DEFAULT_ORT_INTRA_THREADS_RATIO = 0.7
+DEFAULT_ORT_INTER_THREADS = 1
 
 
 def _parse_patch_size(value: str):
@@ -50,101 +53,32 @@ def _resolve_patch_size(patch_size):
 
 
 def cpu_count():
-    """Number of available virtual or physical CPUs on this system."""
+    """Return available CPUs, preferring affinity-limited count when available."""
     try:
-        m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", open("/proc/self/status").read())
-        if m:
-            res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
-            if res > 0:
-                return res
-    except IOError:
+        # Linux cpuset/affinity aware (and much simpler than legacy heuristics).
+        count = len(os.sched_getaffinity(0))
+        if count > 0:
+            return count
+    except Exception:
         pass
 
+    count = os.cpu_count()
+    if count is None or count < 1:
+        return 1
+    return count
+
+
+def _get_env_positive_int(name):
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return None
     try:
-        import multiprocessing
-
-        return multiprocessing.cpu_count()
-    except (ImportError, NotImplementedError):
-        pass
-
-    try:
-        import psutil
-
-        return psutil.cpu_count()
-    except (ImportError, AttributeError):
-        pass
-
-    try:
-        res = int(os.sysconf("SC_NPROCESSORS_ONLN"))
-        if res > 0:
-            return res
-    except (AttributeError, ValueError):
-        pass
-
-    try:
-        res = int(os.environ["NUMBER_OF_PROCESSORS"])
-        if res > 0:
-            return res
-    except (KeyError, ValueError):
-        pass
-
-    try:
-        from java.lang import Runtime
-
-        runtime = Runtime.getRuntime()
-        res = runtime.availableProcessors()
-        if res > 0:
-            return res
-    except ImportError:
-        pass
-
-    try:
-        sysctl = subprocess.Popen(["sysctl", "-n", "hw.ncpu"], stdout=subprocess.PIPE)
-        sc_stdout = sysctl.communicate()[0]
-        res = int(sc_stdout)
-
-        if res > 0:
-            return res
-    except (OSError, ValueError):
-        pass
-
-    try:
-        res = open("/proc/cpuinfo").read().count("processor\t:")
-
-        if res > 0:
-            return res
-    except IOError:
-        pass
-
-    try:
-        pseudo_devices = os.listdir("/devices/pseudo/")
-        res = 0
-        for pd in pseudo_devices:
-            if re.match(r"^cpuid@[0-9]+$", pd):
-                res += 1
-
-        if res > 0:
-            return res
-    except OSError:
-        pass
-
-    try:
-        try:
-            dmesg = open("/var/run/dmesg.boot").read()
-        except IOError:
-            dmesg_process = subprocess.Popen(["dmesg"], stdout=subprocess.PIPE)
-            dmesg = dmesg_process.communicate()[0]
-
-        res = 0
-        while "\ncpu" + str(res) + ":" in dmesg:
-            res += 1
-
-        if res > 0:
-            return res
-    except OSError:
-        pass
-
-    raise Exception("Can not determine number of CPUs on this system")
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer (got {raw!r})") from exc
+    if value < 1:
+        raise ValueError(f"{name} must be >= 1 (got {raw!r})")
+    return value
 
 
 def _session_data_type(session):
@@ -159,9 +93,15 @@ def create_session(model_ff, GPU):
 
     ort.set_default_logger_severity(3)
     so = ort.SessionOptions()
-    cpu = max(int(cpu_count() * 0.7), 1)
-    so.intra_op_num_threads = cpu
-    so.inter_op_num_threads = cpu
+    intra_threads = _get_env_positive_int(ORT_INTRA_THREADS_ENV)
+    if intra_threads is None:
+        intra_threads = max(int(cpu_count() * DEFAULT_ORT_INTRA_THREADS_RATIO), 1)
+    inter_threads = _get_env_positive_int(ORT_INTER_THREADS_ENV)
+    if inter_threads is None:
+        inter_threads = DEFAULT_ORT_INTER_THREADS
+
+    so.intra_op_num_threads = intra_threads
+    so.inter_op_num_threads = inter_threads
     so.log_severity_level = 3
     if GPU and ort.get_device() == "GPU":
         return ort.InferenceSession(
@@ -326,16 +266,3 @@ def img_to_patches(vol_d: np.ndarray, patch_size: Tuple[int, ...], tile_step_siz
         slice_list.append(slice_input)
     return np.concatenate([s[np.newaxis, ...] for s in slice_list], axis=0), point_list
 
-
-def patches_to_img(patches: np.ndarray, vol_d_size: Tuple[int, ...], point_list: List[List[int]]):
-    """patches shape = (patch_num, channel, w, h, d)"""
-    patch_size = patches.shape[-3:]
-    prob_tensor = np.zeros(((patches.shape[1],) + vol_d_size))
-
-    for patch_dim, p in zip(range(patches.shape[0]), point_list):
-        none_zero_mask1 = prob_tensor[:, p[0] : p[0] + patch_size[0], p[1] : p[1] + patch_size[1], p[2] : p[2] + patch_size[2]] != 0
-        none_zero_mask2 = patches[patch_dim, :, ...] != 0
-        none_zero_num = np.clip(none_zero_mask1 + none_zero_mask2, a_min=1, a_max=None)
-        prob_tensor[:, p[0] : p[0] + patch_size[0], p[1] : p[1] + patch_size[1], p[2] : p[2] + patch_size[2]] += patches[patch_dim, :, ...]
-        prob_tensor[:, p[0] : p[0] + patch_size[0], p[1] : p[1] + patch_size[1], p[2] : p[2] + patch_size[2]] /= none_zero_num
-    return prob_tensor[np.newaxis, :]

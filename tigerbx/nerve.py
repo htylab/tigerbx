@@ -3,12 +3,9 @@
 # ------------------------------------------------------------
 # NERVE – ONNX Encode / Decode Pipeline (npy interface version)
 # ------------------------------------------------------------
-import math
+from math import log10
 import os
-import sys
-from os.path import basename, join, isdir, dirname, commonpath, relpath
-from pathlib import Path
-from os.path import basename
+from os.path import basename, join, commonpath
 
 import numpy as np
 import nibabel as nib
@@ -17,22 +14,104 @@ import tigerbx
 
 import time
 import glob
-import platform
 import logging
-import nibabel as nib
 from tigerbx import lib_tool
 from tigerbx.core.io import get_ftemplate
+from tigerbx.core.onnx import decode_latent as core_decode_latent, encode_latent as core_encode_latent
+from tigerbx.core.resample import reorient_and_resample_voxel
+from tigerbx.core.metrics import ssim as ssim_metric
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from tqdm import tqdm
 
-from tigerbx.lib_nerve import nerve_preprocess_nib
-from tigerbx.lib_nerve import onnx_encode, onnx_decode, compute_metrics
-
 _logger = logging.getLogger('tigerbx')
 _logger.addHandler(logging.NullHandler())
+
+
+def _resample_voxel(nib_obj, voxelsize=(1, 1, 1), target_shape=None, interpolation="linear"):
+    return reorient_and_resample_voxel(
+        nib_obj,
+        voxelsize=voxelsize,
+        target_shape=target_shape,
+        interpolation=interpolation,
+    )
+
+
+def _make_patch(aseg_nib, tbet_nib, roi_label, patch_size=(64, 64, 64)):
+    aseg = aseg_nib.get_fdata()
+    tbet = tbet_nib.get_fdata()
+    mask = aseg == roi_label
+    if not mask.any():
+        raise ValueError(f"label {roi_label} not found.")
+
+    nz = np.nonzero(mask)
+    center = [int((np.min(a) + np.max(a)) // 2) for a in nz]
+    starts = [max(0, c - s // 2) for c, s in zip(center, patch_size)]
+    ends = [min(d, st + s) for d, st, s in zip(tbet.shape, starts, patch_size)]
+    crop = tbet[starts[0]:ends[0], starts[1]:ends[1], starts[2]:ends[2]]
+    return nib.Nifti1Image(crop, np.eye(4))
+
+
+def _intensity_rescale(img):
+    data = img.get_fdata()
+    data = (data - data.min()) / (data.max() - data.min() + 1e-8)
+    return nib.Nifti1Image(data, img.affine)
+
+
+def nerve_preprocess_nib(aseg, tbet):
+    aseg = _resample_voxel(aseg, interpolation="nearest")
+    tbet = _resample_voxel(tbet, interpolation="linear")
+
+    roi_map = {"LH": 17, "LA": 18, "RH": 53, "RA": 54}
+    patches = {}
+    for tag, lbl in roi_map.items():
+        patch = _make_patch(aseg, tbet, lbl)
+        patches[tag] = _intensity_rescale(patch)
+    return patches
+
+
+def onnx_encode(enc_sess, patch_img):
+    vol = patch_img.get_fdata().astype(np.float32)[None, None]
+    z_mu, z_sigma = core_encode_latent(enc_sess, vol)
+    return z_mu, z_sigma
+
+
+def onnx_decode(dec_sess, latent):
+    recon = core_decode_latent(dec_sess, latent)
+    return recon.squeeze()
+
+
+def psnr(mse, peak):
+    return float("inf") if mse == 0 else 20 * log10(peak) - 10 * log10(mse)
+
+
+def compute_metrics(gt_nii, pred_nii, max_value=None):
+    gt = nib.load(gt_nii).get_fdata()
+    pred = nib.load(pred_nii).get_fdata()
+    diff = pred - gt
+    mae = np.mean(np.abs(diff))
+    mse = np.mean(diff ** 2)
+    peak = np.max(gt) if max_value is None else max_value
+    p = psnr(mse, peak)
+
+    try:
+        if gt.ndim == 4 and gt.shape[-1] <= 10:
+            ssim_list = []
+            for c in range(gt.shape[-1]):
+                ssim_val_c = ssim_metric(gt[..., c], pred[..., c], data_range=peak)
+                ssim_list.append(ssim_val_c)
+            ssim_val = np.mean(ssim_list)
+        elif gt.ndim in [2, 3]:
+            ssim_val = ssim_metric(gt, pred, data_range=peak)
+        else:
+            ssim_val = np.nan
+    except Exception as e:
+        _logger.warning("[WARN] SSIM computation failed: %s", e)
+        ssim_val = np.nan
+
+    return mae, mse, p, ssim_val
 
 # ------------------------------------------------------------
 # Encode: NIfTI → latent .npz
@@ -135,13 +214,13 @@ def decode_npz(
     data = np.load(npz_path, allow_pickle=True)
     affine = data["affine"]
     tags = [k for k in data.files if ('sigma' not in k) and (k not in ("encoder", "affine"))]
-    recon_arrays, recon_paths = [], []
+    recon_arrays = []
 
     for tag in tags:
         mu = data[tag]
         sigma = data[tag + '_sigma']
         latent = mu + eps*np.random.randn(*mu.shape).astype(np.float32) * sigma
-        recon = onnx_decode(dec_sess, latent[None, ...]).squeeze()
+        recon = onnx_decode(dec_sess, latent[None, ...])
         recon_arrays.append(recon)
 
     merged = np.stack(recon_arrays, axis=-1).astype(np.float32)

@@ -14,17 +14,6 @@ def edge_padded_central_diff(arr, axis):
     return (arr_pad[tuple(sl_forward)] - arr_pad[tuple(sl_backward)]) * 0.5
 
 
-def jacobian_det_displacement_2d(disp):
-    # disp components follow SITK vector order [x, y], while numpy axes are [y, x].
-    ux = disp[..., 0]
-    uy = disp[..., 1]
-    dux_dy = edge_padded_central_diff(ux, axis=0)
-    dux_dx = edge_padded_central_diff(ux, axis=1)
-    duy_dy = edge_padded_central_diff(uy, axis=0)
-    duy_dx = edge_padded_central_diff(uy, axis=1)
-    return (1.0 + dux_dx) * (1.0 + duy_dy) - dux_dy * duy_dx
-
-
 def jacobian_det_displacement_3d(disp):
     # disp components follow SITK vector order [x, y, z], numpy axes are [z, y, x].
     ux = disp[..., 0]
@@ -94,25 +83,10 @@ def warp_displacement_linear_sitk_like(image, disp):
     return warped
 
 
-def build_vdm_displacement_2d(vdm, readout=1, AP_RL="AP"):
-    if AP_RL == "AP":
-        return np.stack([vdm * readout, vdm * 0], axis=-1)
-    return np.stack([vdm * 0, vdm * readout], axis=-1)
-
-
 def build_vdm_displacement_3d(vdm, readout=1, AP_RL="AP"):
     if AP_RL == "AP":
         return np.stack([vdm * 0, vdm * readout, vdm * 0], axis=-1)
     return np.stack([vdm * 0, vdm * 0, vdm * readout], axis=-1)
-
-
-def apply_vdm_2d(ima, vdm, readout=1, AP_RL="AP"):
-    disp = build_vdm_displacement_2d(
-        np.asarray(vdm, dtype=np.float64), readout=readout, AP_RL=AP_RL
-    )
-    new_ima = warp_displacement_linear_sitk_like(ima, disp)
-    jac_np = jacobian_det_displacement_2d(disp)
-    return new_ima * jac_np
 
 
 def apply_vdm_3d(ima, vdm, readout=1, AP_RL="AP"):
@@ -160,4 +134,3 @@ def jacobian_determinant(disp):
     dfdx = J[0]
     dfdy = J[1]
     return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
-

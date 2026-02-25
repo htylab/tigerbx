@@ -67,10 +67,10 @@ uv run pytest tests/
 tigerbx/
 ├── tigerbx/             # Core library
 │   ├── bx.py            # Brain extraction pipeline
-│   ├── hlc171.py        # HLC parcellation
+│   ├── hlc.py           # HLC parcellation
 │   ├── reg_vbm.py       # Registration and VBM
 │   ├── gdmi.py          # EPI distortion correction
-│   ├── nerve_nerme.py   # NERVE hippocampus/amygdala pipeline
+│   ├── nerve.py         # NERVE hippocampus/amygdala pipeline
 │   ├── eval.py          # Image quality and segmentation metrics
 │   ├── lib_tool.py      # ONNX inference, model download
 │   ├── lib_bx.py        # BET preprocessing helpers

@@ -269,29 +269,6 @@ def reorder_img(img, resample=None, copy_header=True):
     return new_img
 
 
-def resample_vox_sizes(
-    img, voxel_sizes, interpolation="continuous", fill_value=0, clip=True, copy_header=True
-):
-    """Convenience wrapper around ``resample_img`` using voxel sizes."""
-    if isinstance(img, str):
-        img = nib.load(img)
-
-    voxel_sizes = np.atleast_1d(np.asarray(voxel_sizes, dtype=np.float64))
-    if voxel_sizes.size == 1:
-        voxel_sizes = np.repeat(voxel_sizes, 3)
-
-    target_affine = np.diag(voxel_sizes)
-
-    return resample_img(
-        img,
-        target_affine=target_affine,
-        interpolation=interpolation,
-        fill_value=fill_value,
-        clip=clip,
-        copy_header=copy_header,
-    )
-
-
 def _scaled_target_affine(affine, voxelsize):
     target_affine = affine.copy()
     voxelsize = np.asarray(voxelsize, dtype=float)
