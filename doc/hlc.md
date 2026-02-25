@@ -9,7 +9,7 @@ The HLC module was developed by **Pin-Chuan Chen**.
 ## Python API
 
 ```python
-tigerbx.hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False)
+tigerbx.hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch=False, verbose=0)
 ```
 
 | Parameter | Type            | Default | Description |
@@ -21,6 +21,7 @@ tigerbx.hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, p
 | `GPU`     | `bool`          | `False` | Use GPU for inference (requires at least 32 GB VRAM) |
 | `gz`      | `bool`          | `True`  | Save in `.nii.gz` format |
 | `patch`   | `bool`          | `False` | Enable patch-based inference |
+| `verbose` | `int`           | `0`     | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
 
 ---
 
@@ -69,8 +70,8 @@ tigerbx.hlc('T1w.nii.gz', 'output_dir', save='tcgw', GPU=True)
 # Process a whole directory, save all outputs
 tigerbx.hlc('/data/T1w_dir', '/data/output', save='all')
 
-# Glob pattern with patch-based inference
-tigerbx.hlc('/data/**/T1w.nii.gz', '/data/output', save='all', patch=True)
+# Patch-based inference
+tigerbx.hlc('/data/T1w_dir', '/data/output', save='all', patch=True)
 ```
 
 ### CLI

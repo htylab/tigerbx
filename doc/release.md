@@ -14,7 +14,7 @@ existing functionality.
   - `'all'` expands to `hcCbm`.
 - **Voxel-Based Morphometry and registration**
   - New `reg()` options provide VMnet, SyN/SyNCC and the **FuseMorph** method.
-  - A full VBM pipeline can be executed with `tigerbx.reg('v', ...)`.
+  - A full VBM pipeline is available via `tigerbx.vbm(...)` or `tiger vbm`.
 - **NERVE embedding pipeline** for hippocampus and amygdala patch encoding.
 - **GDM distortion correction** applies Generative Displacement Mapping to improve alignment of diffusion and structural images without field maps.
 - **Updated default model** `mprage_hlc_v003_resunetplus.onnx`.

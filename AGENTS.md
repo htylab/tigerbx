@@ -1,61 +1,102 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Overview
 
-- `tigerbx/`: core Python package (APIs like `tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.gdm`, `tigerbx.nerve`)
-- `tigerbx_cli/`: CLI entrypoint (`tiger`) and subcommand implementations
-- `doc/`: user-facing docs and images referenced by `README.md`
-- `tests/`: integration/regression runner (`tests/run_and_compare.py`)
-- `pyinstaller_hooks/` and `.github/workflows/`: standalone build plumbing (PyInstaller + CI)
-- `skills/`: optional AI-assistant skill definitions (not required to use the library/CLI)
+TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registration) with:
+- Python API: `tigerbx.*`
+- CLI: `tiger`
 
-## Build, Test, and Development Commands
+Current baseline:
+- Version: `0.2.3`
+- Python: `>=3.10`
+- Stack: ONNX Runtime, nibabel, numpy, scipy
+
+## Project Structure (key folders)
+
+- `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `nerve`, `gdm`, `eval`, `validate`)
+- `tigerbx/pipeline/vbm.py`: VBM pipeline (separate from `reg`)
+- `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers
+- `tigerbx_cli/`: CLI parsers + dispatch (`tiger`)
+- `tests/run_and_compare.py`: primary integration/regression runner
+- `doc/`: user-facing docs
+- `temp/`: temporary local work files (gitignored)
+
+## Core Coding Conventions (must follow)
+
+### Paths
+
+- Use `os.path` (`join`, `basename`, `dirname`, `relpath`) and `os.makedirs(...)`.
+- Do **not** use `pathlib`.
+
+### Imports
+
+- Order: stdlib -> third-party -> internal.
+- Heavy imports (`onnxruntime`, `antspyx`, `optuna`) should be lazy (inside functions).
+
+### Typing / Docstrings
+
+- **No type annotations by default** (`typing` / parameter annotations / return annotations).
+- Do not add type hints to new or existing functions unless explicitly requested.
+- Do not mass-add docstrings to existing private helpers.
+
+### API / CLI Pattern
+
+- Public API functions build args/namespace and call `run_args(args)`.
+- CLI modules parse argparse and call the same `run_args(args)`.
+
+### `reg` / `vbm` Contracts
+
+- `reg` uses uppercase plan strings (positional): `R/A/V/N/C/F`
+  - `R` rigid, `A` affine, `V` VMnet, `N` SyN, `C` SyNCC, `F` FuseMorph
+- `VBM` is a separate pipeline/CLI (`tiger vbm`), not a `reg` mode.
+
+### Output Path Contract (important)
+
+- `get_template()` returns `(ftemplate, output_dir)` where `ftemplate` is a **full path template** containing `@@@@`.
+- `save_nib(data_nib, ftemplate, postfix)` only replaces `@@@@` with `postfix` and writes the file.
+- Callers must not join a directory onto `ftemplate` again.
+
+### Result Return Convention
+
+- Single input file -> return `result_dict` (nibabel objects)
+- Multiple input files -> return list of `result_filedict` (saved file paths)
+- Maintain `result_dict` and `result_filedict` in parallel during processing
+
+## Build / Test / Dev Commands
 
 ```bash
+# Setup
 python -m venv .venv && source .venv/bin/activate
-python -m pip install -U pip
-pip install -e .
+pip install -e ".[dev,cpu]"   # or [dev,cu12]
 
-# Inference runtime (pick one)
-pip install onnxruntime        # CPU
-pip install onnxruntime-gpu    # GPU (optional)
+# Syntax/compile check
+python -m compileall -q tigerbx tigerbx_cli tests
 
-# CLI smoke check
-tiger --help
-tiger bx T1w.nii.gz -bmad -o out/
+# CLI help smoke checks
+tiger bx --help
+tiger reg --help
+tiger vbm --help
+
+# Integration/regression runner
+python tests/run_and_compare.py all --run-only
 ```
 
-Build a wheel/sdist:
+## Docs / Change Policy
 
-```bash
-python -m pip install build
-python -m build
-```
+- If you change CLI flags, plans, or output naming, update `README.md` and relevant files in `doc/`.
+- Keep diffs focused; avoid repo-wide formatting/style churn.
+- Use research-use wording only (no clinical/diagnostic claims).
 
-## Coding Style & Naming Conventions
+## Safety / Data
 
-- Python: 4-space indentation; follow existing file style and keep diffs focused (avoid repo-wide reformatting).
-- Naming: `snake_case` for modules/functions, `CapWords` for classes, `UPPER_SNAKE_CASE` for constants.
-- When changing CLI flags or output naming, update the relevant docs in `doc/` and examples in `README.md`.
+- Do not commit large binaries, model files, or PHI.
+- Model files are downloaded via `lib_tool.get_model()` and cached locally.
+- Put temporary artifacts under `temp/`.
 
-## Testing Guidelines
+## Don’ts (quick list)
 
-- Primary test entrypoint is an integration/regression script (not `pytest`):
-  - Run inference only: `python tests/run_and_compare.py all --run-only`
-  - Compare outputs: place reference data in `test_output/old` (gitignored); new outputs default to `test_output/new`
-- Prefer small, deterministic inputs for checks (see the template used by the test script in `tigerbx/template/`).
-
-## Commit & Pull Request Guidelines
-
-- Commit history mostly uses short, imperative summaries (e.g., `Update hlc.md`, `update doc`); prefer `Update <area>: <change>` for clarity.
-- PRs should include: what/why, how you tested (commands), and sample outputs/screenshots when changing CLI UX.
-
-## Data, Models, and Safety Notes
-
-- Do not commit large binaries or sensitive data (PHI). Common outputs and model caches are ignored (e.g., `test_output/`, `models/`).
-- TigerBx is for research use; avoid adding language that implies clinical use or diagnosis.
-
-## Agent Notes (Temp Artifacts)
-
-- Store temporary working files and analysis outputs under `temp/`.
-- The latest deep code review report lives at `temp/code_review.md`.
+- No `pathlib`
+- No new dependencies unless necessary
+- No heavy imports at module top level
+- Do not create ONNX sessions directly; use `tigerbx.core.onnx.create_session()`
+- Do not change the single-vs-multi result return convention

@@ -66,26 +66,21 @@ uv run pytest tests/
 ```
 tigerbx/
 ├── tigerbx/             # Core library
+│   ├── __init__.py      # Public API exports
 │   ├── bx.py            # Brain extraction pipeline
 │   ├── hlc.py           # HLC parcellation
-│   ├── reg.py           # Registration (plan-driven)
-│   ├── pipeline/        # High-level pipelines (e.g., VBM)
+│   ├── reg.py           # Registration (plan-driven: R/A/V/N/C/F)
+│   ├── pipeline/        # High-level pipelines
+│   │   └── vbm.py       # VBM pipeline (separate from reg)
+│   ├── core/            # Shared utilities (see doc/core/)
+│   │   ├── io.py        # NIfTI I/O, path templates, input resolution
+│   │   ├── onnx.py      # ONNX session management, inference
+│   │   ├── resample.py  # Image resampling (no nilearn dependency)
+│   │   ├── spatial.py   # Cropping, padding, bounding box ops
+│   │   ├── metrics.py   # Segmentation and reconstruction metrics
+│   │   └── deform.py    # Displacement fields, Jacobian, warping
 │   ├── gdmi.py          # EPI distortion correction
 │   ├── nerve.py         # NERVE hippocampus/amygdala pipeline
-│   ├── eval.py          # Image quality and segmentation metrics
-│   ├── lib_tool.py      # ONNX inference, model download
-│   ├── lib_bx.py        # BET preprocessing helpers
-│   └── lib_reg.py       # Registration helpers
-├── tigerbx_cli/         # CLI entry points
-│   ├── tiger.py         # Main dispatcher
-│   ├── bx_cli.py
-│   ├── reg_cli.py
-│   └── ...
-├── tests/               # pytest test suite
-├── doc/                 # Documentation
-├── pyinstaller_hooks/   # PyInstaller hooks
-└── setup.py             # Package metadata and dependencies
-```
 
 ---
 
@@ -222,6 +217,8 @@ To trigger a build, go to **Actions → Compile10 → Run workflow** on GitHub.
 ## 10. Coding Conventions
 
 - **No top-level heavy imports** — `ants`, `optuna`, `onnxruntime` must be imported inside the functions that use them (lazy import), to keep startup time fast.
+- **Path handling** — use `os.path` functions (`join`, `basename`, `dirname`), never `pathlib`.
 - **NIfTI I/O** — use `nibabel` for reading/writing; avoid hard-coding voxel assumptions.
-- **Model inference** — always go through `lib_tool.predict()`, never create `ort.InferenceSession` directly in feature modules.
+- **Model inference** — always go through `core.onnx.create_session()` and `core.onnx.predict()`, never create `ort.InferenceSession` directly in feature modules.
 - **No pandas in core** — pandas is a dev-only dependency; use `csv` module for any file output in production code.
+- **Python >=3.10** — the `setup.py` requires `python_requires='>=3.10'`. Use `str | None` syntax (not `Optional`).

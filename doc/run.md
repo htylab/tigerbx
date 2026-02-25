@@ -8,7 +8,8 @@ Brain extraction and tissue segmentation via `tigerbx.run()` or the `tiger bx` C
 
 ```python
 tigerbx.run(argstring, input=None, output=None, model=None,
-            verbose=0, chunk_size=50, continue_=False, silent=False)
+            verbose=0, chunk_size=50, continue_=False, silent=False,
+            save_outputs=True)
 ```
 
 | Parameter    | Type            | Default | Description |
@@ -21,6 +22,7 @@ tigerbx.run(argstring, input=None, output=None, model=None,
 | `chunk_size` | `int`           | `50`    | Number of files per session-cache batch. Larger values reuse the ONNX session more aggressively but use more RAM |
 | `continue_`  | `bool`          | `False` | Skip files whose output files already exist on disk |
 | `silent`     | `bool`          | `False` | *(Deprecated)* Suppress all output. Use `verbose=0` instead |
+| `save_outputs` | `bool`        | `True`  | Write output files to disk. Set `False` to get in-memory nibabel objects only |
 
 If no segmentation flag is provided, brain extraction (`b`) runs by default.
 
