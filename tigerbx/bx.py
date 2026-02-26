@@ -31,6 +31,8 @@ elif __file__:
 # Calibrated QC threshold: qc_raw at which BET Dice ≈ 0.95 (from qc_stat calibration).
 # qc_raw values at or above this level are considered "good" and displayed as 100.
 _QC_RAW_GOOD = 0.7581
+_NATIVE_111_MIN = 0.99
+_NATIVE_111_MAX = 1.01
 
 
 def _crop_nib(nib_img, xyz6):
@@ -43,6 +45,25 @@ def _crop_nib(nib_img, xyz6):
     return nib.Nifti1Image(cropped, new_affine)
 
 
+def _prepare_tbet111_crop(tbet_nib, need_tbet111_crop):
+    """Build the unified BET-derived model input crop (`tbet111_crop`) for all non-BET bx models."""
+    if not need_tbet111_crop:
+        return None
+
+    zoom = tbet_nib.header.get_zooms()[:3]
+    is_native_111 = (max(zoom) <= _NATIVE_111_MAX and min(zoom) >= _NATIVE_111_MIN)
+
+    if is_native_111:
+        tbet111 = reorder_img(tbet_nib, resample='continuous')
+    else:
+        tbet111 = resample_voxel(tbet_nib, (1, 1, 1), interpolation='continuous')
+        tbet111 = reorder_img(tbet111, resample='continuous')
+
+    arr_111 = tbet111.get_fdata()
+    _, xyz6_111 = crop_cube(arr_111, arr_111 > 0)
+    return _crop_nib(tbet111, xyz6_111)
+
+
 def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, session=None):
     """Shared inference core: load, run model, resample, apply brainmask, cast dtype.
 
@@ -52,7 +73,7 @@ def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, sessi
     input_nib = nib.load(f)
 
     if tbet111 is None:
-        input_nib_resp = lib_bx.read_file(model_ff, f)
+        input_nib_resp = lib_bx.read_bet_input(f, input_nib=input_nib)
     else:
         input_nib_resp = copy.deepcopy(tbet111)  # avoid modifying caller's copy
 
@@ -179,7 +200,7 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
 def _run_seg(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     result_nib = produce_mask(model_ff, f, GPU=GPU,
                               brainmask_nib=cache['tbetmask_nib'],
-                              tbet111=cache['tbet_seg_crop'],
+                              tbet111=cache['tbet111_crop'],
                               patch=patch, session=session)
     if save_outputs:
         fn = save_nib(result_nib, cache['ftemplate'], key)
@@ -190,15 +211,15 @@ def _run_seg(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
 
 def _run_cgw(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     input_nib = nib.load(f)
-    tbet_nib111_crop = cache['tbet_nib111_crop']
+    tbet111_crop = cache['tbet111_crop']
     normalize_factor = np.max(input_nib.get_fdata())
-    bet_img = lib_tool.read_nib(tbet_nib111_crop)
+    bet_img = lib_tool.read_nib(tbet111_crop)
     image = bet_img[None, ...][None, ...] / normalize_factor
     cgw = predict(model_ff, image, GPU, session=session)[0]
     rd, rfd = {'cgw': []}, {'cgw': []}
     for kk in [1, 2, 3]:
         pve = cgw[kk] * (bet_img > 0)
-        pve_nib = nib.Nifti1Image(pve, tbet_nib111_crop.affine)
+        pve_nib = nib.Nifti1Image(pve, tbet111_crop.affine)
         pve_nib = resample_to_img(pve_nib, input_nib, interpolation="linear")
         pve_nib.header.set_data_dtype(float)
         if save_outputs:
@@ -211,8 +232,8 @@ def _run_cgw(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
 
 def _run_ct(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     input_nib = nib.load(f)
-    tbet_nib111_crop = cache['tbet_nib111_crop']
-    bet_img = lib_tool.read_nib(tbet_nib111_crop)
+    tbet111_crop = cache['tbet111_crop']
+    bet_img = lib_tool.read_nib(tbet111_crop)
     image = bet_img[None, ...][None, ...]
     mx = np.max(image)
     if mx > 0:
@@ -221,7 +242,7 @@ def _run_ct(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     ct[ct < 0.2] = 0
     ct[ct > 5] = 5
     ct = ct * (bet_img > 0).astype(int)
-    ct_nib = nib.Nifti1Image(ct, tbet_nib111_crop.affine)
+    ct_nib = nib.Nifti1Image(ct, tbet111_crop.affine)
     ct_nib = resample_to_img(ct_nib, input_nib, interpolation="nearest")
     ct_nib.header.set_data_dtype(float)
     if save_outputs:
@@ -307,7 +328,7 @@ def run_args(args):
     if not input_file_list:
         return []
 
-    _needs_111 = any(run_d.get(k) for k in ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct'])
+    _needs_tbet111_crop = any(run_d.get(k) for k in ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct'])
     active_models = [(k, _MODEL_RUNNERS[k]) for k in _SEG_ORDER if run_d.get(k)]
 
     result_accum = {f: [{}, {}] for f in input_file_list}
@@ -335,25 +356,7 @@ def run_args(args):
             tbet_arr = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
             tbet_nib = nib.Nifti1Image(tbet_arr, input_nib.affine, input_nib.header)
 
-            tbet_nib111_crop = tbet_seg_crop = None
-            if _needs_111:
-                tbet_nib111 = resample_voxel(tbet_nib, (1, 1, 1),
-                                                       interpolation='continuous')
-                tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
-                zoom = tbet_nib.header.get_zooms()
-                if max(zoom) > 1.1 or min(zoom) < 0.9:
-                    tbet_seg = tbet_nib111
-                else:
-                    tbet_seg = reorder_img(tbet_nib, resample='continuous')
-                arr_111 = tbet_nib111.get_fdata()
-                _, xyz6_111 = crop_cube(arr_111, arr_111 > 0)
-                tbet_nib111_crop = _crop_nib(tbet_nib111, xyz6_111)
-                if tbet_seg is tbet_nib111:
-                    tbet_seg_crop = tbet_nib111_crop
-                else:
-                    arr_seg = tbet_seg.get_fdata()
-                    _, xyz6_seg = crop_cube(arr_seg, arr_seg > 0)
-                    tbet_seg_crop = _crop_nib(tbet_seg, xyz6_seg)
+            tbet111_crop = _prepare_tbet111_crop(tbet_nib, _needs_tbet111_crop)
 
             name18 = f"{os.path.basename(f)[:18]:<18}"
             _pbar.set_postfix_str(f"{name18} | QC={qc_score}")
@@ -396,8 +399,7 @@ def run_args(args):
 
             bet_cache[f] = {
                 'tbetmask_nib':     tbetmask_nib,
-                'tbet_seg_crop':    tbet_seg_crop,
-                'tbet_nib111_crop': tbet_nib111_crop,
+                'tbet111_crop':     tbet111_crop,
                 'ftemplate':        ftemplate,
             }
         del bet_session

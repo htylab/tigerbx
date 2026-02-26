@@ -3,7 +3,7 @@ import numpy as np
 import nibabel as nib
 from scipy.special import softmax
 from tigerbx.core.onnx import predict
-from tigerbx.core.resample import reorder_img, resample_img, resample_voxel
+from tigerbx.core.resample import reorder_img, resample_voxel
 
 from tigerbx import lib_tool
 
@@ -47,29 +47,6 @@ def getLarea(input_mask):
     else:
         mask = input_mask
     return mask
-
-def get_affine(mat_size):
-
-    target_shape = np.array((mat_size, mat_size, mat_size))
-    new_resolution = [256/mat_size, ]*3
-    new_affine = np.zeros((4, 4))
-    new_affine[:3, :3] = np.diag(new_resolution)
-    # putting point 0,0,0 in the middle of the new volume - this could be refined in the future
-    new_affine[:3, 3] = target_shape * new_resolution/2.*-1
-    new_affine[3, 3] = 1.
-    #print(model_ff, target_shape)
-    #print(new_affine, target_shape)
-    return new_affine, target_shape
-
-
-def get_mat_size(model_ff):
-    import re
-    tmp = re.compile(r'r\d{2,4}.onnx').findall(basename(model_ff))
-    mat_size = -1
-    if len(tmp) > 0:
-        mat_size = int(tmp[0].replace('.onnx', '')[1:])
-    #print(model_ff, mat_size)
-    return mat_size
 
 def logit_to_prob(logits, seg_mode):
     label_num = dict()
@@ -143,23 +120,12 @@ def run(model_ff, input_nib, GPU, patch=False, session=None):
 
 
 
-def read_file(model_ff, input_file):
+def read_bet_input(input_file, input_nib=None):
+    if input_nib is None:
+        input_nib = nib.load(input_file)
+    zoom = input_nib.header.get_zooms()[:3]
+    needs_1mm = (max(zoom) > 1.1 or min(zoom) < 0.9)
 
-    mat_size = get_mat_size(model_ff)
-    input_nib = nib.load(input_file)
-    zoom = input_nib.header.get_zooms()
-
-    if mat_size == -1 or mat_size == 111:
-
-        if max(zoom) > 1.1 or min(zoom) < 0.9 or mat_size == 111:
-
-            vol_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
-            vol_nib = reorder_img(vol_nib, resample='continuous')
-        else:
-            vol_nib = reorder_img(input_nib, resample='continuous')
-    else:
-        affine, shape = get_affine(mat_size)
-        vol_nib = resample_img(input_nib,
-                           target_affine=affine, target_shape=shape)
-
-    return vol_nib
+    if needs_1mm:
+        input_nib = resample_voxel(input_nib, (1, 1, 1), interpolation='continuous')
+    return reorder_img(input_nib, resample='continuous')
