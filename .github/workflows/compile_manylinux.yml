@@ -1,4 +1,4 @@
-name: Compile10
+name: CompileMany
 
 on:
   workflow_dispatch:
