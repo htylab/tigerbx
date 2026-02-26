@@ -1,0 +1,122 @@
+name: Compile10
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            py: tiger
+          - os: macos-latest
+            py: tiger
+          - os: ubuntu-22.04
+            py: tiger
+            use_manylinux: true
+
+    runs-on: ${{ matrix.os }}
+
+    # 只在 Linux 這組用 manylinux 容器
+    container: ${{ matrix.use_manylinux && 'quay.io/pypa/manylinux2014_x86_64' || '' }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Derive short commit SHA
+        shell: bash
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Disable macOS wheel compatibility check
+        if: runner.os == 'macOS'
+        run: echo "SYSTEM_VERSION_COMPAT=0" >> "$GITHUB_ENV"
+
+      # Windows/macOS 用 setup-python；Linux manylinux 用內建 python
+      - name: Set up Python 3.10 (non-Linux)
+        if: ${{ !matrix.use_manylinux }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Select Python (Linux manylinux)
+        if: ${{ matrix.use_manylinux }}
+        shell: bash
+        run: |
+          echo "PY=/opt/python/cp310-cp310/bin/python" >> "$GITHUB_ENV"
+          echo "PIP=/opt/python/cp310-cp310/bin/pip" >> "$GITHUB_ENV"
+          /opt/python/cp310-cp310/bin/python -V
+
+      - name: Select Python (non-Linux)
+        if: ${{ !matrix.use_manylinux }}
+        shell: bash
+        run: |
+          echo "PY=python" >> "$GITHUB_ENV"
+          echo "PIP=pip" >> "$GITHUB_ENV"
+          python -V
+
+      - name: Install system deps (Linux manylinux)
+        if: ${{ matrix.use_manylinux }}
+        shell: bash
+        run: |
+          yum -y install zip
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          $PY -m pip install --upgrade pip
+          $PIP install ".[cpu]"
+          $PIP install pyinstaller
+
+      - name: PyInstaller
+        shell: bash
+        run: |
+          $PY -m PyInstaller -c -p . \
+            --additional-hooks-dir=./pyinstaller_hooks \
+            --icon=./tigerbx/exe/ico.ico \
+            -F ./tigerbx_cli/${{ matrix.py }}.py
+
+      - name: Package binary into zip
+        shell: bash
+        run: |
+          mkdir -p out
+          ZIP_NAME="tigerbx-${{ runner.os }}-${SHORT_SHA}.zip"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            powershell -Command "Compress-Archive -Path dist/tiger.exe -DestinationPath out/${ZIP_NAME}"
+          else
+            zip -j "out/${ZIP_NAME}" dist/tiger
+          fi
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: out/${{ env.ZIP_NAME }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release
+
+      - name: List downloaded files
+        run: ls -lh release/
+
+      - name: Create draft GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          draft: true
+          artifacts: release/tigerbx-*.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
