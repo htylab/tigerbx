@@ -1,20 +1,15 @@
 import os
-import re
-import subprocess
-import shutil
 import warnings
-from os.path import join, isdir, basename, isfile, dirname
+from os.path import join, isfile
 import nibabel as nib
 import numpy as np
 import sys
-from os.path import isfile, join
 from tigerbx import lib_tool
-from tigerbx.core.deform import jacobian_determinant
+from tigerbx.core.metrics import dice as metrics_dice
 from tigerbx.core.io import get_template as build_output_template, save_nib
 from tigerbx.core.onnx import predict
 from tigerbx.core.spatial import crop_image, pad_to_shape, remove_padding
 from tigerbx.core.resample import resample_img, reorder_img, resample_voxel
-from typing import Union, Tuple, List
 from scipy.ndimage import gaussian_filter
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
@@ -80,57 +75,10 @@ def min_max_norm(img):
     return norm_img
 
 
-def fwhm_to_sigma(fwhm):
-    """
-    Convert FWHM to sigma for Gaussian kernel.
-    
-    Parameters:
-        fwhm (float): Full Width at Half Maximum.
-        
-    Returns:
-        float: Corresponding sigma value.
-    """
-    return fwhm / np.sqrt(8 * np.log(2))
-
-
 def apply_gaussian_smoothing(image, fwhm):
-    """
-    Apply Gaussian smoothing to a given image using FWHM.
-    
-    Parameters:
-        image (numpy.ndarray): Input image to smooth.
-        fwhm (float): Full Width at Half Maximum for Gaussian kernel.
-        
-    Returns:
-        numpy.ndarray: Smoothed image.
-    """
-    sigma = fwhm_to_sigma(fwhm)
-    smoothed_image = gaussian_filter(image, sigma=sigma)
-    return smoothed_image
-
-def dice(array1, array2, labels=None, include_zero=False):
-    """
-    Computes the dice overlap between two arrays for a given set of integer labels.
-
-    Parameters:
-        array1: Input array 1.
-        array2: Input array 2.
-        labels: List of labels to compute dice on. If None, all labels will be used.
-        include_zero: Include label 0 in label list. Default is False.
-    """
-    if labels is None:
-        labels = np.concatenate([np.unique(a) for a in [array1, array2]])
-        labels = np.sort(np.unique(labels))
-    if not include_zero:
-        labels = np.delete(labels, np.argwhere(labels == 0)) 
-
-    dicem = np.zeros(len(labels))
-    for idx, label in enumerate(labels):
-        top = 2 * np.sum(np.logical_and(array1 == label, array2 == label))
-        bottom = np.sum(array1 == label) + np.sum(array2 == label)
-        bottom = np.maximum(bottom, np.finfo(float).eps)  # add epsilon
-        dicem[idx] = top / bottom
-    return dicem
+    """Apply Gaussian smoothing with FWHM."""
+    sigma = fwhm / np.sqrt(8 * np.log(2))
+    return gaussian_filter(image, sigma=sigma)
 
 def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_seg_image, gpu):
     x, y, z = params
@@ -140,9 +88,9 @@ def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_
     #dice_score = np.mean(dice_output[0])
     output_np = output[0]
     fixed_seg_image_np = fixed_seg_image
-    dice_scores = dice(output_np, fixed_seg_image_np)
+    dice_scores = metrics_dice(output_np, fixed_seg_image_np)
     #return (x, y, z, dice_score, warp)
-    return (x, y, z, np.mean(dice_scores), warp)
+    return (x, y, z, dice_scores['mean'], warp)
 
 def optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args):
     import optuna

@@ -62,19 +62,19 @@ import tigerbx
 tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCSWtq', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
 
 # Process a directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
 
-# Glob pattern, GPU
-tigerbx.run('bmag', '/data/**/T1w.nii.gz', '/data/output')
+# GPU inference
+tigerbx.run('bmadg', '/data/T1w_dir', '/data/output')
 ```
 
 ```bash
 tiger bx T1w.nii.gz -bmad -o output_dir
-tiger bx T1w.nii.gz -bmacdCSWtq -o output_dir
-tiger bx /data/T1w_dir -bmag -o /data/output
+tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
+tiger bx /data/T1w_dir -bmadg -o /data/output
 ```
 
 See [bx usage](doc/run.md) for a complete flag reference and output file naming.

@@ -43,7 +43,15 @@ def dice(y_true, y_pred, labels=None, ignore_background=True):
     """
     y_true = _to_array(y_true).astype(int)
     y_pred = _to_array(y_pred).astype(int)
-    label_list = _label_list(y_true, labels, ignore_background)
+    if labels is None:
+        label_list = np.unique(
+            np.concatenate([y_true.astype(int).ravel(), y_pred.astype(int).ravel()])
+        )
+        if ignore_background:
+            label_list = label_list[label_list != 0]
+        label_list = list(label_list)
+    else:
+        label_list = _label_list(y_true, labels, ignore_background)
 
     scores = {}
     for lbl in label_list:
