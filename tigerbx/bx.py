@@ -31,8 +31,8 @@ elif __file__:
 # Calibrated QC threshold: qc_raw at which BET Dice ≈ 0.95 (from qc_stat calibration).
 # qc_raw values at or above this level are considered "good" and displayed as 100.
 _QC_RAW_GOOD = 0.7581
-_NATIVE_111_MIN = 0.99
-_NATIVE_111_MAX = 1.01
+_NATIVE_111 = (0.99, 1.01)
+_NATIVE_111_LOOSE = (0.9, 1.1)
 
 
 def _crop_nib(nib_img, xyz6):
@@ -45,13 +45,11 @@ def _crop_nib(nib_img, xyz6):
     return nib.Nifti1Image(cropped, new_affine)
 
 
-def _prepare_tbet111_crop(tbet_nib, need_tbet111_crop):
+def _prepare_tbet111_crop(tbet_nib, native_111_range=_NATIVE_111):
     """Build the unified BET-derived model input crop (`tbet111_crop`) for all non-BET bx models."""
-    if not need_tbet111_crop:
-        return None
-
     zoom = tbet_nib.header.get_zooms()[:3]
-    is_native_111 = (max(zoom) <= _NATIVE_111_MAX and min(zoom) >= _NATIVE_111_MIN)
+    native_111_min, native_111_max = native_111_range
+    is_native_111 = (max(zoom) <= native_111_max and min(zoom) >= native_111_min)
 
     if is_native_111:
         tbet111 = reorder_img(tbet_nib, resample='continuous')
@@ -147,13 +145,16 @@ def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
         'dgm':     'dgm',
         'wmh':     'wmh',
         'syn':     'syn',
-        'cgw':     'cgw_pve0',
+        'cgw':     ('cgw_pve0', 'cgw_pve1', 'cgw_pve2'),
         'ct':      'ct',
     }
-    for flag, postfix in checks.items():
+    for flag, postfixes in checks.items():
         if run_d.get(flag):
-            if not os.path.isfile(ftemplate.replace('@@@@', postfix)):
-                return False
+            if not isinstance(postfixes, (tuple, list)):
+                postfixes = (postfixes,)
+            for postfix in postfixes:
+                if not os.path.isfile(ftemplate.replace('@@@@', postfix)):
+                    return False
     return True
 
 def run(argstring, input=None, output=None, model=None, verbose=0,
@@ -329,6 +330,10 @@ def run_args(args):
         return []
 
     _needs_tbet111_crop = any(run_d.get(k) for k in ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct'])
+    if any(run_d.get(k) for k in ['cgw', 'ct']):
+        _native_111_range = _NATIVE_111
+    else:
+        _native_111_range = _NATIVE_111_LOOSE
     active_models = [(k, _MODEL_RUNNERS[k]) for k in _SEG_ORDER if run_d.get(k)]
 
     result_accum = {f: [{}, {}] for f in input_file_list}
@@ -356,7 +361,10 @@ def run_args(args):
             tbet_arr = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
             tbet_nib = nib.Nifti1Image(tbet_arr, input_nib.affine, input_nib.header)
 
-            tbet111_crop = _prepare_tbet111_crop(tbet_nib, _needs_tbet111_crop)
+            tbet111_crop = None
+            if _needs_tbet111_crop:
+                tbet111_crop = _prepare_tbet111_crop(
+                    tbet_nib, native_111_range=_native_111_range)
 
             name18 = f"{os.path.basename(f)[:18]:<18}"
             _pbar.set_postfix_str(f"{name18} | QC={qc_score}")
