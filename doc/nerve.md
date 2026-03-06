@@ -7,7 +7,7 @@ NERVE (Neuroimaging Embedding Resource for VAE Encoders) was developed by **Pei-
 ## Python API
 
 ```python
-tigerbx.nerve(argstring, input, output=None, model=None, method='NERVE')
+tigerbx.nerve(argstring, input, output=None, model=None, method='NERVE', verbose=0)
 ```
 
 | Parameter   | Type            | Default    | Description |
@@ -17,13 +17,14 @@ tigerbx.nerve(argstring, input, output=None, model=None, method='NERVE')
 | `output`    | `str`           | `None`     | Output directory; if `None`, saves next to each input file |
 | `model`     | `str` or `dict` | `None`     | Custom model override; `None` uses bundled defaults |
 | `method`    | `str`           | `'NERVE'`  | Embedding method |
+| `verbose`   | `int`           | `0`        | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
 
 ---
 
 ## CLI Usage
 
 ```
-tiger nerve <input> [input ...] [-o OUTPUT] [-e] [-d] [-p] [-v] [-g] [-s]
+tiger nerve <input> [input ...] [-o OUTPUT] [-e] [-d] [-p] [-v] [-g] [-s] [--model MODEL] [--method METHOD] [--verbose N]
 ```
 
 ---
@@ -45,6 +46,7 @@ Additional CLI-only options:
 |-------------------|-------------|
 | `--model MODEL`   | Specify a custom ONNX model |
 | `--method METHOD` | Specify the embedding method (default: `NERVE`) |
+| `--verbose N`     | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
 
 ---
 

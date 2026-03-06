@@ -1,6 +1,6 @@
 import argparse
 import logging
-from tigerbx import nerve_nerme
+from tigerbx.nerve import run_args as nerve_run_args
 
 
 def setup_parser(parser):
@@ -27,4 +27,4 @@ def run_args(args):
     logger = logging.getLogger('tigerbx')
     logger.addHandler(handler)
     logger.setLevel(level)
-    nerve_nerme.run_args(args)
+    nerve_run_args(args)

@@ -34,7 +34,7 @@ Segmentation metrics return a nested dict keyed by label string.
 
 | kwarg | Default | Description |
 |-------|---------|-------------|
-| `labels` | `None` | List of integer label values to evaluate. When `None`, all unique non-zero labels in `y_true` are used automatically. |
+| `labels` | `None` | List of integer label values to evaluate. When `None`, all unique non-zero labels found across `y_true` and `y_pred` are used automatically. |
 | `ignore_background` | `True` | Exclude label `0` from auto-discovery. Has no effect when `labels` is given explicitly. |
 | `voxel_spacing` | `None` | Physical voxel size, e.g. `[1.0, 1.0, 1.0]` (mm). When `None`, distances are in voxels. Applies to `hd95` and `asd` only. |
 
@@ -142,11 +142,11 @@ tigerbx.eval(gt, pred, 'dice', labels=[1])
 
 ## Label auto-discovery
 
-When `labels=None` (the default), `eval` reads all unique non-zero integer values from `y_true` and evaluates all of them. This is convenient for brain segmentation where label sets are large (e.g. all 43 ASEG labels at once):
+When `labels=None` (the default), `eval` reads all unique non-zero integer values from the union of `y_true` and `y_pred` and evaluates all of them. This is convenient for brain segmentation where label sets are large (e.g. all 43 ASEG labels at once), and it also catches labels that appear only in the prediction:
 
 ```python
 scores = tigerbx.eval('gt_aseg.nii.gz', 'pred_aseg.nii.gz', 'dice')
-# evaluates all non-zero labels found in gt_aseg.nii.gz
+# evaluates all non-zero labels found across gt_aseg.nii.gz and pred_aseg.nii.gz
 # → {'dice': {'10': ..., '11': ..., ..., 'mean': ...}}
 ```
 

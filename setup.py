@@ -17,7 +17,7 @@ setup(
             'tiger = tigerbx_cli.tiger:main',
         ]
     },
-     python_requires='>=3.8',
+     python_requires='>=3.10',
      install_requires=[
              'numpy>=1.21.6',
              'scipy',

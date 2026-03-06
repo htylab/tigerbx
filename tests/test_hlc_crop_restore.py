@@ -1,6 +1,6 @@
 import numpy as np
 
-from tigerbx.lib_crop import crop_cube, restore_result
+from tigerbx.core.spatial import crop_cube, restore_result
 
 
 def test_crop_restore_roundtrip_no_padding():

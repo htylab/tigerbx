@@ -8,7 +8,8 @@ Brain extraction and tissue segmentation via `tigerbx.run()` or the `tiger bx` C
 
 ```python
 tigerbx.run(argstring, input=None, output=None, model=None,
-            verbose=0, chunk_size=50, continue_=False, silent=False)
+            verbose=0, chunk_size=50, continue_=False, silent=False,
+            save_outputs=True)
 ```
 
 | Parameter    | Type            | Default | Description |
@@ -21,6 +22,7 @@ tigerbx.run(argstring, input=None, output=None, model=None,
 | `chunk_size` | `int`           | `50`    | Number of files per session-cache batch. Larger values reuse the ONNX session more aggressively but use more RAM |
 | `continue_`  | `bool`          | `False` | Skip files whose output files already exist on disk |
 | `silent`     | `bool`          | `False` | *(Deprecated)* Suppress all output. Use `verbose=0` instead |
+| `save_outputs` | `bool`        | `True`  | Write output files to disk. Set `False` to get in-memory nibabel objects only |
 
 If no segmentation flag is provided, brain extraction (`b`) runs by default.
 
@@ -82,7 +84,7 @@ tigerbx.run('b', 'T1w.nii.gz', 'output_dir')
 tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCSW', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
 
 # Process an entire directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
@@ -92,6 +94,9 @@ tigerbx.run('bmad', '/data/T1w_dir', '/data/output', chunk_size=100)
 
 # Resume an interrupted run — skip already-processed files
 tigerbx.run('bmad', '/data/T1w_dir', '/data/output', continue_=True)
+
+# In-memory outputs only (no files written)
+tigerbx.run('mC', 'T1w.nii.gz', save_outputs=False)
 
 # Verbose progress messages
 tigerbx.run('bm', 'T1w.nii.gz', 'output_dir', verbose=1)
@@ -110,10 +115,10 @@ tiger bx T1w.nii.gz -bmad -o output_dir
 tiger bx T1w.nii.gz -bm -o output_dir
 
 # Full pipeline — all output types
-tiger bx T1w.nii.gz -bmacdCSW -o output_dir
+tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
 
 # Process a whole directory with GPU
-tiger bx /data/T1w_dir -bmag -o /data/output
+tiger bx /data/T1w_dir -bmadg -o /data/output
 
 # Large batch: 100 files per session-cache chunk
 tiger bx /data/T1w_dir -bmad -o /data/output --chunk-size 100

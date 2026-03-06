@@ -1,6 +1,6 @@
 import argparse
 import logging
-from tigerbx import hlc171
+from tigerbx.hlc import run_args as hlc_run_args
 
 
 def setup_parser(parser):
@@ -24,4 +24,4 @@ def run_args(args):
     logger = logging.getLogger('tigerbx')
     logger.addHandler(handler)
     logger.setLevel(level)
-    hlc171.run_args(args)
+    hlc_run_args(args)

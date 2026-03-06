@@ -1,17 +1,19 @@
 import os
-from os.path import basename, join, isdir, dirname, commonpath
+from os.path import basename, join, isdir, dirname
 import time
 import logging
 import numpy as np
 
-import glob
 import platform
 import nibabel as nib
 from tqdm import tqdm
 
 from tigerbx import lib_tool
-from tigerbx.bx import produce_betmask, save_nib, get_template
-from tigerbx._resample import resample_to_img, reorder_img
+from tigerbx.bx import produce_betmask
+from tigerbx.core.io import get_template, save_nib, resolve_inputs
+from tigerbx.core.onnx import predict
+from tigerbx.core.resample import resample_to_img, reorder_img, resample_voxel
+from tigerbx.core.spatial import crop_cube, restore_result
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -33,10 +35,6 @@ def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch
     args.gz = gz
     args.verbose = verbose
     return run_args(args)
-
-from tigerbx.lib_crop import crop_cube, restore_result
-
-
 
 def get_argmax(logits, start, end):
     import numpy as np
@@ -202,19 +200,13 @@ def run_args(args):
         if verbose >= 2:
             _logger.debug(' '.join(str(x) for x in msg))
 
-    input_file_list = args.input
-    if os.path.isdir(args.input[0]):
-        input_file_list = glob.glob(join(args.input[0], '*.nii'))
-        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
-
-    elif '*' in args.input[0]:
-        input_file_list = glob.glob(args.input[0])
+    input_file_list, common_folder = resolve_inputs(args.input)
 
     output_dir = args.output
     omodel = dict()
     omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
     omodel['HLC'] = 'mprage_hlc_v004_resunetplusT2.onnx'
- 
+
     # if you want to use other models
     if isinstance(args.model, dict):
         for mm in args.model.keys():
@@ -225,15 +217,7 @@ def run_args(args):
         for mm in model_dict.keys():
             omodel[mm] = model_dict[mm]
 
-
     printer('Total nii files:', len(input_file_list))
-
-    #check duplicate basename
-    #for detail, check get_template
-    base_ffs = [basename(f) for f in input_file_list]
-    common_folder = None
-    if len(base_ffs) != len(set(base_ffs)):
-        common_folder = commonpath(input_file_list)
 
     result_all = []
     result_filedict = dict()
@@ -258,7 +242,7 @@ def run_args(args):
         zoom = tbet_nib.header.get_zooms() 
 
         if max(zoom) > 1.1 or min(zoom) < 0.9:
-            tbet_nib111 = lib_tool.resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
+            tbet_nib111 = resample_voxel(tbet_nib, (1, 1, 1),interpolation='continuous')
             tbet_nib111 = reorder_img(tbet_nib111, resample='continuous')
         else:
             tbet_nib111 = reorder_img(tbet_nib, resample='continuous')
@@ -281,9 +265,9 @@ def run_args(args):
         model_ff = lib_tool.get_model(omodel['HLC'])
         printer('Perform HLC model....')
         if args.patch:
-            logits = lib_tool.predict(model_ff, image, args.gpu, mode='patch')
+            logits = predict(model_ff, image, args.gpu, mode='patch')
         else:
-            logits = lib_tool.predict(model_ff, image, args.gpu)
+            logits = predict(model_ff, image, args.gpu)
 
 
         if 'm' in args.save:            

@@ -40,8 +40,8 @@ tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 ### Install a specific version
 
 ```bash
-pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
-pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.3.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.3.tar.gz"
 ```
 
 > **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):
@@ -62,19 +62,19 @@ import tigerbx
 tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCSWtq', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
 
 # Process a directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
 
-# Glob pattern, GPU
-tigerbx.run('bmag', '/data/**/T1w.nii.gz', '/data/output')
+# GPU inference
+tigerbx.run('bmadg', '/data/T1w_dir', '/data/output')
 ```
 
 ```bash
 tiger bx T1w.nii.gz -bmad -o output_dir
-tiger bx T1w.nii.gz -bmacdCSWtq -o output_dir
-tiger bx /data/T1w_dir -bmag -o /data/output
+tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
+tiger bx /data/T1w_dir -bmadg -o /data/output
 ```
 
 See [bx usage](doc/run.md) for a complete flag reference and output file naming.
@@ -110,11 +110,13 @@ See [HLC usage](doc/hlc.md) for a complete description.
 
 ---
 
-### `reg` — Registration and VBM
+### `reg` — Registration
 
-Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration, plus a full VBM pipeline.
+Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration.
+The VBM pipeline now lives in `tigerbx.pipelines.vbm` and is exposed through
+the dispatcher / alias shown below.
 
-The VBM and registration pipeline was developed by **Pei-Mao Sun**.
+The registration pipeline was developed by **Pei-Mao Sun**.
 
 ```python
 import tigerbx
@@ -123,13 +125,16 @@ import tigerbx
 tigerbx.reg('A', r'C:\T1w_dir', r'C:\output_dir')
 
 # Affine + VMnet nonlinear registration
-tigerbx.reg('Ar', r'C:\T1w_dir', r'C:\output_dir', affine_type='C2FViT')
+tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir')
 
-# FuseMorph with ANTs affine
-tigerbx.reg('F', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
+# Affine + FuseMorph with ANTs affine
+tigerbx.reg('AF', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
 
-# VBM pipeline
-tigerbx.reg('v', r'C:\T1w_dir\**\*.nii.gz', r'C:\output_dir')
+# VBM pipeline (implemented in tigerbx.pipelines.vbm; dispatcher recommended)
+tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
+
+# Alias (kept for convenience)
+tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 
 # Apply a saved warp field to a label map
 tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
@@ -137,10 +142,10 @@ tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
 ```
 
 ```bash
-tiger reg T1w.nii.gz -A -o output_dir
-tiger reg T1w.nii.gz -A -r -o output_dir --affine_type C2FViT
-tiger reg T1w.nii.gz -F -o output_dir --affine_type ANTs
-tiger reg /data/T1w_dir -v -o /data/output
+tiger reg A T1w.nii.gz -o output_dir
+tiger reg AV T1w.nii.gz -o output_dir
+tiger reg AF T1w.nii.gz -o output_dir --affine_type ANTs
+tiger vbm /data/T1w_dir -o /data/output
 ```
 
 See [registration instructions](doc/reginstruction.md) for detailed usage.

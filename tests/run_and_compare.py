@@ -105,8 +105,8 @@ def run_reg(output_dir, tigerbx):
     # A=affine (C2FViT)  r=VMnet dense registration
     api_dir = make_dir(output_dir, 'reg', 'api')
     cli_dir = make_dir(output_dir, 'reg', 'cli')
-    run_api('reg — affine + registration', lambda: tigerbx.reg('Ar', TEMPLATE, api_dir))
-    run_cli('reg — -A -r', [TIGER_BIN, 'reg', '-A', '-r', TEMPLATE, '-o', cli_dir])
+    run_api('reg — affine + VMnet', lambda: tigerbx.reg('AV', TEMPLATE, api_dir))
+    run_cli('reg — AV', [TIGER_BIN, 'reg', 'AV', TEMPLATE, '-o', cli_dir])
 
 
 def run_nerve(output_dir, tigerbx):
