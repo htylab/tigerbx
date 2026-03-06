@@ -40,8 +40,8 @@ tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 ### Install a specific version
 
 ```bash
-pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
-pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.0.tar.gz"
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.3.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.3.tar.gz"
 ```
 
 > **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):
@@ -113,6 +113,8 @@ See [HLC usage](doc/hlc.md) for a complete description.
 ### `reg` — Registration
 
 Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration.
+The VBM pipeline now lives in `tigerbx.pipelines.vbm` and is exposed through
+the dispatcher / alias shown below.
 
 The registration pipeline was developed by **Pei-Mao Sun**.
 
@@ -128,7 +130,7 @@ tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir')
 # Affine + FuseMorph with ANTs affine
 tigerbx.reg('AF', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
 
-# VBM pipeline (dispatcher)
+# VBM pipeline (implemented in tigerbx.pipelines.vbm; dispatcher recommended)
 tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
 
 # Alias (kept for convenience)

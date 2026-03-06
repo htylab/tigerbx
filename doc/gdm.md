@@ -7,7 +7,8 @@ Generative Displacement Mapping (GDM) corrects geometric distortions in EPI (ech
 ## Python API
 
 ```python
-tigerbx.gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False)
+tigerbx.gdm(input, output=None, b0_index=0, dmap=False,
+            no_resample=False, GPU=False, verbose=0)
 ```
 
 | Parameter     | Type            | Default | Description |
@@ -18,13 +19,14 @@ tigerbx.gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=F
 | `dmap`        | `bool`          | `False` | Also save the predicted displacement map |
 | `no_resample` | `bool`          | `False` | Skip resampling to 1.7 x 1.7 x 1.7 mm³ |
 | `GPU`         | `bool`          | `False` | Use GPU for inference |
+| `verbose`     | `int`           | `0`     | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
 
 ---
 
 ## CLI Usage
 
 ```
-tiger gdm <input> [input ...] [-o OUTPUT] [-b0 B0_INDEX] [-m] [-n] [-g]
+tiger gdm <input> [input ...] [-o OUTPUT] [-b0 B0_INDEX] [-m] [-n] [-g] [--verbose N]
 ```
 
 | CLI flag      | Description |
@@ -34,6 +36,7 @@ tiger gdm <input> [input ...] [-o OUTPUT] [-b0 B0_INDEX] [-m] [-n] [-g]
 | `-m`          | Save the predicted displacement map |
 | `-n`          | Skip resampling to 1.7 x 1.7 x 1.7 mm³ |
 | `-g`          | Use GPU |
+| `--verbose N` | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
 
 ---
 

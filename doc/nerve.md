@@ -24,7 +24,7 @@ tigerbx.nerve(argstring, input, output=None, model=None, method='NERVE', verbose
 ## CLI Usage
 
 ```
-tiger nerve <input> [input ...] [-o OUTPUT] [-e] [-d] [-p] [-v] [-g] [-s]
+tiger nerve <input> [input ...] [-o OUTPUT] [-e] [-d] [-p] [-v] [-g] [-s] [--model MODEL] [--method METHOD] [--verbose N]
 ```
 
 ---
@@ -46,6 +46,7 @@ Additional CLI-only options:
 |-------------------|-------------|
 | `--model MODEL`   | Specify a custom ONNX model |
 | `--method METHOD` | Specify the embedding method (default: `NERVE`) |
+| `--verbose N`     | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
 
 ---
 

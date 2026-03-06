@@ -70,7 +70,8 @@ tigerbx/
 │   ├── bx.py            # Brain extraction pipeline
 │   ├── hlc.py           # HLC parcellation
 │   ├── reg.py           # Registration (plan-driven: R/A/V/N/C/F)
-│   ├── pipeline/        # High-level pipelines
+│   ├── pipeline_api.py  # High-level pipeline dispatcher
+│   ├── pipelines/       # High-level pipelines
 │   │   └── vbm.py       # VBM pipeline (separate from reg)
 │   ├── core/            # Shared utilities (see doc/core/)
 │   │   ├── io.py        # NIfTI I/O, path templates, input resolution
@@ -81,6 +82,12 @@ tigerbx/
 │   │   └── deform.py    # Displacement fields, Jacobian, warping
 │   ├── gdmi.py          # EPI distortion correction
 │   ├── nerve.py         # NERVE hippocampus/amygdala pipeline
+│   ├── eval.py          # Public metric facade
+│   └── validate.py      # Validation helpers and benchmarks
+├── tigerbx_cli/         # CLI parsers and dispatch
+├── doc/                 # User / developer documentation
+└── tests/               # Test and regression helpers
+```
 
 ---
 
@@ -208,9 +215,10 @@ uv run pytest tests/ -v   # current version
 Executables are built automatically by GitHub Actions on `workflow_dispatch`:
 
 - [`compile10.yml`](../.github/workflows/compile10.yml) — full build (all features)
-- [`compile_lite.yml`](../.github/workflows/compile_lite.yml) — lite build (excludes `antspyx`, `optuna`)
+- [`compile_manylinux.yml`](../.github/workflows/compile_manylinux.yml) — release build with a manylinux Linux target
 
-To trigger a build, go to **Actions → Compile10 → Run workflow** on GitHub.
+To trigger a build, go to **Actions → Compile10** or **Actions → CompileMany**
+and choose **Run workflow** on GitHub.
 
 ---
 
@@ -221,4 +229,5 @@ To trigger a build, go to **Actions → Compile10 → Run workflow** on GitHub.
 - **NIfTI I/O** — use `nibabel` for reading/writing; avoid hard-coding voxel assumptions.
 - **Model inference** — always go through `core.onnx.create_session()` and `core.onnx.predict()`, never create `ort.InferenceSession` directly in feature modules.
 - **No pandas in core** — pandas is a dev-only dependency; use `csv` module for any file output in production code.
-- **Python >=3.10** — the `setup.py` requires `python_requires='>=3.10'`. Use `str | None` syntax (not `Optional`).
+- **Typing** — avoid adding type annotations by default; follow existing local patterns and only add them when a public API clearly benefits.
+- **Python >=3.10** — the `setup.py` requires `python_requires='>=3.10'`.

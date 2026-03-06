@@ -84,7 +84,7 @@ tigerbx.run('b', 'T1w.nii.gz', 'output_dir')
 tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCSW', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
 
 # Process an entire directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
@@ -94,6 +94,9 @@ tigerbx.run('bmad', '/data/T1w_dir', '/data/output', chunk_size=100)
 
 # Resume an interrupted run — skip already-processed files
 tigerbx.run('bmad', '/data/T1w_dir', '/data/output', continue_=True)
+
+# In-memory outputs only (no files written)
+tigerbx.run('mC', 'T1w.nii.gz', save_outputs=False)
 
 # Verbose progress messages
 tigerbx.run('bm', 'T1w.nii.gz', 'output_dir', verbose=1)
@@ -112,10 +115,10 @@ tiger bx T1w.nii.gz -bmad -o output_dir
 tiger bx T1w.nii.gz -bm -o output_dir
 
 # Full pipeline — all output types
-tiger bx T1w.nii.gz -bmacdCSW -o output_dir
+tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
 
 # Process a whole directory with GPU
-tiger bx /data/T1w_dir -bmag -o /data/output
+tiger bx /data/T1w_dir -bmadg -o /data/output
 
 # Large batch: 100 files per session-cache chunk
 tiger bx /data/T1w_dir -bmad -o /data/output --chunk-size 100

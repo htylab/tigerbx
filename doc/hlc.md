@@ -28,8 +28,15 @@ tigerbx.hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, p
 ## CLI Usage
 
 ```
-tiger hlc <input> [input ...] [-o OUTPUT] [--save LETTERS] [-g] [-z] [-p]
+tiger hlc <input> [input ...] [-o OUTPUT] [--save LETTERS] [-g] [-z] [-p] [--verbose N]
 ```
+
+Additional CLI-only options:
+
+| CLI flag        | Description |
+|-----------------|-------------|
+| `--model MODEL` | Specify a custom ONNX model |
+| `--verbose N`   | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
 
 ---
 
