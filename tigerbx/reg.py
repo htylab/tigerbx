@@ -693,7 +693,7 @@ def run_case(args, f, *, common_folder=None,
 def run_args(args):
     if getattr(args, 'vbm', False):
         raise ValueError("VBM pipeline is not supported in tigerbx.reg.run_args; "
-                         "use tigerbx.vbm or tigerbx.pipeline.vbm.run_args().")
+                         "use tigerbx.vbm or tigerbx.pipelines.vbm.run_args().")
 
     verbose = getattr(args, 'verbose', 0)
 

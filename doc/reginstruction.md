@@ -2,7 +2,8 @@
 
 Brain image registration via `tigerbx.reg()` or the `tiger reg` CLI. The module supports deep-learning and classical affine/nonlinear registration methods.
 
-VBM is available as a separate subcommand: `tigerbx.vbm()` / `tiger vbm`.
+VBM is available as a pipeline dispatcher call: `tigerbx.pipeline('vbm', ...)` (recommended),
+or as an alias/subcommand: `tigerbx.vbm()` / `tiger vbm`.
 
 The VBM and registration pipeline was developed by **Pei-Mao Sun**.
 
@@ -110,7 +111,10 @@ tigerbx.reg('AC', r'C:\T1w_dir', r'C:\output_dir')
 tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
                   interpolation='nearest')
 
-# VBM pipeline (separate API)
+# VBM pipeline (dispatcher)
+tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
+
+# Alias (kept for convenience)
 tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 ```
 
@@ -149,7 +153,7 @@ The `reg` module now uses a **positional plan string** instead of individual fla
 | `tigerbx.reg('F', ...)`  | `tigerbx.reg('AF', ...)`       |
 | `tigerbx.reg('s', ...)`  | `tigerbx.reg('AN', ...)`       |
 | `tigerbx.reg('S', ...)`  | `tigerbx.reg('AC', ...)`       |
-| `tigerbx.reg('v', ...)`  | `tigerbx.vbm(...)`             |
+| `tigerbx.reg('v', ...)`  | `tigerbx.pipeline('vbm', ...)` |
 | `tiger reg -A -r ...`    | `tiger reg AV ...`             |
 | `tiger reg -F ...`       | `tiger reg AF ...`             |
 | `tiger reg -v ...`       | `tiger vbm ...`                |

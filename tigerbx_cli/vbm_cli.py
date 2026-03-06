@@ -28,5 +28,5 @@ def run_args(args):
     logger.setLevel(level)
 
     args.vbm = True
-    vbm_module = importlib.import_module('tigerbx.pipeline.vbm')
+    vbm_module = importlib.import_module('tigerbx.pipelines.vbm')
     vbm_module.run_args(args)

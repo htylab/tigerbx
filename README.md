@@ -128,7 +128,10 @@ tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir')
 # Affine + FuseMorph with ANTs affine
 tigerbx.reg('AF', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
 
-# VBM pipeline (separate subcommand)
+# VBM pipeline (dispatcher)
+tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
+
+# Alias (kept for convenience)
 tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 
 # Apply a saved warp field to a label map
