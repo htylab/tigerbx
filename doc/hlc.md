@@ -119,4 +119,5 @@ For an input named `sub-001_T1w.nii.gz`:
 ---
 
 For label definitions used in the HLC parcellation, see [Label definitions](seglabel.md).
-For registration tools and VBM analyses, see [Registration instructions](reginstruction.md).
+For registration tools, see [Registration usage](reg.md).
+For VBM and other high-level workflows, see [Pipeline usage](pipelines.md).

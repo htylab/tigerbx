@@ -4,12 +4,11 @@ Brain image registration via `tigerbx.reg()` or the `tiger reg` CLI. The
 module supports deep-learning and classical affine/nonlinear registration
 methods.
 
-DeepVBM is now implemented as a **separate pipeline module** in
-`tigerbx.pipelines.vbm`. Use `tigerbx.pipeline('vbm', ...)` as the recommended
-entry point, or the convenience alias / subcommand `tigerbx.vbm()` /
-`tiger vbm`.
+DeepVBM is implemented as a separate high-level pipeline in
+`tigerbx.pipelines.vbm`. See [Pipeline usage](pipelines.md) for
+`tigerbx.pipeline('vbm', ...)`, `tigerbx.vbm(...)`, and `tiger vbm`.
 
-The VBM and registration pipeline was developed by **Pei-Mao Sun**.
+The registration pipeline was developed by **Pei-Mao Sun**.
 
 ---
 
@@ -34,33 +33,6 @@ tigerbx.reg(plan, input=None, output=None, model=None,
 | `affine_type`       | `str`           | `'C2FViT'`  | Affine preprocessing method: `'C2FViT'` (deep learning) or `'ANTs'` (classical) |
 | `verbose`           | `int`           | `0`         | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
 
-## VBM Pipeline API
-
-```python
-tigerbx.pipeline('vbm', input=None, output=None,
-                 model=None, template=None, reg_plan='AF',
-                 gpu=False, gz=False, save_displacement=False,
-                 affine_type='C2FViT', verbose=0)
-
-# convenience alias
-tigerbx.vbm(input=None, output=None, model=None, template=None,
-            reg_plan='AF', gpu=False, gz=False,
-            save_displacement=False, affine_type='C2FViT', verbose=0)
-```
-
-| Parameter           | Type            | Default     | Description |
-|---------------------|-----------------|-------------|-------------|
-| `input`             | `str` or `list` | `None`      | Input NIfTI file, directory, or glob pattern |
-| `output`            | `str`           | `None`      | Output directory; if `None`, saves next to each input file |
-| `model`             | `str` or `dict` | `None`      | Custom model override; `None` uses bundled defaults |
-| `template`          | `str`           | `None`      | Custom template NIfTI path; `None` uses the bundled MNI152 1 mm brain |
-| `reg_plan`          | `str`           | `'AF'`      | Registration plan used inside the VBM pipeline |
-| `gpu`               | `bool`          | `False`     | Use GPU for inference |
-| `gz`                | `bool`          | `False`     | Force `.nii.gz` output |
-| `save_displacement` | `bool`          | `False`     | Save the displacement field produced by the registration stage |
-| `affine_type`       | `str`           | `'C2FViT'`  | Affine preprocessing method: `'C2FViT'` (deep learning) or `'ANTs'` (classical) |
-| `verbose`           | `int`           | `0`         | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
-
 ### Apply a saved warp field
 
 ```python
@@ -80,16 +52,8 @@ tigerbx.transform(image_path, warp_path, output_dir=None,
 
 ## CLI Usage
 
-### Registration CLI
-
 ```
 tiger reg <PLAN> <input> [input ...] [-o OUTPUT] [options]
-```
-
-### VBM CLI
-
-```
-tiger vbm <input> [input ...] [-o OUTPUT] [options]
 ```
 
 ---
@@ -128,19 +92,6 @@ registration steps to run and in what order.
 | `--affine_type {C2FViT,ANTs}` | `affine_type`       | Affine method (default: `C2FViT`) |
 | `--verbose N`                 | `verbose`           | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
 
-## VBM CLI options
-
-| CLI flag                      | Python parameter    | Description |
-|-------------------------------|---------------------|-------------|
-| `--model MODEL`               | `model`             | Registration model override |
-| `-g` / `--gpu`                | `gpu`               | Use GPU |
-| `-z` / `--gz`                 | `gz`                | Force `.nii.gz` output |
-| `--reg-plan PLAN`             | `reg_plan`          | Registration plan used inside DeepVBM (default: `AF`) |
-| `-T TEMPLATE`                 | `template`          | Custom template NIfTI file (default: bundled MNI152) |
-| `--save_displacement`         | `save_displacement` | Save the displacement field |
-| `--affine_type {C2FViT,ANTs}` | `affine_type`       | Affine method (default: `C2FViT`) |
-| `--verbose N`                 | `verbose`           | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
-
 ---
 
 ## Examples
@@ -168,12 +119,6 @@ tigerbx.reg('AC', r'C:\T1w_dir', r'C:\output_dir')
 # Apply a saved warp field to a new image
 tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
                   interpolation='nearest')
-
-# VBM pipeline (implemented in tigerbx.pipelines.vbm; dispatcher recommended)
-tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
-
-# Alias (kept for convenience)
-tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 ```
 
 ### CLI
@@ -193,9 +138,6 @@ tiger reg AN T1w.nii.gz -o output_dir
 
 # Save displacement field alongside registered image
 tiger reg AV T1w.nii.gz -o output_dir --save_displacement
-
-# VBM pipeline
-tiger vbm /data/T1w_dir -o /data/output
 ```
 
 ---
@@ -228,7 +170,6 @@ flags.
 - **Affine preprocessing** (`--affine_type`) affects `V` and `F` steps. Use
   `C2FViT` (default) for a fully deep-learning pipeline; use `ANTs` for a
   classical affine step
-- **VBM location**: DeepVBM now lives in `tigerbx.pipelines.vbm`; use
-  `tigerbx.pipeline('vbm', ...)` for the explicit dispatcher entry point
+- **Pipelines**: DeepVBM is documented separately in [Pipeline usage](pipelines.md)
 - **Interpolation** in `tigerbx.transform`: use `'nearest'` for label maps and
   `'linear'` for intensity images

@@ -197,8 +197,8 @@ Additional cleanup in this release includes:
 
 - New documentation pages are added for `io`, `onnx`, `resample`, `spatial`,
   `deform`, and `metrics` under `doc/core/`
-- `README.md` and `doc/reginstruction.md` are updated for the new registration
-  plan syntax and the separate VBM entry points
+- `README.md`, `doc/reg.md`, and `doc/pipelines.md` are updated for the new
+  registration plan syntax and the separate VBM entry points
 - the old `compile_lite.yml` GitHub Actions workflow is replaced with
   `compile_manylinux.yml`
 - package version is bumped from **`0.2.2`** to **`0.2.3`**

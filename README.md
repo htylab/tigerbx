@@ -77,7 +77,7 @@ tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
 tiger bx /data/T1w_dir -bmadg -o /data/output
 ```
 
-See [bx usage](doc/run.md) for a complete flag reference and output file naming.
+See [bx usage](doc/bx.md) for a complete flag reference and output file naming.
 
 ---
 
@@ -113,8 +113,8 @@ See [HLC usage](doc/hlc.md) for a complete description.
 ### `reg` — Registration
 
 Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration.
-The VBM pipeline now lives in `tigerbx.pipelines.vbm` and is exposed through
-the dispatcher / alias shown below.
+High-level workflows such as VBM are documented separately under
+[pipeline usage](doc/pipelines.md).
 
 The registration pipeline was developed by **Pei-Mao Sun**.
 
@@ -130,12 +130,6 @@ tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir')
 # Affine + FuseMorph with ANTs affine
 tigerbx.reg('AF', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
 
-# VBM pipeline (implemented in tigerbx.pipelines.vbm; dispatcher recommended)
-tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
-
-# Alias (kept for convenience)
-tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
-
 # Apply a saved warp field to a label map
 tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
                   interpolation='nearest')
@@ -145,10 +139,38 @@ tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
 tiger reg A T1w.nii.gz -o output_dir
 tiger reg AV T1w.nii.gz -o output_dir
 tiger reg AF T1w.nii.gz -o output_dir --affine_type ANTs
-tiger vbm /data/T1w_dir -o /data/output
 ```
 
-See [registration instructions](doc/reginstruction.md) for detailed usage.
+See [registration usage](doc/reg.md) for detailed usage.
+
+---
+
+### `pipelines` — High-Level Workflows
+
+Use `tigerbx.pipeline(name, ...)` for opinionated multi-stage workflows.
+Currently, TigerBx exposes the `vbm` pipeline through the dispatcher, a Python
+alias, and a dedicated CLI subcommand.
+
+```python
+import tigerbx
+
+# Recommended dispatcher entry point
+tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir')
+
+# Convenience alias
+tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
+
+# Customize the registration stage used inside the pipeline
+tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir',
+                 reg_plan='AF', affine_type='ANTs')
+```
+
+```bash
+tiger vbm /data/T1w_dir -o /data/output
+tiger vbm /data/T1w_dir -o /data/output --reg-plan AF --affine_type ANTs
+```
+
+See [pipeline usage](doc/pipelines.md) for dispatcher and VBM details.
 
 ---
 
