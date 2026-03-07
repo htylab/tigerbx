@@ -14,6 +14,7 @@ def setup_parser(parser):
     parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
     parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
     parser.add_argument('-S', '--syn', action='store_true', help='Producing ASEG mask using SynthSeg-like method')
+    parser.add_argument('-Y', '--syn2', action='store_true', help='Producing ASEG mask using syn2 model')
     parser.add_argument('-W', '--wmh', action='store_true', help='Producing white matter hypo-intensity mask')
     parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')

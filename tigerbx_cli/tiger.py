@@ -2,7 +2,7 @@ import sys
 import argparse
 from tigerbx_cli import bx_cli, gdm_cli, hlc_cli, reg_cli, nerve_cli, vbm_cli
 
-_BX_SHORT_FLAGS = set('bmacCdSWtqzpg')
+_BX_SHORT_FLAGS = set('bmacCdSWYtqzpg')
 
 
 def _expand_bx_flags(argv):

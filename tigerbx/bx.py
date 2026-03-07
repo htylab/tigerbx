@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
+from tigerbx.model_registry import get_model_spec, is_registry_model
 import copy
 from tigerbx.core.io import get_template, save_nib, resolve_inputs
 from tigerbx.core.onnx import create_session, predict
@@ -62,7 +63,7 @@ def _prepare_tbet111_crop(tbet_nib, native_111_range=_NATIVE_111):
     return _crop_nib(tbet111, xyz6_111)
 
 
-def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, session=None):
+def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, session=None, spec=None):
     """Shared inference core: load, run model, resample, apply brainmask, cast dtype.
 
     Returns (output_nib, mask_nib_resp, prob_resp).
@@ -76,7 +77,7 @@ def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, sessi
         input_nib_resp = copy.deepcopy(tbet111)  # avoid modifying caller's copy
 
     mask_nib_resp, prob_resp = lib_bx.run(
-        model_ff, input_nib_resp, GPU=GPU, patch=patch, session=session)
+        model_ff, input_nib_resp, GPU=GPU, patch=patch, session=session, spec=spec)
 
     mask_nib = resample_to_img(
         mask_nib_resp, input_nib, interpolation="nearest")
@@ -121,7 +122,7 @@ def produce_betmask(model, f, GPU=False, patch=False, session=None):
 
 
 def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None,
-                 patch=False, session=None):
+                 patch=False, session=None, spec=None):
     """Run a segmentation model and return output_nib.
 
     brainmask_nib: BET mask applied to the output (zeros outside brain).
@@ -130,7 +131,7 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None,
     model_ff = lib_tool.get_model(model)
 
     output_nib, _, _ = _infer_mask(
-        model_ff, f, GPU, patch, brainmask_nib, tbet111, session=session)
+        model_ff, f, GPU, patch, brainmask_nib, tbet111, session=session, spec=spec)
 
     return output_nib
 
@@ -145,6 +146,7 @@ def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
         'dgm':     'dgm',
         'wmh':     'wmh',
         'syn':     'syn',
+        'syn2':    'syn2',
         'cgw':     ('cgw_pve0', 'cgw_pve1', 'cgw_pve2'),
         'ct':      'ct',
     }
@@ -190,6 +192,7 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
     args.dgm = 'd' in argstring
     args.wmh = 'W' in argstring
     args.syn = 'S' in argstring
+    args.syn2 = 'Y' in argstring
     args.qc = 'q' in argstring
     args.gz = 'z' in argstring
     args.patch = 'p' in argstring
@@ -198,11 +201,18 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
 
 # ── per-model inference helpers ───────────────────────────────────────────────
 
-def _run_seg(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
+def _run_seg(key, session, model_ff, f, cache, GPU, patch, save_outputs=True, spec=None):
+    brainmask_nib = cache['tbetmask_nib']
+    tbet111_crop = cache['tbet111_crop']
+    if spec is not None:
+        if not spec.get('apply_brainmask', True):
+            brainmask_nib = None
+        if not spec.get('use_tbet111_crop', True):
+            tbet111_crop = None
     result_nib = produce_mask(model_ff, f, GPU=GPU,
-                              brainmask_nib=cache['tbetmask_nib'],
-                              tbet111=cache['tbet111_crop'],
-                              patch=patch, session=session)
+                              brainmask_nib=brainmask_nib,
+                              tbet111=tbet111_crop,
+                              patch=patch, session=session, spec=spec)
     if save_outputs:
         fn = save_nib(result_nib, cache['ftemplate'], key)
         _logger.debug('Writing output file: %s', fn)
@@ -258,11 +268,12 @@ _MODEL_RUNNERS = {
     'dgm':  _run_seg,
     'wmh':  _run_seg,
     'syn':  _run_seg,
+    'syn2': _run_seg,
     'cgw':  _run_cgw,
     'ct':   _run_ct,
 }
 
-_SEG_ORDER = ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct']
+_SEG_ORDER = ['aseg', 'dgm', 'wmh', 'syn', 'syn2', 'cgw', 'ct']
 
 
 # ── main entry point ──────────────────────────────────────────────────────────
@@ -270,6 +281,7 @@ _SEG_ORDER = ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct']
 def run_args(args):
 
     run_d      = vars(args)
+    run_d.setdefault('syn2', False)
     verbose    = run_d.get('verbose', 0)
     chunk_size = run_d.get('chunk_size', 50)
     save_outputs = run_d.get('save_outputs', True)
@@ -287,7 +299,7 @@ def run_args(args):
 
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
                     run_d['ct'], run_d['qc'], run_d['wmh'],
-                    run_d['cgw'], run_d['syn'], run_d['patch']]:
+                    run_d['cgw'], run_d['syn'], run_d['syn2'], run_d['patch']]:
         run_d['bet'] = True
 
     if run_d['clean_onnx']:
@@ -306,6 +318,7 @@ def run_args(args):
         'wmh':  'mprage_wmh_v002_betr111.onnx',
         'cgw':  'mprage_cgw_v001_r111.onnx',
         'syn':  'mprage_synthseg_v003_r111.onnx',
+        'syn2': 'mprage_syn2_v001_r111.onnx',
     }
 
     if isinstance(args.model, dict):
@@ -329,12 +342,17 @@ def run_args(args):
     if not input_file_list:
         return []
 
-    _needs_tbet111_crop = any(run_d.get(k) for k in ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct'])
+    _needs_tbet111_crop = any(run_d.get(k) for k in ['aseg', 'dgm', 'wmh', 'syn', 'syn2', 'cgw', 'ct'])
     if any(run_d.get(k) for k in ['cgw', 'ct']):
         _native_111_range = _NATIVE_111
     else:
         _native_111_range = _NATIVE_111_LOOSE
-    active_models = [(k, _MODEL_RUNNERS[k]) for k in _SEG_ORDER if run_d.get(k)]
+    active_models = []
+    for key in _SEG_ORDER:
+        if not run_d.get(key):
+            continue
+        spec = get_model_spec(key, omodel.get(key)) if is_registry_model(key) else None
+        active_models.append((key, _MODEL_RUNNERS[key], spec))
 
     result_accum = {f: [{}, {}] for f in input_file_list}
     bet_model_ff = lib_tool.get_model(omodel['bet'])
@@ -413,14 +431,16 @@ def run_args(args):
         del bet_session
 
         # Phase 2+: one session per model, loop over all files in chunk
-        for key, runner in active_models:
-            model_ff = lib_tool.get_model(omodel[key])
+        for key, runner, spec in active_models:
+            model_name = spec['model'] if spec is not None else omodel[key]
+            model_ff = lib_tool.get_model(model_name)
             session  = create_session(model_ff, args.gpu)
             _seg_pbar = tqdm(chunk, desc=key, unit='file', disable=(len(input_file_list) <= 1 or verbose >= 2))
             for f in _seg_pbar:
                 _seg_pbar.set_postfix_str(os.path.basename(f))
                 rd_upd, rfd_upd = runner(
-                    key, session, model_ff, f, bet_cache[f], args.gpu, run_d['patch'], save_outputs)
+                    key, session, model_ff, f, bet_cache[f], args.gpu, run_d['patch'],
+                    save_outputs=save_outputs, spec=spec)
                 result_accum[f][0].update(rd_upd)
                 result_accum[f][1].update(rfd_upd)
             del session

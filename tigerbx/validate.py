@@ -375,6 +375,7 @@ DATASET_REGISTRY = [
             ('aseg_123', lambda **kw: _val_seg_123('aseg', 'a', **kw), 'aseg'),
             ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw), 'dgm'),
             ('syn_123',  lambda **kw: _val_seg_123('syn',  'S', **kw), 'syn'),
+            ('syn2_123', lambda **kw: _val_seg_123('syn2', 'Y', **kw), 'syn2'),
             ('hlc_123',  val_hlc_123,                                  'hlc'),
         ],
     },

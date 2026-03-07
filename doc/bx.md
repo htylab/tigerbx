@@ -52,6 +52,7 @@ tiger bx <input> [input ...] [-o OUTPUT] [flags ...]
 | `C`      | `-C`     | `_cgw_pve0/1/2`      | CSF / GM / WM probability maps (3 files, FSL-style PVE) |
 | `d`      | `-d`     | `_dgm`               | Deep gray matter mask (12 structures) |
 | `S`      | `-S`     | `_syn`               | SynthSeg-style ASEG segmentation |
+| `Y`      | `-Y`     | `_syn2`              | syn2 ASEG segmentation |
 | `W`      | `-W`     | `_wmh`               | White matter hypointensity mask |
 | `q`      | `-q`     | `_qc-<score>.log`    | QC score log (also written automatically when QC < 50) |
 | `g`      | `-g`     | —                    | Use GPU for inference |
@@ -98,6 +99,11 @@ tigerbx.run('bmad', '/data/T1w_dir', '/data/output', continue_=True)
 # In-memory outputs only (no files written)
 tigerbx.run('mC', 'T1w.nii.gz', save_outputs=False)
 
+# Run syn2 with a local ONNX override
+tigerbx.run('Y', 'T1w.nii.gz',
+            model={'syn2': 'result/09ca432/latest.onnx'},
+            save_outputs=False)
+
 # Verbose progress messages
 tigerbx.run('bm', 'T1w.nii.gz', 'output_dir', verbose=1)
 
@@ -129,6 +135,9 @@ tiger bx /data/T1w_dir -bmad -o /data/output --continue
 # Patch-based inference for high-resolution inputs
 tiger bx T1w.nii.gz -bmp -o output_dir
 
+# Run syn2 with a local ONNX override
+tiger bx T1w.nii.gz -Y --model "{'syn2':'result/09ca432/latest.onnx'}"
+
 # Quiet output (tqdm bars only)
 tiger bx /data/T1w_dir -bm -o /data/output --verbose 0
 
@@ -154,6 +163,7 @@ For an input named `sub-001_T1w.nii.gz`, outputs are:
 | `-C` | `sub-001_T1w_cgw_pve0.nii.gz`, `_pve1.nii.gz`, `_pve2.nii.gz` (CSF / GM / WM) |
 | `-d` | `sub-001_T1w_dgm.nii.gz` |
 | `-S` | `sub-001_T1w_syn.nii.gz` |
+| `-Y` | `sub-001_T1w_syn2.nii.gz` |
 | `-W` | `sub-001_T1w_wmh.nii.gz` |
 | `-q` | `sub-001_T1w_qc-<score>.log` |
 

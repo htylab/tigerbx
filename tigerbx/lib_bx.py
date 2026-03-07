@@ -26,15 +26,16 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
                      4018, 4019, 4020, 4021, 4022, 4023, 4024, 4025, 4026, 4027, 4028,
                      4029, 4030, 4031, 4032, 4033, 4034, 4035)
 
-label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
-                         26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
+label_all['syn'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
+                    26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
 #nib.Nifti1Header.quaternion_threshold = -100
 
 
 def get_mode(model_ff):
     seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
 
-    #print(seg_mode, version , model_str)
+    legacy_alias = {'synthseg': 'syn'}
+    seg_mode = legacy_alias.get(seg_mode, seg_mode)
 
     return seg_mode, version, model_str
 
@@ -48,7 +49,7 @@ def getLarea(input_mask):
         mask = input_mask
     return mask
 
-def logit_to_prob(logits, seg_mode):
+def logit_to_prob(logits, seg_mode=None, n_classes=None):
     label_num = dict()
     label_num['bet'] = 2
     label_num['aseg43'] = 44
@@ -57,9 +58,15 @@ def logit_to_prob(logits, seg_mode):
     label_num['wmp'] = 74
     label_num['seg3'] = 4
     label_num['wmh'] = 2
-    label_num['synthseg'] = 33
+    label_num['syn'] = 33
+
+    if n_classes is None:
+        if seg_mode not in label_num:
+            raise KeyError(f'Unknown seg_mode without n_classes: {seg_mode}')
+        n_classes = label_num[seg_mode]
+
     #so far we only use sigmoid in tBET
-    if label_num[seg_mode] > logits.shape[0]:
+    if n_classes > logits.shape[0]:
         #sigmoid
         th = 0.5
         from scipy.special import expit
@@ -70,27 +77,52 @@ def logit_to_prob(logits, seg_mode):
         prob = softmax(logits, axis=0)
     return prob
 
-def run(model_ff, input_nib, GPU, patch=False, session=None):
+def _normalise_image(image, input_norm):
+    if input_norm == 'minmax':
+        rng = np.max(image) - np.min(image)
+        if rng > 0:
+            return (image - np.min(image)) / rng
+        return image
+    if input_norm == 'max':
+        mx = np.max(image)
+        if mx > 0:
+            return image / mx
+        return image
+    raise ValueError(f'Unsupported input_norm: {input_norm}')
 
-    seg_mode, _, model_str = get_mode(model_ff)
+
+def run(model_ff, input_nib, GPU, patch=False, session=None, spec=None):
+
+    if spec is None:
+        seg_mode, _, model_str = get_mode(model_ff)
+        input_norm = 'minmax' if seg_mode == 'syn' else 'max'
+        labels = label_all.get(seg_mode)
+        n_classes = None
+        compact_to_final_label = None
+    else:
+        seg_mode = spec['task']
+        input_norm = spec.get('input_norm', 'max')
+        labels = spec.get('labels')
+        n_classes = spec.get('n_classes')
+        compact_to_final_label = spec.get('compact_to_final_label')
 
     data = lib_tool.read_nib(input_nib)
 
     image = data[None, ...][None, ...]
-    if seg_mode == 'synthseg':
-        rng = np.max(image) - np.min(image)
-        if rng > 0:
-            image = (image - np.min(image)) / rng
-    else:
-        mx = np.max(image)
-        if mx > 0:
-            image = image / mx
+    image = _normalise_image(image, input_norm)
 
     if patch:
         logits = predict(model_ff, image, GPU, mode='patch', session=session)[0, ...]
     else:
         logits = predict(model_ff, image, GPU, session=session)[0, ...]
-    prob = logit_to_prob(logits, seg_mode)
+
+    if n_classes is not None and logits.shape[0] != n_classes:
+        raise ValueError(
+            f'Model/spec mismatch for {model_ff}: logits have {logits.shape[0]} channels, '
+            f'but spec expects {n_classes}.'
+        )
+
+    prob = logit_to_prob(logits, seg_mode=seg_mode, n_classes=n_classes)
 
     if seg_mode =='bet': #sigmoid 1 channel
         th = 0.5
@@ -101,14 +133,18 @@ def run(model_ff, input_nib, GPU, patch=False, session=None):
         mask_pred = np.argmax(prob, axis=0)
 
 
-    if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
-        labels = label_all[seg_mode]
+    if compact_to_final_label is not None:
+        lut = np.asarray(compact_to_final_label, dtype=np.int32)
+        if np.max(mask_pred) >= len(lut):
+            raise ValueError(
+                f'Predicted compact class index {np.max(mask_pred)} exceeds LUT size {len(lut)}'
+            )
+        mask_pred = lut[mask_pred]
+    elif labels is not None:
         lut = np.zeros(len(labels) + 2, dtype=np.int32)
         for ii, lbl in enumerate(labels):
             lut[ii + 1] = lbl
         mask_pred = lut[mask_pred]
-
-
 
     mask_pred = mask_pred.astype(int)
 

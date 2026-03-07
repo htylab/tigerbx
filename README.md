@@ -64,6 +64,11 @@ tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 # Full pipeline — all output types
 tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
 
+# Run syn2 with a local ONNX override
+tigerbx.run('Y', 'T1w.nii.gz',
+            model={'syn2': 'result/09ca432/latest.onnx'},
+            save_outputs=False)
+
 # Process a directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
 
@@ -74,6 +79,7 @@ tigerbx.run('bmadg', '/data/T1w_dir', '/data/output')
 ```bash
 tiger bx T1w.nii.gz -bmad -o output_dir
 tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
+tiger bx T1w.nii.gz -Y --model "{'syn2':'result/09ca432/latest.onnx'}"
 tiger bx /data/T1w_dir -bmadg -o /data/output
 ```
 
