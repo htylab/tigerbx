@@ -82,7 +82,6 @@ def run_cli(label, cmd):
 
 def run_bx(output_dir, tigerbx):
     # b=bet  m=betmask  a=aseg  c=ct  C=cgw  d=dgm  S=syn  W=wmh  t=tumor  q=qc
-    # Note: k=dkt and w=wmp are API-only; omitted to keep API/CLI outputs comparable
     api_dir = make_dir(output_dir, 'bx', 'api')
     cli_dir = make_dir(output_dir, 'bx', 'cli')
     run_api('bx — all outputs', lambda: tigerbx.run('bmacdCSWtq', TEMPLATE, api_dir))
