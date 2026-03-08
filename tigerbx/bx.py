@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
-from tigerbx.model_registry import get_model_spec, is_registry_model
+from tigerbx.model_registry import get_default_model_names, get_model_spec, is_registry_model
 import copy
 from tigerbx.core.io import get_template, save_nib, resolve_inputs
 from tigerbx.core.onnx import create_session, predict
@@ -312,14 +312,10 @@ def run_args(args):
     output_dir = args.output
     omodel = {
         'bet':  'mprage_bet_v005_mixsynthv4.onnx',
-        'aseg': 'mprage_aseg43_v007_16ksynth.onnx',
         'ct':   'mprage_mix_ct.onnx',
-        'dgm':  'mprage_dgm12_v002_mix6.onnx',
-        'wmh':  'mprage_wmh_v002_betr111.onnx',
         'cgw':  'mprage_cgw_v001_r111.onnx',
-        'syn':  'mprage_synthseg_v003_r111.onnx',
-        'syn2': 'mprage_syn2_v001_r111.onnx',
     }
+    omodel.update(get_default_model_names())
 
     if isinstance(args.model, dict):
         for mm in args.model.keys():

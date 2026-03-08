@@ -1,6 +1,18 @@
 import copy
 
 
+_ASEG_LABELS = (
+    2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
+    26, 28, 30, 31, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54,
+    58, 60, 62, 63, 77, 85, 251, 252, 253, 254, 255,
+)
+
+_DGM_LABELS = (
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+)
+
+_WMH_LABELS = (1,)
+
 _SYN_LABELS = (
     2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
     26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60,
@@ -46,6 +58,45 @@ _SYN_COMPACT_TO_FINAL = (0,) + _SYN_LABELS
 
 
 MODEL_SPECS = {
+    'aseg': {
+        'model': 'mprage_aseg43_v007_16ksynth.onnx',
+        'task': 'aseg',
+        'labels': _ASEG_LABELS,
+        'n_classes': 44,
+        'input_norm': 'max',
+        'use_tbet111_crop': True,
+        'apply_brainmask': True,
+        'output_key': 'aseg',
+        'output_suffix': 'aseg',
+        'background_label': 0,
+        'compact_to_final_label': (0,) + _ASEG_LABELS,
+    },
+    'dgm': {
+        'model': 'mprage_dgm12_v002_mix6.onnx',
+        'task': 'dgm',
+        'labels': _DGM_LABELS,
+        'n_classes': 13,
+        'input_norm': 'max',
+        'use_tbet111_crop': True,
+        'apply_brainmask': True,
+        'output_key': 'dgm',
+        'output_suffix': 'dgm',
+        'background_label': 0,
+        'compact_to_final_label': (0,) + _DGM_LABELS,
+    },
+    'wmh': {
+        'model': 'mprage_wmh_v002_betr111.onnx',
+        'task': 'wmh',
+        'labels': _WMH_LABELS,
+        'n_classes': 2,
+        'input_norm': 'max',
+        'use_tbet111_crop': True,
+        'apply_brainmask': True,
+        'output_key': 'wmh',
+        'output_suffix': 'wmh',
+        'background_label': 0,
+        'compact_to_final_label': (0, 1),
+    },
     'syn': {
         'model': 'mprage_synthseg_v003_r111.onnx',
         'task': 'syn',
@@ -79,6 +130,10 @@ MODEL_SPECS = {
 
 def is_registry_model(key):
     return key in MODEL_SPECS
+
+
+def get_default_model_names():
+    return {key: spec['model'] for key, spec in MODEL_SPECS.items()}
 
 
 def get_model_spec(key, model_name=None):

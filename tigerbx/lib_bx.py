@@ -4,12 +4,11 @@ import nibabel as nib
 from scipy.special import softmax
 from tigerbx.core.onnx import predict
 from tigerbx.core.resample import reorder_img, resample_voxel
+from tigerbx.model_registry import get_model_spec, is_registry_model
 
 from tigerbx import lib_tool
 
 label_all = dict()
-label_all['aseg43'] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,
-                44,46,47,49,50,51,52,53,54,58,60,62,63,77,85,251,252,253,254,255)
 label_all['dkt'] = ( 1002, 1003,
                1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015,
                1016, 1017, 1018, 1019, 1020, 1021, 1022, 1023, 1024, 1025, 1026,
@@ -25,16 +24,19 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
                      4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 4016, 4017,
                      4018, 4019, 4020, 4021, 4022, 4023, 4024, 4025, 4026, 4027, 4028,
                      4029, 4030, 4031, 4032, 4033, 4034, 4035)
-
-label_all['syn'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
-                    26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
 #nib.Nifti1Header.quaternion_threshold = -100
+
+for _key in ('aseg', 'dgm', 'wmh', 'syn', 'syn2'):
+    label_all[_key] = get_model_spec(_key)['labels']
+label_all['aseg43'] = label_all['aseg']
+label_all['dgm12'] = label_all['dgm']
+label_all['synthseg'] = label_all['syn']
 
 
 def get_mode(model_ff):
     seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
 
-    legacy_alias = {'synthseg': 'syn'}
+    legacy_alias = {'aseg43': 'aseg', 'dgm12': 'dgm', 'synthseg': 'syn'}
     seg_mode = legacy_alias.get(seg_mode, seg_mode)
 
     return seg_mode, version, model_str
@@ -52,13 +54,17 @@ def getLarea(input_mask):
 def logit_to_prob(logits, seg_mode=None, n_classes=None):
     label_num = dict()
     label_num['bet'] = 2
+    label_num['aseg'] = 44
     label_num['aseg43'] = 44
     label_num['dkt'] = 63
+    label_num['dgm'] = 13
     label_num['dgm12'] = 13
     label_num['wmp'] = 74
     label_num['seg3'] = 4
     label_num['wmh'] = 2
     label_num['syn'] = 33
+    label_num['synthseg'] = 33
+    label_num['syn2'] = 33
 
     if n_classes is None:
         if seg_mode not in label_num:
@@ -95,10 +101,17 @@ def run(model_ff, input_nib, GPU, patch=False, session=None, spec=None):
 
     if spec is None:
         seg_mode, _, model_str = get_mode(model_ff)
-        input_norm = 'minmax' if seg_mode == 'syn' else 'max'
-        labels = label_all.get(seg_mode)
-        n_classes = None
-        compact_to_final_label = None
+        if is_registry_model(seg_mode):
+            spec = get_model_spec(seg_mode)
+            input_norm = spec.get('input_norm', 'max')
+            labels = spec.get('labels')
+            n_classes = spec.get('n_classes')
+            compact_to_final_label = spec.get('compact_to_final_label')
+        else:
+            input_norm = 'minmax' if seg_mode in ('syn', 'syn2') else 'max'
+            labels = label_all.get(seg_mode)
+            n_classes = None
+            compact_to_final_label = None
     else:
         seg_mode = spec['task']
         input_norm = spec.get('input_norm', 'max')
