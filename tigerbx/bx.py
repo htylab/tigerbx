@@ -112,6 +112,8 @@ def produce_betmask(model, f, GPU=False, patch=False, session=None):
 
     probmax     = np.max(prob_resp, axis=0)
     within_mask = lib_tool.read_nib(mask_nib_resp) > 0
+    if not np.any(within_mask):
+        raise RuntimeError(f'BET produced an empty brain mask for {f!r}.')
     p           = probmax.clip(1e-7, 1 - 1e-7)
     entropy     = -(p * np.log(p) + (1 - p) * np.log(1 - p))  # binary entropy [0, ln2]
     qc_raw   = 1.0 - float(np.mean(entropy[within_mask])) / np.log(2)
@@ -214,7 +216,11 @@ def _run_cgw(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     input_nib = nib.load(f)
     tbet111_crop = cache['tbet111_crop']
     normalize_factor = np.max(input_nib.get_fdata())
+    if not np.isfinite(normalize_factor) or normalize_factor <= 0:
+        raise ValueError(f'CGW requires a finite positive image maximum for {f!r}.')
     bet_img = lib_tool.read_nib(tbet111_crop)
+    if not np.all(np.isfinite(bet_img)):
+        raise ValueError(f'CGW input contains non-finite values for {f!r}.')
     image = bet_img[None, ...][None, ...] / normalize_factor
     cgw = predict(model_ff, image, GPU, session=session)[0]
     rd, rfd = {'cgw': []}, {'cgw': []}

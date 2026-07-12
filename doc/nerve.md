@@ -19,6 +19,12 @@ tigerbx.nerve(argstring, input, output=None, model=None, method='NERVE', verbose
 | `method`    | `str`           | `'NERVE'`  | Embedding method |
 | `verbose`   | `int`           | `0`        | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
 
+**Returns:** for one input, a dictionary containing named output paths
+(`latent`, `patch`, and/or `recon`); for multiple inputs, a list of those
+dictionaries. Evaluation mode returns a dictionary with `records`, `average`,
+`csv`, and `outputs` entries; failed cases remain visible in `outputs`, while an
+entirely unsuccessful evaluation returns empty records and `None` summary paths.
+
 ---
 
 ## CLI Usage

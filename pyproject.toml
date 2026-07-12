@@ -4,3 +4,7 @@ requires = [
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+cache_dir = "temp/.pytest_cache"

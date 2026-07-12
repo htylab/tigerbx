@@ -1,6 +1,4 @@
 import os
-from os.path import join
-import glob
 import nibabel as nib
 import numpy as np
 import time
@@ -12,9 +10,9 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from tqdm import tqdm
 
 from tigerbx import lib_tool
-from tigerbx.core.io import write_gdm_nifti_like_input
+from tigerbx.core.io import resolve_inputs, write_gdm_nifti_like_input
 from tigerbx.core.deform import apply_vdm_3d
-from tigerbx.core.onnx import predict_single_output as core_predict_single_output
+from tigerbx.core.onnx import create_session, predict_single_output as core_predict_single_output
 from tigerbx.core.resample import resample_to_new_resolution as core_resample_to_new_resolution
 from tigerbx.core.spatial import resize_with_pad_or_crop
 
@@ -50,13 +48,9 @@ def run_args(args):
         if verbose >= 1:
             _logger.info(' '.join(str(x) for x in msg))
 
-    input_file_list = args.input
-    if os.path.isdir(args.input[0]):
-        input_file_list = glob.glob(join(args.input[0], '*.nii'))
-        input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
-
-    elif '*' in args.input[0]:
-        input_file_list = glob.glob(args.input[0])
+    input_file_list, _ = resolve_inputs(args.input)
+    if not input_file_list:
+        return []
 
     output_dir = args.output
 
@@ -74,6 +68,7 @@ def run_args(args):
     model_name = lib_tool.get_model('vdm_unet3d_v002')
 
     result_all = []
+    is_single = len(input_file_list) == 1
     _pbar = tqdm(input_file_list, desc='tigerbx-gdm', unit='file', disable=(verbose > 0))
     for f in _pbar:
 
@@ -90,40 +85,26 @@ def run_args(args):
             os.makedirs(output_dir, exist_ok=True)
 
         result_dict = {}
-        fn, _ = write_gdm_nifti_like_input(f, f_output_dir, gdmi)
-        result_dict['gdmi'] = fn
+        result_filedict = {}
+        fn, result_nib = write_gdm_nifti_like_input(f, f_output_dir, gdmi)
+        result_dict['gdmi'] = result_nib
+        result_filedict['gdmi'] = fn
 
         if args.dmap:
-            fn, _ = write_gdm_nifti_like_input(f, f_output_dir, gdmap, postfix='gdm')
-            result_dict['gdm'] = fn
+            fn, result_nib = write_gdm_nifti_like_input(f, f_output_dir, gdmap, postfix='gdm')
+            result_dict['gdm'] = result_nib
+            result_filedict['gdm'] = fn
 
         printer('Processing time: %d seconds' % (time.time() - t))
-        result_all.append(result_dict)
+        result_all.append(result_dict if is_single else result_filedict)
 
-    if len(input_file_list) == 1:
+    if is_single:
         return result_all[0]
     return result_all
 
 
 def run(model_ff, input_data, b0_index, GPU, resample=True):
-    import onnxruntime as ort
-
-    so = ort.SessionOptions()
-    so.intra_op_num_threads = 4
-    so.inter_op_num_threads = 4
-
-    if GPU and (ort.get_device() == "GPU"):
-        session = ort.InferenceSession(
-            model_ff,
-            providers=['CUDAExecutionProvider'],
-            sess_options=so,
-        )
-    else:
-        session = ort.InferenceSession(
-            model_ff,
-            providers=['CPUExecutionProvider'],
-            sess_options=so,
-        )
+    session = create_session(model_ff, GPU)
 
     orig_data = input_data
     vdm_pred = gernerate_vdm(session, orig_data, b0_index, resample=resample)
