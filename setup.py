@@ -1,8 +1,19 @@
+import re
+from pathlib import Path
 from setuptools import setup, find_packages
+
+
+def _read_version():
+    text = Path(__file__).parent.joinpath('tigerbx', '__init__.py').read_text(encoding='utf-8')
+    match = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", text, re.MULTILINE)
+    if not match:
+        raise RuntimeError('Unable to find __version__ in tigerbx/__init__.py')
+    return match.group(1)
+
 
 setup(
      name='tigerbx',
-     version='0.2.3',
+     version=_read_version(),
      license='CC BY-NC 4.0',
      license_files=['LICENSE'],
 

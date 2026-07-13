@@ -10,6 +10,8 @@ import numpy as np
 
 def resolve_nifti_inputs(input_arg):
     """Resolve an input argument (dir, glob, or file list) to a list of NIfTI paths."""
+    if not input_arg:
+        return []
     input_file_list = input_arg
     if os.path.isdir(input_arg[0]):
         input_file_list = glob.glob(join(input_arg[0], '*.nii'))
@@ -84,14 +86,19 @@ def format_output_path(input_file, output_dir, postfix, suffix=".nii.gz"):
 
 
 def _pick_output_dtype(vol_out, reference_dtype):
+    if np.size(vol_out) == 0 or not np.all(np.isfinite(vol_out)):
+        return None
+
+    data_min = np.min(vol_out)
+    data_max = np.max(vol_out)
     if np.issubdtype(reference_dtype, np.integer):
-        max_dtype = np.iinfo(reference_dtype).max
-        if np.max(vol_out) > max_dtype:
+        dtype_info = np.iinfo(reference_dtype)
+        if data_min < dtype_info.min or data_max > dtype_info.max:
             return None
         return reference_dtype
     if np.issubdtype(reference_dtype, np.floating):
-        max_dtype = np.finfo(reference_dtype).max
-        if np.max(vol_out) > max_dtype:
+        dtype_info = np.finfo(reference_dtype)
+        if data_min < dtype_info.min or data_max > dtype_info.max:
             return None
         return reference_dtype
     return reference_dtype

@@ -21,6 +21,10 @@ tigerbx.gdm(input, output=None, b0_index=0, dmap=False,
 | `GPU`         | `bool`          | `False` | Use GPU for inference |
 | `verbose`     | `int`           | `0`     | Verbosity: `0` = tqdm only, `1` = progress, `2` = debug |
 
+**Returns:** for one input, a dictionary of nibabel images (`gdmi`, and `gdm`
+when requested). For multiple inputs, returns a list of dictionaries containing
+the corresponding saved file paths.
+
 ---
 
 ## CLI Usage
