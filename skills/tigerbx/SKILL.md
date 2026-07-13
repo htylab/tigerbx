@@ -1,64 +1,43 @@
 ---
 name: tigerbx
-description: "Use tigerbx for structural brain MRI (T1w NIfTI): brain extraction (BET), skull-stripping, tissue segmentation, ASEG, parcellation, cortical thickness, VBM, MNI registration, DTI/EPI distortion correction, hippocampus/amygdala embedding."
-argument-hint: "<bx|hlc|reg|gdm|nerve> <input.nii.gz> [output_dir]"
+description: "Use TigerBx 0.2.3+ for research-use neuroimaging workflows: T1w brain extraction and segmentation, HLC parcellation, registration, VBM, EPI/DTI distortion correction, NERVE embeddings, and image metrics. Trigger when choosing or calling tigerbx Python APIs/CLI, interpreting outputs or labels, or building TigerBx batch pipelines."
 ---
 
-# TigerBx skill
+# TigerBx
 
-TigerBx is a Python package for deep-learning-based brain MRI analysis.
+Use this skill to select the smallest correct TigerBx API and avoid mixing pipeline contracts.
 
-> **Models are downloaded automatically on first use** and cached locally. No manual setup needed.
+## Route the task
 
-## Environment check
+| Need | API | Read |
+|---|---|---|
+| BET, mask, ASEG, DeepGM, WMH, SynthSeg, CT, tissue PVE | `tigerbx.run()` | [bx.md](bx.md) |
+| HLC parcellation or HLC tissue outputs | `tigerbx.hlc()` | [hlc.md](hlc.md) |
+| Rigid/affine/nonlinear registration; apply saved warp | `tigerbx.reg()`, `tigerbx.transform()` | [reg.md](reg.md) |
+| VBM | `tigerbx.vbm()` or `tigerbx.pipeline('vbm', ...)` | [reg.md](reg.md) |
+| EPI/DTI distortion correction | `tigerbx.gdm()` | [gdm.md](gdm.md) |
+| Hippocampus/amygdala VAE latent/reconstruction | `tigerbx.nerve()` | [nerve.md](nerve.md) |
+| Dice, IoU, distances, IQA, MI, classification metrics | `tigerbx.eval()` | [eval.md](eval.md) |
+| Numeric segmentation labels | — | [labels.md](labels.md) |
 
-**Always verify the environment before using tigerbx.** Run this first:
+Read only the routed file. Read `labels.md` only when label meaning is needed.
+
+## Non-negotiable contracts
+
+- Treat all outputs as research-use only; do not make clinical or diagnostic claims.
+- `reg` plans are ordered uppercase steps: `R/A/V/N/C/F`. VBM is a separate API, never a reg step.
+- Single NIfTI input normally returns a dict of nibabel objects; batch input returns a list of dicts containing saved paths. NERVE returns named path dicts because its primary artifact is NPZ.
+- Access a nibabel image array with `.get_fdata()`.
+- Models download automatically on first execution. Do not install packages or download models unless the user asks to run the workflow and the environment lacks them.
+- For GPU: use `g` inside `tigerbx.run()` flags; use the documented `GPU=True` or `gpu=True` spelling for other APIs.
+
+## Execution check
+
+Only when executing code, verify once:
 
 ```python
-import importlib.metadata, packaging.version
-try:
-    v = importlib.metadata.version('tigerbx')
-    assert packaging.version.Version(v) >= packaging.version.Version('0.2.1')
-    print(f'tigerbx {v} ready')
-except Exception:
-    print('tigerbx >= 0.2.0 not found — install required')
+import tigerbx
+print(tigerbx.__version__)  # expected >= 0.2.3
 ```
 
-If not installed or version is too old, install with:
-
-```bash
-# CPU
-uv add "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/release.zip"
-# GPU (CUDA 12)
-uv add "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
-```
-
----
-
-## Module dispatch
-
-| Task | Function | Detail |
-|------|----------|--------|
-| Brain extraction, skull-stripping | `tigerbx.run()` | [bx.md](bx.md) |
-| Brain mask, ASEG, deep GM, WMH, cortical thickness, CGW | `tigerbx.run()` | [bx.md](bx.md) |
-| Hierarchical parcellation (56 regions) or tissue probability maps | `tigerbx.hlc()` | [hlc.md](hlc.md) |
-| Register T1 to MNI space, VBM, apply warp | `tigerbx.reg()` / `tigerbx.transform()` | [reg.md](reg.md) |
-| EPI / DTI geometric distortion correction | `tigerbx.gdm()` | [gdm.md](gdm.md) |
-| Hippocampus/amygdala VAE embedding | `tigerbx.nerve()` | [nerve.md](nerve.md) |
-| Quantitative metrics (Dice, HD95, PSNR, SSIM, …) | `tigerbx.eval()` | [eval.md](eval.md) |
-
----
-
-## Common conventions
-
-- `input`: single `.nii`/`.nii.gz` path, a directory path, a glob pattern, or a list of paths.
-- `output`: output directory string. When `None`, results are saved next to each input file.
-- `GPU=True`: enable GPU inference (requires `onnxruntime-gpu`).
-- Return value: dict of nibabel images (single input) or list of filename dicts (batch). Use `.get_fdata()` to access arrays.
-- QC score is always computed. A `.log` is auto-written if QC < 50.
-
----
-
-## Label definitions
-
-See [labels.md](labels.md) for full label tables: ASEG (43), DeepGM (12), HLC (56/171), SynthSeg.
+Prefer the Python API for composed workflows and the `tiger` CLI for one-off shell runs.
