@@ -1,66 +1,27 @@
-# `tigerbx.gdm()` — EPI Distortion Correction
-
-Corrects geometric distortions in DTI/EPI scans using a GAN-based displacement field predictor.
-No field maps or reversed-phase-encode acquisitions required.
-
-Reference: Kuo et al., *Magn Reson Med* 2025. https://doi.org/10.1002/mrm.30577
+# EPI/DTI distortion correction
 
 ```python
-import tigerbx
-
-tigerbx.gdm(input, output=None, b0_index=0, dmap=False, no_resample=False, GPU=False)
+result = tigerbx.gdm(input, output=None, b0_index=0, dmap=False,
+                     no_resample=False, GPU=False, verbose=0)
 ```
 
-| Parameter      | Type         | Default | Description |
-|----------------|--------------|---------|-------------|
-| `input`        | `str`        | —       | Path to DTI/EPI NIfTI file (4D) |
-| `output`       | `str`        | `None`  | Output directory; `None` saves next to input |
-| `b0_index`     | `int` or `str` | `0`   | Index of b0 volume, or path to a `.bval` file |
-| `dmap`         | `bool`       | `False` | Also save predicted displacement map |
-| `no_resample`  | `bool`       | `False` | Skip resampling to 1.7×1.7×1.7 mm³ |
-| `GPU`          | `bool`       | `False` | Use GPU |
-
----
-
-## Examples
+- Input is a 3D/4D EPI NIfTI; for 4D input, select b0 with an integer index or `.bval` path.
+- Default resamples model input to 1.7 mm; use `no_resample=True` only when appropriate.
+- `dmap=True` also returns/saves the predicted displacement map.
 
 ```python
-import tigerbx
-
-# Correct a DTI file (b0 = first volume)
-tigerbx.gdm('dti.nii.gz', 'output/')
-
-# Specify b0 by index
-tigerbx.gdm('dti.nii.gz', 'output/', b0_index=1)
-
-# Identify b0 automatically from .bval file
-tigerbx.gdm('dti.nii.gz', 'output/', b0_index='dti.bval')
-
-# Save displacement map, use GPU
-tigerbx.gdm('dti.nii.gz', 'output/', dmap=True, GPU=True)
-
-# Skip resampling (keep original resolution)
-tigerbx.gdm('dti.nii.gz', 'output/', no_resample=True)
+corrected = tigerbx.gdm('dti.nii.gz', 'out/', b0_index='dti.bval')
+both = tigerbx.gdm('dti.nii.gz', 'out/', dmap=True, GPU=True)
 ```
 
----
+Return contract:
 
-## Output file naming
+- Single input: nibabel dict with `gdmi` (corrected image) and optional `gdm` (displacement map).
+- Batch: list of saved-path dicts with the same keys.
+- Saved suffixes: `_gdmi.nii.gz` and optional `_gdm.nii.gz`.
 
-For input `dti.nii.gz`:
-
-| Parameter | Output file |
-|-----------|-------------|
-| (default) | `dti_gdm.nii.gz` — distortion-corrected volume |
-| `dmap=True` | `dti_dmap.nii.gz` — predicted displacement map |
-
----
-
-## CLI (for simple one-off tasks)
+CLI:
 
 ```bash
-tiger gdm dti.nii.gz -o output/
-tiger gdm dti.nii.gz -b0 1 -o output/
-tiger gdm dti.nii.gz -b0 dti.bval -o output/
-tiger gdm dti.nii.gz -m -g -o output/
+tiger gdm dti.nii.gz -b0 dti.bval -m -o out/
 ```

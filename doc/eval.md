@@ -59,6 +59,11 @@ Segmentation metrics return a nested dict keyed by label string.
 | `bins` | `64` | Histogram bins for `mi`. |
 | `k` | `5` | Number of nearest neighbours for `ksg_mi`. |
 
+For constant images (`data_range == 0`), SSIM returns `1.0` when both images
+are identical and `0.0` otherwise. For KSG MI, `k` must satisfy
+`1 <= k < number of samples`; both inputs must have equal length and contain
+only finite values.
+
 ### Classification
 
 | Metric | Key | Returns | Extra kwargs |

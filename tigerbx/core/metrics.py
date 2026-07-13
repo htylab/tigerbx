@@ -20,14 +20,23 @@ def _to_array(x):
     raise TypeError(f"Unsupported input type: {type(x)}")
 
 
-def _label_list(y_true, labels, ignore_background):
+def _label_list(y_true, y_pred, labels, ignore_background):
     """Resolve the list of labels to evaluate."""
     if labels is not None:
         return list(labels)
-    unique = np.unique(y_true.astype(int))
+    unique = np.unique(np.concatenate([y_true.ravel(), y_pred.ravel()]))
     if ignore_background:
         unique = unique[unique != 0]
     return list(unique)
+
+
+def _nanmean_scores(scores):
+    if not scores:
+        return float('nan')
+    values = np.asarray(list(scores.values()), dtype=float)
+    if np.all(np.isnan(values)):
+        return float('nan')
+    return float(np.nanmean(values))
 
 
 # ---------------------------------------------------------------------------
@@ -43,15 +52,7 @@ def dice(y_true, y_pred, labels=None, ignore_background=True):
     """
     y_true = _to_array(y_true).astype(int)
     y_pred = _to_array(y_pred).astype(int)
-    if labels is None:
-        label_list = np.unique(
-            np.concatenate([y_true.astype(int).ravel(), y_pred.astype(int).ravel()])
-        )
-        if ignore_background:
-            label_list = label_list[label_list != 0]
-        label_list = list(label_list)
-    else:
-        label_list = _label_list(y_true, labels, ignore_background)
+    label_list = _label_list(y_true, y_pred, labels, ignore_background)
 
     scores = {}
     for lbl in label_list:
@@ -74,7 +75,7 @@ def iou(y_true, y_pred, labels=None, ignore_background=True):
     """
     y_true = _to_array(y_true).astype(int)
     y_pred = _to_array(y_pred).astype(int)
-    label_list = _label_list(y_true, labels, ignore_background)
+    label_list = _label_list(y_true, y_pred, labels, ignore_background)
 
     scores = {}
     for lbl in label_list:
@@ -136,7 +137,7 @@ def hd95(y_true, y_pred, labels=None, ignore_background=True, voxel_spacing=None
     """
     y_true = _to_array(y_true).astype(int)
     y_pred = _to_array(y_pred).astype(int)
-    label_list = _label_list(y_true, labels, ignore_background)
+    label_list = _label_list(y_true, y_pred, labels, ignore_background)
 
     scores = {}
     for lbl in label_list:
@@ -146,7 +147,7 @@ def hd95(y_true, y_pred, labels=None, ignore_background=True, voxel_spacing=None
         else:
             scores[str(lbl)] = float(np.percentile(dists, 95))
 
-    scores['mean'] = float(np.nanmean(list(scores.values()))) if scores else float('nan')
+    scores['mean'] = _nanmean_scores(scores)
     return scores
 
 
@@ -159,7 +160,7 @@ def asd(y_true, y_pred, labels=None, ignore_background=True, voxel_spacing=None)
     """
     y_true = _to_array(y_true).astype(int)
     y_pred = _to_array(y_pred).astype(int)
-    label_list = _label_list(y_true, labels, ignore_background)
+    label_list = _label_list(y_true, y_pred, labels, ignore_background)
 
     scores = {}
     for lbl in label_list:
@@ -169,7 +170,7 @@ def asd(y_true, y_pred, labels=None, ignore_background=True, voxel_spacing=None)
         else:
             scores[str(lbl)] = float(np.mean(dists))
 
-    scores['mean'] = float(np.nanmean(list(scores.values()))) if scores else float('nan')
+    scores['mean'] = _nanmean_scores(scores)
     return scores
 
 
@@ -228,6 +229,10 @@ def ssim(y_true, y_pred, data_range=None, sigma=1.5):
 
     if data_range is None:
         data_range = y_true.max() - y_true.min()
+    if not np.isfinite(data_range) or data_range < 0:
+        raise ValueError("data_range must be finite and non-negative")
+    if data_range == 0:
+        return 1.0 if np.array_equal(y_true, y_pred) else 0.0
 
     C1 = (0.01 * data_range) ** 2
     C2 = (0.03 * data_range) ** 2
@@ -304,6 +309,12 @@ def ksg_mi(y_true, y_pred, k=5):
     y_pred = _to_array(y_pred).astype(float).ravel()
 
     n = len(y_true)
+    if n != len(y_pred):
+        raise ValueError("y_true and y_pred must contain the same number of values")
+    if not np.all(np.isfinite(y_true)) or not np.all(np.isfinite(y_pred)):
+        raise ValueError("y_true and y_pred must contain only finite values")
+    if not isinstance(k, (int, np.integer)) or isinstance(k, bool) or not 1 <= k < n:
+        raise ValueError(f"k must be an integer in [1, {n - 1}]")
     data = np.column_stack([y_true, y_pred])
 
     tree_xy = KDTree(data)
@@ -311,13 +322,13 @@ def ksg_mi(y_true, y_pred, k=5):
     tree_y = KDTree(y_pred.reshape(-1, 1))
 
     # Chebyshev distance to k-th neighbour in joint space (excluding self)
-    dists, _ = tree_xy.query(data, k=k + 1, workers=-1)
-    eps = dists[:, -1]  # k-th neighbour distance (Chebyshev)
+    dists, _ = tree_xy.query(data, k=k + 1, p=np.inf, workers=-1)
+    eps = np.nextafter(dists[:, -1], 0)
 
     # Count points within eps in marginal spaces
-    nx = np.array([len(tree_x.query_ball_point([[x]], r, workers=1)[0]) - 1
+    nx = np.array([len(tree_x.query_ball_point([x], r, p=np.inf, workers=1)) - 1
                    for x, r in zip(y_true, eps)])
-    ny = np.array([len(tree_y.query_ball_point([[y]], r, workers=1)[0]) - 1
+    ny = np.array([len(tree_y.query_ball_point([y], r, p=np.inf, workers=1)) - 1
                    for y, r in zip(y_pred, eps)])
 
     mi_val = digamma(k) - np.mean(digamma(nx + 1) + digamma(ny + 1)) + digamma(n)

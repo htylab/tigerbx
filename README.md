@@ -182,7 +182,8 @@ Corrects geometric distortions in EPI scans using a GAN-based displacement field
 import tigerbx
 
 # Correct a single DTI file
-tigerbx.gdm('dti.nii.gz', 'output_dir')
+gdm_result = tigerbx.gdm('dti.nii.gz', 'output_dir')
+# Single input: {'gdmi': nibabel_image}
 
 # Specify b0 index or .bval file
 tigerbx.gdm('dti.nii.gz', 'output_dir', b0_index=1)
@@ -213,7 +214,8 @@ The NERVE module was developed by **Pei-Shin Chen**.
 import tigerbx
 
 # Encode to latent vectors
-tigerbx.nerve('e', 'T1w.nii.gz', 'output_dir')
+nerve_result = tigerbx.nerve('e', 'T1w.nii.gz', 'output_dir')
+# Single input: {'latent': '..._nerve.npz'}
 
 # Encode and save ROI patch images
 tigerbx.nerve('ep', 'T1w.nii.gz', 'output_dir')

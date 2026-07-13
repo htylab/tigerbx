@@ -16,8 +16,8 @@ import time
 import glob
 import logging
 from tigerbx import lib_tool
-from tigerbx.core.io import get_template, detect_common_folder
-from tigerbx.core.onnx import decode_latent as core_decode_latent, encode_latent as core_encode_latent
+from tigerbx.core.io import get_template, detect_common_folder, resolve_inputs
+from tigerbx.core.onnx import create_session, decode_latent as core_decode_latent, encode_latent as core_encode_latent
 from tigerbx.core.resample import reorient_and_resample_voxel
 from tigerbx.core.metrics import ssim as ssim_metric
 
@@ -127,11 +127,6 @@ def encode_nii(
     """
     Encode a 3-D NIfTI into latent vectors (.npz).
     """
-    # Select execution providers
-    providers = (
-        ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        if GPU else ["CPUExecutionProvider"]
-    )
     bx_string = "bag" if GPU else "ba"
 
     # Prepare I/O
@@ -140,8 +135,7 @@ def encode_nii(
         f_template = basename(raw_path)
 
     # Build encoder session
-    import onnxruntime as ort
-    enc_sess = ort.InferenceSession(encoder, providers=providers)
+    enc_sess = create_session(encoder, GPU)
 
     # Temporary workspace for tigerbx preprocessing
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -198,13 +192,7 @@ def decode_npz(
     """
     Decode latent NPZ back to NIfTI patches or a merged volume.
     """
-    # Build decoder session
-    providers = (
-        ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        if GPU else ["CPUExecutionProvider"]
-    )
-    import onnxruntime as ort
-    dec_sess = ort.InferenceSession(decoder, providers=providers)
+    dec_sess = create_session(decoder, GPU)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -272,16 +260,20 @@ def run_args(args):
         args.save_patch = True
 
 
-    input_file_list = args.input
-    if os.path.isdir(args.input[0]):
-        if args.decode and (not args.evaluate):
+    if not args.input:
+        return []
+    if args.decode and not args.encode and not args.evaluate:
+        if os.path.isdir(args.input[0]):
             input_file_list = glob.glob(join(args.input[0], '*.npz'))
+        elif '*' in args.input[0]:
+            input_file_list = glob.glob(args.input[0])
         else:
-            input_file_list = glob.glob(join(args.input[0], '*.nii'))
-            input_file_list += glob.glob(join(args.input[0], '*.nii.gz'))
+            input_file_list = args.input
+    else:
+        input_file_list, _ = resolve_inputs(args.input)
 
-    elif '*' in args.input[0]:
-        input_file_list = glob.glob(args.input[0])
+    if not input_file_list:
+        return []
 
     output_dir = args.output
     omodel = dict()
@@ -321,6 +313,7 @@ def run_args(args):
     t = time.time()
     _pbar = tqdm(input_file_list, desc='tigerbx-nerve', unit='file', disable=(verbose > 0))
     for count, f in enumerate(_pbar, 1):
+        original_f = f
         ftemplate, f_output_dir = get_template(f, output_dir, common_folder=common_folder)
 
         _pbar.set_postfix_str(os.path.basename(f))
@@ -328,6 +321,7 @@ def run_args(args):
 
         encode_ok = True
         decode_ok = True
+        result_filedict = {}
 
         if args.encode:
             try:
@@ -337,30 +331,33 @@ def run_args(args):
                     GPU=args.gpu,
                     save_patch=args.save_patch,
                     f_template=os.path.basename(ftemplate))
-                results.append(npz_ff)
-                results.append(patch_ff)
+                result_filedict['latent'] = npz_ff
+                if patch_ff:
+                    result_filedict['patch'] = patch_ff
             except Exception as e:
                 encode_ok = False
                 _warn('Encoding error:', e)
         if args.decode:
             try:
-                if args.evaluate: f = npz_ff
-                recon_ff = decode_npz(f,
+                decode_input = npz_ff if args.evaluate else f
+                recon_ff = decode_npz(decode_input,
                         decoder=lib_tool.get_model(omodel['decode']),
                         output_dir=f_output_dir,
                         GPU=args.gpu,
                         f_template=os.path.basename(ftemplate),
                         eps=args.sigma)
-                results.append(recon_ff)
+                result_filedict['recon'] = recon_ff
             except Exception as e:
                 decode_ok = False
                 _warn('Decoding error:', e)
 
 
         if args.evaluate and encode_ok and decode_ok: # for calculating PSNR
-            recon_pairs.append((f, patch_ff, recon_ff))
+            recon_pairs.append((original_f, patch_ff, recon_ff))
             max_e = nib.load(patch_ff).get_fdata().max()
             max_value = max(max_e, max_value)
+
+        results.append(result_filedict)
 
     if args.evaluate:
         import csv
@@ -369,6 +366,12 @@ def run_args(args):
             mae, mse, p, ssim_val = compute_metrics(patch_ff, recon_ff, max_value)
             records.append(dict(ID=orig_f, MAE=mae, MSE=mse, PSNR=p, SSIM=ssim_val))
 
+        evaluation = {
+            'records': records,
+            'average': None,
+            'csv': None,
+            'outputs': results,
+        }
         if records:
             n = len(records)
             avg = {
@@ -378,20 +381,22 @@ def run_args(args):
                 "PSNR": sum(r["PSNR"] for r in records) / n,
                 "SSIM": sum(r["SSIM"] for r in records) / n,
             }
-            records.append(avg)
-
             csv_ff = join(f_output_dir, f'{omodel["encode"]}_eval.csv')
             with open(csv_ff, 'w', newline='') as fh:
                 writer = csv.DictWriter(fh, fieldnames=["ID", "MAE", "MSE", "PSNR", "SSIM"])
                 writer.writeheader()
-                writer.writerows(records)
+                writer.writerows(records + [avg])
             printer(f'[Evaluation] Saving {csv_ff} report')
 
             printer(f"[Average] MAE = {avg['MAE']:.6f}, "
                   f"MSE = {avg['MSE']:.6f}, "
                   f"PSNR = {avg['PSNR']:.2f}, "
                   f"SSIM = {avg['SSIM']:.4f}")
-            results = records
+            evaluation['average'] = avg
+            evaluation['csv'] = csv_ff
 
         printer('Processing time: %d seconds' % (time.time() - t))
+        return evaluation
+    if len(input_file_list) == 1:
+        return results[0]
     return results
