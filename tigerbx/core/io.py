@@ -2,23 +2,50 @@
 
 import glob
 import os
+import warnings
 from os.path import basename, dirname, join, relpath
 
 import nibabel as nib
 import numpy as np
 
 
+# Postfixes tigerbx itself writes (save_nib / qc logs). A directory input that already contains outputs of an
+# earlier run (the default output dir is the input folder) must not re-ingest them as new subjects.
+OUTPUT_POSTFIXES = ('tbet', 'tbetmask', 'aseg', 'dgm', 'wmh', 'syn', 'ct', 'cgw_pve0', 'cgw_pve1', 'cgw_pve2',
+                    'hlc', 'CSF', 'GM', 'WM', 'reg', 'rigid', 'Af', 'Fuse', 'SmoothedGM', 'gdm')
+
+
+def _stem(f):
+    return basename(f).replace('.nii.gz', '').replace('.nii', '')
+
+
+def is_tigerbx_output(f, stems):
+    """True if *f* is ``<stem>_<postfix>`` for a known tigerbx postfix and ``<stem>`` is also in *stems*
+    (so a genuine input such as ``patient_ct.nii.gz`` is kept unless ``patient.nii.gz`` sits next to it)."""
+    name = _stem(f)
+    return any(name.endswith('_' + p) and name[:-len(p) - 1] in stems for p in OUTPUT_POSTFIXES)
+
+
 def resolve_nifti_inputs(input_arg):
-    """Resolve an input argument (dir, glob, or file list) to a list of NIfTI paths."""
+    """Resolve an input argument (dir, glob, or file list) to a sorted list of NIfTI paths.
+
+    Directory / glob inputs skip files that look like tigerbx outputs (e.g. ``X_tbet.nii.gz``) with a warning;
+    explicit file lists are used as given.
+    """
     if not input_arg:
         return []
-    input_file_list = input_arg
     if os.path.isdir(input_arg[0]):
-        input_file_list = glob.glob(join(input_arg[0], '*.nii'))
-        input_file_list += glob.glob(join(input_arg[0], '*.nii.gz'))
+        found = glob.glob(join(input_arg[0], '*.nii')) + glob.glob(join(input_arg[0], '*.nii.gz'))
     elif '*' in input_arg[0]:
-        input_file_list = glob.glob(input_arg[0])
-    return input_file_list
+        found = glob.glob(input_arg[0])
+    else:
+        return input_arg
+    stems = {_stem(f) for f in found}
+    skipped = [f for f in found if is_tigerbx_output(f, stems)]
+    if skipped:
+        warnings.warn(f'Skipping {len(skipped)} file(s) that look like tigerbx outputs '
+                      f'(e.g. {basename(skipped[0])}); pass them explicitly to process them.', stacklevel=2)
+    return sorted(f for f in found if f not in skipped)
 
 
 def detect_common_folder(input_file_list):

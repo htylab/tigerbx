@@ -19,6 +19,8 @@ Use this skill to select the smallest correct TigerBx API and avoid mixing pipel
 | Hippocampus/amygdala VAE latent/reconstruction | `tigerbx.nerve()` | [nerve.md](nerve.md) |
 | Dice, IoU, distances, IQA, MI, classification metrics | `tigerbx.eval()` | [eval.md](eval.md) |
 | Numeric segmentation labels | — | [labels.md](labels.md) |
+| Validate / compare models on benchmark datasets | `tigerbx.val()` | [val.md](val.md) |
+| Use or ship a custom / retrained ONNX model | `model=` override | [models.md](models.md) |
 
 Read only the routed file. Read `labels.md` only when label meaning is needed.
 
@@ -30,6 +32,18 @@ Read only the routed file. Read `labels.md` only when label meaning is needed.
 - Access a nibabel image array with `.get_fdata()`.
 - Models download automatically on first execution. Do not install packages or download models unless the user asks to run the workflow and the environment lacks them.
 - For GPU: use `g` inside `tigerbx.run()` flags; use the documented `GPU=True` or `gpu=True` spelling for other APIs.
+
+## Pitfalls
+
+- **Files are written by default.** `run()` saves outputs (`save_outputs=True`); with `output=None` they go next to
+  the input. Always pass an output folder, or `save_outputs=False` when you only need the returned images.
+- Directory / glob inputs are sorted and skip `<name>_<tigerbx suffix>` files that sit next to `<name>`, but any other
+  extra NIfTI in the folder is processed as a subject.
+- GPU memory: ORT allocates only what each input needs; on a shared GPU cap it with `TIGERBX_GPU_MEM_LIMIT_GB=<int>`.
+  CPU threads: `TIGERBX_ORT_INTRA_THREADS` / `TIGERBX_ORT_INTER_THREADS`.
+- Use the public API (`tigerbx.run/hlc/reg/val/eval/...`). Internals moved in 0.2.x (`lib_tool.create_session` →
+  `tigerbx.core.onnx`), so do not import or monkey-patch private modules.
+- Model filenames carry the preprocessing contract — see [models.md](models.md).
 
 ## Execution check
 
