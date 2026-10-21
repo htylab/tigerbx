@@ -1,6 +1,11 @@
+import sys
+import warnings
+from types import SimpleNamespace
+
 import pytest
 
 from tigerbx import lib_bx
+from tigerbx.core import onnx as core_onnx
 from tigerbx import validate
 
 
@@ -25,3 +30,28 @@ def test_run_loop_keeps_going_after_a_failed_file():
     f_list, res = validate._run_loop(['a.nii.gz', 'bad.nii.gz', 'c.nii.gz'], compute)
     assert f_list == ['a.nii.gz', 'c.nii.gz'] and res == [1.0, 1.0]
     assert [f for f, _ in validate._FAILED] == ['bad.nii.gz']
+
+
+def test_create_session_warns_once_on_gpu_fallback(monkeypatch):
+    # onnxruntime-gpu built for another CUDA major only logs the failed provider load and runs on CPU.
+    class FakeSession:
+        def __init__(self, model_ff, providers, sess_options):
+            self.model_ff = model_ff
+
+        def get_providers(self):
+            return ['CPUExecutionProvider']
+
+    class FakeOptions:
+        pass
+
+    fake_ort = SimpleNamespace(__version__='9.9.9', SessionOptions=FakeOptions, InferenceSession=FakeSession,
+                               get_device=lambda: 'GPU', set_default_logger_severity=lambda level: None)
+    monkeypatch.setitem(sys.modules, 'onnxruntime', fake_ort)
+    monkeypatch.setattr(core_onnx, '_GPU_FALLBACK_WARNED', False)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        core_onnx.create_session('m.onnx', GPU=True)
+        core_onnx.create_session('m.onnx', GPU=True)
+        core_onnx.create_session('m.onnx', GPU=False)
+    msgs = [str(x.message) for x in w if issubclass(x.category, RuntimeWarning)]
+    assert len(msgs) == 1 and 'running on CPU' in msgs[0]
