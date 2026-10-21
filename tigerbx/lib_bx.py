@@ -41,7 +41,7 @@ def get_mode(model_ff):
     if len(parts) < 4 or parts[1] not in SEG_MODES:
         raise ValueError(
             f'Model filename {basename(model_ff)!r} must look like <prefix>_<mode>_<version>_<tag>.onnx '
-            f'with <mode> in {SEG_MODES}, e.g. mprage_aseg43_v007_16ksynth.onnx (see doc/models.md).')
+            f'with <mode> in {SEG_MODES}, e.g. mprage_aseg43_v0011_allseg.onnx (see doc/models.md).')
     seg_mode, version, model_str = parts[1:4]
     return seg_mode, version, model_str
 

@@ -8,4 +8,4 @@ from tigerbx.pipeline_api import pipeline
 from tigerbx.pipelines.vbm import vbm
 from tigerbx.nerve import nerve
 from tigerbx.eval import eval
-__version__ = '0.2.3'
+__version__ = '0.2.4'

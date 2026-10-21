@@ -6,7 +6,7 @@ drop-in replacement (`model={'aseg': 'my.onnx'}` in `tigerbx.run()`, `seg_model=
 ## Filename
 
 ```
-<prefix>_<mode>_<version>_<tag>.onnx        e.g. mprage_aseg43_v007_16ksynth.onnx
+<prefix>_<mode>_<version>_<tag>.onnx        e.g. mprage_aseg43_v0011_allseg.onnx
 ```
 
 `lib_bx.get_mode()` splits the basename on `_`; **`<mode>` is not cosmetic** — it selects
