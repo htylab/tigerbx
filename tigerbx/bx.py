@@ -306,7 +306,7 @@ def run_args(args):
     output_dir = args.output
     omodel = {
         'bet':  'mprage_bet_v005_mixsynthv4.onnx',
-        'aseg': 'mprage_aseg43_v007_16ksynth.onnx',
+        'aseg': 'mprage_aseg43_v0011_allseg.onnx',
         'ct':   'mprage_mix_ct.onnx',
         'dgm':  'mprage_dgm12_v002_mix6.onnx',
         'wmh':  'mprage_wmh_v002_betr111.onnx',

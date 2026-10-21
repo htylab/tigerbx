@@ -6,6 +6,7 @@ import tigerbx
 from tigerbx import lib_tool
 from tigerbx import lib_reg
 from tigerbx.core.onnx import predict
+from tigerbx.core.io import resolve_nifti_inputs
 import sys
 import os
 import csv
@@ -20,6 +21,7 @@ elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
 
 _LITE_N = 20    # default files per dataset in lite mode
+_FAILED = []    # (file, error) of the dataset being validated; one bad file no longer drops the whole dataset
 
 
 # ── metric helpers ────────────────────────────────────────────────────────────
@@ -67,10 +69,19 @@ def _run_loop(ffs, compute_fn, debug=False, files_filter=None):
     f_list, results = [], []
     with tempfile.TemporaryDirectory() as _tmp:
         for f in ffs:
+            try:
+                val = compute_fn(f, _tmp)
+            except Exception as exc:
+                _record_failure(f, exc)
+                continue
             f_list.append(f)
-            val = compute_fn(f, _tmp)
             results.append(val)
     return f_list, results
+
+
+def _record_failure(f, exc):
+    print(f'  FAILED {basename(f)}: {type(exc).__name__}: {exc}')
+    _FAILED.append((f, f'{type(exc).__name__}: {exc}'))
 
 
 def _nib_data(res, key):
@@ -99,12 +110,29 @@ def _run_bx_batch(ffs, argstr, GPU, model, compute_metrics_fn,
         return [], []
     f_list, results = [], []
     with tempfile.TemporaryDirectory() as _tmp:
-        batch = tigerbx.run(argstr, ffs, _tmp, model=model)
-        if not isinstance(batch, list):
-            batch = [batch]   # single-file path returns dict, not list
+        try:
+            batch = tigerbx.run(argstr, ffs, _tmp, model=model)
+            if not isinstance(batch, list):
+                batch = [batch]   # single-file path returns dict, not list
+        except Exception as exc:
+            # one file broke the batch run: redo file by file so the others still count
+            print(f'  batch run failed ({type(exc).__name__}: {exc}); retrying file by file')
+            batch = []
+            for f in ffs:
+                try:
+                    batch.append(tigerbx.run(argstr, [f], _tmp, model=model))
+                except Exception as exc_f:
+                    _record_failure(f, exc_f)
+                    batch.append(None)
         for f, res in zip(ffs, batch):
+            if res is None:
+                continue
+            try:
+                val = compute_metrics_fn(f, res)
+            except Exception as exc:
+                _record_failure(f, exc)
+                continue
             f_list.append(f)
-            val = compute_metrics_fn(f, res)
             results.append(val)
     return f_list, results
 
@@ -166,7 +194,7 @@ def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
 def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
                      debug=False, files_filter=None,
                      bet_model=None, seg_model=None, **kwargs):
-    ffs = sorted(glob.glob(join(input_dir, '*', 'image.nii.gz')))
+    ffs = resolve_nifti_inputs([join(input_dir, '*', 'image.nii.gz')])
     run_model = {'bet': bet_model} if bet_model else None
     argstr = ('g' if GPU else '') + 'm'
 
@@ -207,7 +235,7 @@ def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
 def val_bet_NFBS(input_dir, output_dir=None, GPU=False,
                  debug=False, files_filter=None,
                  bet_model=None, seg_model=None, **kwargs):
-    ffs = sorted(glob.glob(join(input_dir, '*', '*T1w.nii.gz')))
+    ffs = resolve_nifti_inputs([join(input_dir, '*', '*T1w.nii.gz')])
     run_model = {'bet': bet_model} if bet_model else None
     argstr = ('g' if GPU else '') + 'm'
 
@@ -239,7 +267,7 @@ def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
                     'Left-Pallidum',    'Right-Pallidum',
                     'Left-Hippocampus', 'Right-Hippocampus',
                     'Left-Amygdala',    'Right-Amygdala']
-    ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
+    ffs = resolve_nifti_inputs([join(input_dir, 'raw123', '*.nii.gz')])
     run_model = {}
     if bet_model: run_model['bet'] = bet_model
     if seg_model: run_model[model_str] = seg_model
@@ -272,7 +300,7 @@ def val_hlc_123(input_dir, output_dir=None, GPU=False,
                     'Left-Pallidum',    'Right-Pallidum',
                     'Left-Hippocampus', 'Right-Hippocampus',
                     'Left-Amygdala',    'Right-Amygdala']
-    ffs = sorted(glob.glob(join(input_dir, 'raw123', '*.nii.gz')))
+    ffs = resolve_nifti_inputs([join(input_dir, 'raw123', '*.nii.gz')])
     run_model = {}
     if bet_model: run_model['bet'] = bet_model
     if seg_model: run_model['HLC'] = seg_model   # hlc171 uses uppercase 'HLC' key
@@ -314,7 +342,7 @@ def val_reg_60(input_dir, output_dir=None, GPU=False,
         'Left-VentralDC',         'Right-VentralDC',
         'Brain Stem',             'CSF',
     ]
-    ffs = sorted(glob.glob(join(input_dir, 'raw60', '*.nii.gz')))
+    ffs = resolve_nifti_inputs([join(input_dir, 'raw60', '*.nii.gz')])
     run_model = {}
     if bet_model: run_model['bet'] = bet_model
     if seg_model: run_model['reg'] = seg_model
@@ -494,7 +522,7 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
             print('Lite mode: lite_list.json not found, building …')
             lite = _build_lite_list(val_dir, discovered)
 
-    summary = {}
+    summary, failed = {}, {}
     for ds in DATASET_REGISTRY:
         if ds['id'] not in discovered:
             continue
@@ -509,6 +537,7 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
             print(f'\n{"="*60}')
             print(f'  {name}  [{mode_tag}]')
             print(f'{"="*60}')
+            _FAILED.clear()
             try:
                 _, metric = func(
                     input_dir=input_dir,
@@ -521,8 +550,9 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
                 )
                 summary[name] = metric
             except Exception as exc:
-                print(f'  SKIPPED ({exc})')
+                print(f'  SKIPPED ({type(exc).__name__}: {exc})')
                 summary[name] = None
+            failed[name] = list(_FAILED)
 
     # final summary table
     if summary:
@@ -532,11 +562,16 @@ def _val_auto(val_dir=None, output_dir=None, model=None, GPU=False,
         print(sep)
         w = max(len(k) for k in summary)
         for name, metric in summary.items():
+            n_fail = len(failed.get(name, []))
+            tail = f'  ({n_fail} file(s) failed, excluded)' if n_fail else ''
             if metric is None:
-                print(f'  {name:<{w}} : SKIPPED')
+                print(f'  {name:<{w}} : SKIPPED{tail}')
             else:
-                print(f'  {name:<{w}} : mean Dice = {_mean_dice(metric):.4f}')
+                print(f'  {name:<{w}} : mean Dice = {_mean_dice(metric):.4f}{tail}')
         print(sep)
+        for name, items in failed.items():
+            for f, err in items:
+                print(f'  [{name}] FAILED {f}: {err}')
 
     return summary
 

@@ -10,6 +10,7 @@ DEFAULT_PATCH_SIZE = (128, 128, 128)
 MIN_CROP_SIZE = (160, 160, 160)
 ORT_INTRA_THREADS_ENV = "TIGERBX_ORT_INTRA_THREADS"
 ORT_INTER_THREADS_ENV = "TIGERBX_ORT_INTER_THREADS"
+GPU_MEM_LIMIT_ENV = "TIGERBX_GPU_MEM_LIMIT_GB"
 DEFAULT_ORT_INTRA_THREADS_RATIO = 0.7
 DEFAULT_ORT_INTER_THREADS = 1
 
@@ -104,9 +105,15 @@ def create_session(model_ff, GPU):
     so.inter_op_num_threads = inter_threads
     so.log_severity_level = 3
     if GPU and ort.get_device() == "GPU":
+        # Default kNextPowerOfTwo arena grows with every new input shape (tigerbx crops differ per subject)
+        # and is never released -> OOM after a few dozen files on a shared GPU. Allocate exactly what is needed.
+        cuda_opts = {"arena_extend_strategy": "kSameAsRequested"}
+        mem_gb = _get_env_positive_int(GPU_MEM_LIMIT_ENV)
+        if mem_gb is not None:
+            cuda_opts["gpu_mem_limit"] = mem_gb * 1024 ** 3
         return ort.InferenceSession(
             model_ff,
-            providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            providers=[("CUDAExecutionProvider", cuda_opts), "CPUExecutionProvider"],
             sess_options=so,
         )
     return ort.InferenceSession(
