@@ -1,5 +1,6 @@
 import os
 import re
+import warnings
 from typing import List, Tuple, Union
 
 import numpy as np
@@ -13,6 +14,7 @@ ORT_INTER_THREADS_ENV = "TIGERBX_ORT_INTER_THREADS"
 GPU_MEM_LIMIT_ENV = "TIGERBX_GPU_MEM_LIMIT_GB"
 DEFAULT_ORT_INTRA_THREADS_RATIO = 0.7
 DEFAULT_ORT_INTER_THREADS = 1
+_GPU_FALLBACK_WARNED = False
 
 
 def _parse_patch_size(value: str):
@@ -88,6 +90,14 @@ def _session_data_type(session):
     return "float64"
 
 
+def _warn_gpu_fallback(reason):
+    global _GPU_FALLBACK_WARNED
+    if not _GPU_FALLBACK_WARNED:
+        _GPU_FALLBACK_WARNED = True
+        warnings.warn(f"GPU=True but running on CPU: {reason}. "
+                      "tigerbx[cu12] needs onnxruntime-gpu < 1.27 (CUDA 12).", RuntimeWarning, stacklevel=3)
+
+
 def create_session(model_ff, GPU):
     """Build an ort.InferenceSession for the given model path."""
     import onnxruntime as ort
@@ -111,11 +121,17 @@ def create_session(model_ff, GPU):
         mem_gb = _get_env_positive_int(GPU_MEM_LIMIT_ENV)
         if mem_gb is not None:
             cuda_opts["gpu_mem_limit"] = mem_gb * 1024 ** 3
-        return ort.InferenceSession(
+        sess = ort.InferenceSession(
             model_ff,
             providers=[("CUDAExecutionProvider", cuda_opts), "CPUExecutionProvider"],
             sess_options=so,
         )
+        if "CUDAExecutionProvider" not in sess.get_providers():
+            # ORT only logs the failed CUDA load (e.g. a CUDA 13 build on a CUDA 12 system) and runs on CPU.
+            _warn_gpu_fallback(f"CUDAExecutionProvider failed to load (onnxruntime {ort.__version__})")
+        return sess
+    if GPU:
+        _warn_gpu_fallback(f"onnxruntime {ort.__version__} has no GPU support (install tigerbx[cu12])")
     return ort.InferenceSession(
         model_ff,
         providers=["CPUExecutionProvider"],

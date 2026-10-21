@@ -41,6 +41,9 @@ Read only the routed file. Read `labels.md` only when label meaning is needed.
   extra NIfTI in the folder is processed as a subject.
 - GPU memory: ORT allocates only what each input needs; on a shared GPU cap it with `TIGERBX_GPU_MEM_LIMIT_GB=<int>`.
   CPU threads: `TIGERBX_ORT_INTRA_THREADS` / `TIGERBX_ORT_INTER_THREADS`.
+- `GPU=True` silently runs on CPU if onnxruntime-gpu does not match the system CUDA (1.27+ is built for CUDA 13;
+  `tigerbx[cu12]` pins `<1.27`). tigerbx warns once (`RuntimeWarning: GPU=True but running on CPU`); check
+  `onnxruntime.get_available_providers()` and that the process appears in `nvidia-smi`.
 - Use the public API (`tigerbx.run/hlc/reg/val/eval/...`). Internals moved in 0.2.x (`lib_tool.create_session` →
   `tigerbx.core.onnx`), so do not import or monkey-patch private modules.
 - Model filenames carry the preprocessing contract — see [models.md](models.md).
