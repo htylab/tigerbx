@@ -44,20 +44,20 @@ other models at their defaults.
 
 ```python
 # Runs both SynthStrip and NFBS skull-stripping datasets
-tigerbx.val(GPU=True, task='bet', bet_model='mprage_bet_v006.onnx', output_dir='val_out')
+tigerbx.val(GPU=True, task='bet', bet_model='mprage_bet_v006_test.onnx', output_dir='val_out')
 ```
 
 ### Test a new ASEG model (BET stays default)
 
 ```python
-tigerbx.val(GPU=True, task='aseg', seg_model='mprage_aseg_v009.onnx', output_dir='val_out')
+tigerbx.val(GPU=True, task='aseg', seg_model='mprage_aseg43_v009_test.onnx', output_dir='val_out')
 ```
 
 ### Test other segmentation models
 
 ```python
-tigerbx.val(GPU=True, task='dgm', seg_model='new_dgm.onnx',  output_dir='val_out')
-tigerbx.val(GPU=True, task='syn', seg_model='new_syn.onnx',  output_dir='val_out')
+tigerbx.val(GPU=True, task='dgm', seg_model='mprage_dgm12_v003_test.onnx',  output_dir='val_out')
+tigerbx.val(GPU=True, task='syn', seg_model='mprage_synthseg_v004_test.onnx',  output_dir='val_out')
 tigerbx.val(GPU=True, task='hlc', seg_model='new_hlc.onnx',  output_dir='val_out')
 tigerbx.val(GPU=True, task='reg', seg_model='new_reg.onnx',  output_dir='val_out')
 ```
@@ -66,10 +66,13 @@ tigerbx.val(GPU=True, task='reg', seg_model='new_reg.onnx',  output_dir='val_out
 
 ```python
 tigerbx.val(GPU=True, task='aseg',
-            bet_model='new_bet.onnx',
-            seg_model='new_aseg.onnx',
+            bet_model='mprage_bet_v006_new.onnx',
+            seg_model='mprage_aseg43_v010_new.onnx',
             output_dir='val_out')
 ```
+
+bet / aseg / dgm / syn model files must be named `<prefix>_<mode>_<version>_<tag>.onnx` (mode = `bet`, `aseg43`,
+`dgm12`, `synthseg`, ...): the mode in the filename selects the preprocessing and label table — see [models.md](models.md).
 
 **Valid `task` values:** `'bet'`, `'aseg'`, `'dgm'`, `'syn'`, `'hlc'`, `'reg'`
 

@@ -31,11 +31,18 @@ label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17,
 #nib.Nifti1Header.quaternion_threshold = -100
 
 
+SEG_MODES = ('bet', 'aseg43', 'dkt', 'dgm12', 'wmp', 'seg3', 'wmh', 'synthseg')
+
+
 def get_mode(model_ff):
-    seg_mode, version, model_str = basename(model_ff).split('_')[1:4]  # aseg43, bet
-
-    #print(seg_mode, version , model_str)
-
+    """Parse ``<prefix>_<mode>_<version>_<tag>.onnx``; <mode> selects normalisation, softmax/sigmoid and the label
+    LUT, so a wrong name silently changes preprocessing (see doc/models.md)."""
+    parts = basename(model_ff).split('_')
+    if len(parts) < 4 or parts[1] not in SEG_MODES:
+        raise ValueError(
+            f'Model filename {basename(model_ff)!r} must look like <prefix>_<mode>_<version>_<tag>.onnx '
+            f'with <mode> in {SEG_MODES}, e.g. mprage_aseg43_v0011_allseg.onnx (see doc/models.md).')
+    seg_mode, version, model_str = parts[1:4]
     return seg_mode, version, model_str
 
 def getLarea(input_mask):

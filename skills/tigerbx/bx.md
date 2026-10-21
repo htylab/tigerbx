@@ -33,7 +33,7 @@ gpu_all = tigerbx.run('bmacCdSWg', 'T1w.nii.gz', 'out/')
 batch_paths = tigerbx.run('bma', '/data/T1w/', 'out/', continue_=True)
 ```
 
-Do not pass `GPU=True`; add `g` to `flags`. `silent` is deprecated; use `verbose=0`.
+Do not pass `GPU=True`; add `g` to `flags`. Pass an output folder (default writes next to the input) or `save_outputs=False`. `silent` is deprecated; use `verbose=0`.
 
 Saved suffixes: `_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_wmh`, `_syn`, `_ct`, and `_cgw_pve0/1/2`. Read [labels.md](labels.md) only for label lookup.
 
