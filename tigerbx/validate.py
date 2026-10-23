@@ -259,6 +259,71 @@ def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
     return data, mean_per_column
 
 
+# IBSR18 manual labels (FreeSurfer numbers) vs the aseg43 prediction: structure -> (IBSR labels, predicted labels).
+# IBSR cerebral WM includes the corpus callosum and has no WM-hypointensity class, so WM is scored bilaterally
+# with 77 and 251-255; IBSR has no choroid plexus (31 / 63 count as lateral ventricle); optic chiasm (85) is
+# background. CSF and vessels (*) are protocol-dependent: reported, left out of the 30-structure mean.
+IBSR18_STRUCTURES = {
+    'Cerebral-WM': ((2, 41), (2, 41, 77, 251, 252, 253, 254, 255)),
+    'L-Cortex': ((3,), (3,)), 'R-Cortex': ((42,), (42,)),
+    'L-Lat-Vent': ((4,), (4, 31)), 'R-Lat-Vent': ((43,), (43, 63)),
+    'L-Inf-Lat-Vent': ((5,), (5,)), 'R-Inf-Lat-Vent': ((44,), (44,)),
+    'L-Cblm-WM': ((7,), (7,)), 'R-Cblm-WM': ((46,), (46,)),
+    'L-Cblm-Cortex': ((8,), (8,)), 'R-Cblm-Cortex': ((47,), (47,)),
+    'L-Thalamus': ((10,), (10,)), 'R-Thalamus': ((49,), (49,)),
+    'L-Caudate': ((11,), (11,)), 'R-Caudate': ((50,), (50,)),
+    'L-Putamen': ((12,), (12,)), 'R-Putamen': ((51,), (51,)),
+    'L-Pallidum': ((13,), (13,)), 'R-Pallidum': ((52,), (52,)),
+    '3rd-Vent': ((14,), (14,)), '4th-Vent': ((15,), (15,)), 'Brain-Stem': ((16,), (16,)),
+    'L-Hippocampus': ((17,), (17,)), 'R-Hippocampus': ((53,), (53,)),
+    'L-Amygdala': ((18,), (18,)), 'R-Amygdala': ((54,), (54,)),
+    'L-Accumbens': ((26,), (26,)), 'R-Accumbens': ((58,), (58,)),
+    'L-VentralDC': ((28,), (28,)), 'R-VentralDC': ((60,), (60,)),
+    'CSF*': ((24,), (24,)), 'L-Vessel*': ((30,), (30,)), 'R-Vessel*': ((62,), (62,)),
+}
+
+
+def val_aseg_ibsr18(input_dir, output_dir=None, GPU=False, debug=False, files_filter=None,
+                    bet_model=None, seg_model=None, **kwargs):
+    """ASEG on IBSR18: full pipeline (tBET + ASEG) on raw18/IBSR_xx.nii.gz, Dice per structure against
+    label18/IBSR_xx.nii.gz after reorienting the prediction to RAS (the label grid). Returns the mean over subjects
+    and over the 30 structures without '*' (tigerbx 0.3.0 default model: 0.8131 with full=True)."""
+    names = list(IBSR18_STRUCTURES)
+    ffs = resolve_nifti_inputs([join(input_dir, 'raw18', 'IBSR_*.nii.gz')])
+    run_model = {}
+    if bet_model: run_model['bet'] = bet_model
+    if seg_model: run_model['aseg'] = seg_model
+    argstr = ('g' if GPU else '') + 'ma'
+
+    def compute_metrics(f, res):
+        val = res['aseg']
+        img = nib.load(val) if isinstance(val, str) else val
+        pred = nib.Nifti1Image(np.asarray(img.dataobj).astype(np.int16), img.affine)
+        pred = np.asarray(nib.as_closest_canonical(pred).dataobj).astype(int)
+        gt = np.asarray(nib.load(f.replace('raw18', 'label18')).dataobj).astype(int)
+        if pred.shape != gt.shape:
+            raise ValueError(f'prediction {pred.shape} and label {gt.shape} grids differ for {basename(f)}')
+        out = []
+        for g, p in IBSR18_STRUCTURES.values():
+            a, b = np.isin(gt, g), np.isin(pred, p)
+            n = a.sum() + b.sum()
+            out.append(2 * np.logical_and(a, b).sum() / n if n else np.nan)
+        return out
+
+    f_list, dsc_list = _run_bx_batch(ffs, argstr, GPU, run_model or None, compute_metrics,
+                                     debug=debug, files_filter=files_filter)
+    _write_csv(output_dir, 'val_aseg_ibsr18.csv', names, f_list, dsc_list)
+    if not dsc_list:
+        return {'Filename': []}, float('nan')
+    per_struct = np.nanmean(np.array(dsc_list, float), axis=0)
+    for n, v in zip(names, per_struct):
+        print(f'  {n:<15} : {v:.4f}')
+    metric = float(np.nanmean([v for n, v in zip(names, per_struct) if '*' not in n]))
+    print(f'mean Dice of the 30 structures: {metric:.4f}')
+    data = {'Filename': f_list, **{n: [r[i] for r in dsc_list] for i, n in enumerate(names)}}
+    return data, metric
+
+
 def val_hlc_123(input_dir, output_dir=None, GPU=False,
                 debug=False, files_filter=None,
                 bet_model=None, seg_model=None, **kwargs):
@@ -371,6 +436,11 @@ DATASET_REGISTRY = [
             ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw), 'dgm'),
             ('hlc_123',  val_hlc_123,                                  'hlc'),
         ],
+    },
+    {
+        'id':             'ibsr18',
+        'relative_probe': join('raw18', 'IBSR_*.nii.gz'),
+        'funcs':          [('aseg_ibsr18', val_aseg_ibsr18, 'aseg')],
     },
     {
         'id':             'reg60',

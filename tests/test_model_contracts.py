@@ -55,3 +55,9 @@ def test_create_session_warns_once_on_gpu_fallback(monkeypatch):
         core_onnx.create_session('m.onnx', GPU=False)
     msgs = [str(x.message) for x in w if issubclass(x.category, RuntimeWarning)]
     assert len(msgs) == 1 and 'running on CPU' in msgs[0]
+
+
+def test_ibsr18_protocol_has_30_scored_structures():
+    scored = [k for k in validate.IBSR18_STRUCTURES if '*' not in k]
+    assert len(scored) == 30
+    assert any(ds['id'] == 'ibsr18' and ds['funcs'][0][0] == 'aseg_ibsr18' for ds in validate.DATASET_REGISTRY)

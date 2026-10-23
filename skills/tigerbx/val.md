@@ -14,7 +14,7 @@ Datasets are auto-discovered under `val_dir` (and its immediate sub-folders) by 
 | `raw123/*.nii.gz` + `label123/` (same filenames) | seg123 = CANDI + MindBoggle | `aseg_123`, `dgm_123`, `syn_123`, `hlc_123` |
 | `raw60/*.nii.gz` | reg60 | `reg_60` |
 
-- `task` is a substring filter (`'aseg'`, `'dgm'`, `'hlc'`, `'bet'`, `'reg'`).
+- `task` is a substring filter (`'aseg'`, `'dgm'`, `'hlc'`, `'bet'`, `'reg'`; `'aseg_ibsr18'` = IBSR18, 30 ASEG structures, use `full=True`).
 - seg123 scores **only the 12 deep-GM structures** (thalamus, caudate, putamen, pallidum, hippocampus, amygdala, L/R)
   even for `aseg`; it says nothing about cortex, WM, ventricles or cerebellum.
 - `full=False` (default) = lite mode: ≤ 20 files per dataset, the file list is cached in `val_dir/lite_list.json`.

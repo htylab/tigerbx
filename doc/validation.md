@@ -31,6 +31,7 @@ sub-directories for known dataset patterns. Directory names are not fixed.
 | SynthStrip    | `*/image.nii.gz`          | `bet_synstrip`                   |
 | NFBS          | `*/*T1w.nii.gz`           | `bet_NFBS`                       |
 | seg123        | `raw123/*.nii.gz`         | `aseg`, `dgm`, `hlc`             |
+| IBSR18        | `raw18/IBSR_*.nii.gz` (+ `label18/`) | `aseg_ibsr18`         |
 | reg60         | `raw60/*.nii.gz`          | `reg`                            |
 
 ---
@@ -73,7 +74,24 @@ tigerbx.val(GPU=True, task='aseg',
 bet / aseg / dgm / syn model files must be named `<prefix>_<mode>_<version>_<tag>.onnx` (mode = `bet`, `aseg43`,
 `dgm12`, ...): the mode in the filename selects the preprocessing and label table — see [models.md](models.md).
 
-**Valid `task` values:** `'bet'`, `'aseg'`, `'dgm'`, `'hlc'`, `'reg'`
+**Valid `task` values:** `'bet'`, `'aseg'`, `'dgm'`, `'hlc'`, `'reg'` (substring match: `'aseg'` runs `aseg_123` and
+`aseg_ibsr18`; `'aseg_ibsr18'` only IBSR18).
+
+### IBSR18 (all ASEG structures)
+
+`aseg_ibsr18` is the main ASEG accuracy check: the full pipeline (tBET + ASEG) on the raw IBSR18 T1w
+(0.94 x 0.94 x 1.5 mm), the prediction reoriented to RAS (the label grid), Dice against the manual labels with
+the harmonisation in `validate.IBSR18_STRUCTURES` (WM bilateral incl. 77 / 251-255, choroid plexus counted as
+lateral ventricle, optic chiasm as background), summarised over 30 structures (CSF and vessels reported only).
+
+```python
+tigerbx.val(val_dir='/data/validate', task='aseg_ibsr18', full=True, output_dir='val_out')
+# -> val_out/val_aseg_ibsr18.csv; default model mprage_aseg43_v0011_opt: 0.8131
+tigerbx.val(val_dir='/data/validate', task='aseg_ibsr18', full=True,
+            seg_model='mprage_aseg43_v0014_test.onnx')       # another ASEG model
+```
+
+Use `full=True`: lite mode scores a random subset of the 18 subjects.
 
 ---
 
