@@ -35,13 +35,12 @@ pub fn create_session(model_bytes: &[u8], threads: usize) -> Result<Session> {
     Ok(session)
 }
 
-/// Run inference on a pre-built session.
+/// Run inference on a pre-built session and return a label per voxel.
 ///
-/// Input: 3D f32 view (H, W, D), passed to ONNX Runtime as (1, 1, H, W, D) without copying
-/// when it is contiguous.
-/// Output: the binary mask sigmoid(logit) >= 0.5, i.e. logit >= 0, as a 3D u8 array (H, W, D). A model with a
-/// ``labels`` output (tigerbx.dev.onnx_optimize --labels, e.g. mprage_bet_v005_opt) returns the mask itself and
-/// only that output is requested.
+/// Input: 3D f32 view (H, W, D), passed to ONNX Runtime as (1, 1, H, W, D) without copying when it is contiguous.
+/// Output (H, W, D) u8: a model with a ``labels`` output (tigerbx.dev.onnx_optimize --labels, e.g. the embedded
+/// mprage_bet_v005_opt / mprage_aseg43_v0011_opt) returns it and only that output is requested; otherwise the
+/// logits [1, C, H, W, D] give logit >= 0 (C = 1, i.e. sigmoid >= 0.5) or the argmax over channels.
 pub fn run_onnx(session: &mut Session, input: ArrayView3<f32>) -> Result<Array3<u8>> {
     let input = input.as_standard_layout();
     let (h, w, d) = input.dim();
@@ -75,13 +74,32 @@ pub fn run_onnx(session: &mut Session, input: ArrayView3<f32>) -> Result<Array3<
     let outputs = session
         .run_with_options(ort::inputs![input_name.as_str() => input_tensor], &opts)
         .context("ONNX inference failed")?;
-
-    // Output shape is (1, 1, H, W, D) — sigmoid mode
-    let (_, logits) = outputs[0]
+    let (shape, logits) = outputs[0]
         .try_extract_tensor::<f32>()
         .context("Failed to extract output tensor")?;
-
-    // sigmoid(x) >= 0.5 <=> x >= 0 (same rule as TigerBx and the labels output)
-    let mask: Vec<u8> = logits.iter().map(|&x| (x >= 0.0) as u8).collect();
-    Array3::from_shape_vec((h, w, d), mask).context("Unexpected output size")
+    let channels = shape[1] as usize;
+    let n = h * w * d;
+    if logits.len() != channels * n {
+        anyhow::bail!("Unexpected output size");
+    }
+    let labels: Vec<u8> = if channels == 1 {
+        // sigmoid(x) >= 0.5 <=> x >= 0 (same rule as TigerBx and the labels output)
+        logits.iter().map(|&x| (x >= 0.0) as u8).collect()
+    } else {
+        if channels > 256 {
+            anyhow::bail!("{channels} channels do not fit in u8 labels");
+        }
+        (0..n)
+            .map(|v| {
+                let mut best = 0usize;
+                for c in 1..channels {
+                    if logits[c * n + v] > logits[best * n + v] {
+                        best = c;
+                    }
+                }
+                best as u8
+            })
+            .collect()
+    };
+    Array3::from_shape_vec((h, w, d), labels).context("Unexpected output size")
 }

@@ -451,10 +451,43 @@ pub fn nearest_to_grid(labels: &Array3<u8>, src_affine: &Mat4, target_affine: &M
 /// TigerBx `read_bet_input`: resample to 1 mm when any voxel size is outside [0.9, 1.1] mm, then
 /// reorder to a diagonal affine.
 pub fn to_model_space(data: Array3<f64>, header: &NiftiHeader) -> Volume {
-    let vol = Volume { data, affine: best_affine(header), kind: Kind::from_header(header) };
+    to_model_space_as(data, header, Kind::from_header(header))
+}
+
+/// `to_model_space` for data whose values are stored as `kind` (TigerBx keeps the tBET brain = input x mask in
+/// float64, so its resampling neither rounds nor saturates).
+pub fn to_model_space_as(data: Array3<f64>, header: &NiftiHeader, kind: Kind) -> Volume {
+    let vol = Volume { data, affine: best_affine(header), kind };
     let zooms = [header.pixdim[1] as f64, header.pixdim[2] as f64, header.pixdim[3] as f64];
     let zmax = zooms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let zmin = zooms.iter().cloned().fold(f64::INFINITY, f64::min);
     let vol = if zmax > 1.1 || zmin < 0.9 { resample_voxel(&vol, [1.0, 1.0, 1.0]) } else { vol };
     reorder(vol)
+}
+
+/// TigerBx `crop_cube(x, x > 0, padding)` + `_crop_nib`: the bounding box of the non-zero voxels, `padding` voxels
+/// wider (clipped to the volume), with the affine origin moved to the first voxel of the box. None if all zero.
+pub fn crop_nonzero(vol: &Volume, padding: usize) -> Option<Volume> {
+    let (h, w, d) = vol.data.dim();
+    let dims = [h, w, d];
+    let mut lo = [usize::MAX; 3];
+    let mut hi = [0usize; 3];
+    for ((i, j, k), &v) in vol.data.indexed_iter() {
+        if v > 0.0 {
+            for (a, c) in [i, j, k].into_iter().enumerate() {
+                lo[a] = lo[a].min(c);
+                hi[a] = hi[a].max(c);
+            }
+        }
+    }
+    if lo[0] == usize::MAX {
+        return None;
+    }
+    let r: Vec<(usize, usize)> = (0..3).map(|a| (lo[a].saturating_sub(padding), (hi[a] + padding).min(dims[a] - 1))).collect();
+    let data = vol.data.slice(ndarray::s![r[0].0..=r[0].1, r[1].0..=r[1].1, r[2].0..=r[2].1]).to_owned();
+    let mut affine = vol.affine;
+    for i in 0..3 {
+        affine[i][3] = (0..3).map(|j| vol.affine[i][j] * r[j].0 as f64).sum::<f64>() + vol.affine[i][3];
+    }
+    Some(Volume { data, affine, kind: vol.kind })
 }
