@@ -66,7 +66,7 @@ pub struct Volume {
 
 // ---------------------------------------------------------------- affine helpers
 
-fn mat_mul(a: &Mat4, b: &Mat4) -> Mat4 {
+pub(crate) fn mat_mul(a: &Mat4, b: &Mat4) -> Mat4 {
     let mut c = [[0.0; 4]; 4];
     for i in 0..4 {
         for j in 0..4 {
@@ -76,7 +76,7 @@ fn mat_mul(a: &Mat4, b: &Mat4) -> Mat4 {
     c
 }
 
-fn mat_inv(m: &Mat4) -> Mat4 {
+pub(crate) fn mat_inv(m: &Mat4) -> Mat4 {
     // Gauss-Jordan with partial pivoting
     let mut a = *m;
     let mut inv = [[0.0; 4]; 4];
@@ -110,7 +110,7 @@ fn allclose(a: &Mat4, b: &Mat4) -> bool {
     (0..4).all(|i| (0..4).all(|j| (a[i][j] - b[i][j]).abs() <= 1e-8 + 1e-5 * b[i][j].abs()))
 }
 
-fn col_norm(m: &Mat4, j: usize) -> f64 {
+pub(crate) fn col_norm(m: &Mat4, j: usize) -> f64 {
     (0..3).map(|i| m[i][j] * m[i][j]).sum::<f64>().sqrt()
 }
 
@@ -261,7 +261,7 @@ fn cubic_weights(t: f64) -> [f64; 4] {
 
 /// Input coordinate of output voxel (i, j, k) under `m` (= inverse(src) · target).
 #[inline]
-fn coord(m: &Mat4, i: usize, j: usize, k: usize) -> [f64; 3] {
+pub(crate) fn coord(m: &Mat4, i: usize, j: usize, k: usize) -> [f64; 3] {
     let (x, y, z) = (i as f64, j as f64, k as f64);
     [
         m[0][0] * x + m[0][1] * y + m[0][2] * z + m[0][3],
@@ -271,7 +271,7 @@ fn coord(m: &Mat4, i: usize, j: usize, k: usize) -> [f64; 3] {
 }
 
 #[inline]
-fn inside(c: &[f64; 3], dims: [usize; 3]) -> bool {
+pub(crate) fn inside(c: &[f64; 3], dims: [usize; 3]) -> bool {
     (0..3).all(|a| c[a] >= 0.0 && c[a] <= (dims[a] - 1) as f64)
 }
 
@@ -490,4 +490,40 @@ pub fn crop_nonzero(vol: &Volume, padding: usize) -> Option<Volume> {
         affine[i][3] = (0..3).map(|j| vol.affine[i][j] * r[j].0 as f64).sum::<f64>() + vol.affine[i][3];
     }
     Some(Volume { data, affine, kind: vol.kind })
+}
+
+/// `scipy.ndimage.affine_transform(data, m, order=1, mode='constant')` onto `shape`: trilinear, 0 where the
+/// input coordinate is outside [0, n-1] on any axis.
+pub fn linear_transform(data: &Array3<f64>, m: &Mat4, shape: (usize, usize, usize)) -> Array3<f64> {
+    let d = data.dim();
+    let dims = [d.0, d.1, d.2];
+    let mut out = Array3::<f64>::zeros(shape);
+    out.axis_iter_mut(Axis(0)).into_par_iter().enumerate().for_each(|(i, mut plane)| {
+        for ((j, k), o) in plane.indexed_iter_mut() {
+            let c = coord(m, i, j, k);
+            if !inside(&c, dims) {
+                continue;
+            }
+            let mut i0 = [0usize; 3];
+            let mut t = [0.0; 3];
+            for a in 0..3 {
+                let f = c[a].floor();
+                i0[a] = f as usize;
+                t[a] = c[a] - f;
+            }
+            let mut s = 0.0;
+            for (dx, wx) in [(0usize, 1.0 - t[0]), (1, t[0])] {
+                let x = (i0[0] + dx).min(dims[0] - 1);
+                for (dy, wy) in [(0usize, 1.0 - t[1]), (1, t[1])] {
+                    let y = (i0[1] + dy).min(dims[1] - 1);
+                    for (dz, wz) in [(0usize, 1.0 - t[2]), (1, t[2])] {
+                        let z = (i0[2] + dz).min(dims[2] - 1);
+                        s += wx * wy * wz * data[[x, y, z]];
+                    }
+                }
+            }
+            *o = s;
+        }
+    });
+    out
 }

@@ -1,7 +1,9 @@
 mod bx;
 mod inference;
 mod nifti_io;
+mod numreg;
 mod postprocess;
+mod reg;
 mod resample;
 
 use anyhow::{bail, Result};
@@ -11,18 +13,21 @@ use std::path::{Path, PathBuf};
 /// Embedded models (compiled into the binary): TigerBx's defaults, from the modelhub release
 static EMBEDDED_BET: &[u8] = include_bytes!("../models/mprage_bet_v005_opt.onnx");
 static EMBEDDED_ASEG: &[u8] = include_bytes!("../models/mprage_aseg43_v0011_opt.onnx");
+static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v004_vfa.onnx");
+/// TigerBx's bundled registration template (same file as the Python package)
+static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
 
 /// Postfixes rustbx / TigerBx write; inputs ending in one of them are earlier outputs, not new images.
-const OUTPUT_POSTFIXES: [&str; 3] = ["tbet", "tbetmask", "aseg"];
+const OUTPUT_POSTFIXES: [&str; 5] = ["tbet", "tbetmask", "aseg", "affine", "norm"];
 
-/// rustbx — TigerBx brain extraction and ASEG as a native executable
+/// rustbx — TigerBx brain extraction, ASEG and template registration as a native executable
 ///
 /// Supports glob patterns, directories, and multiple files:
-///   rustbx T1w.nii.gz                    (all outputs: _tbet, _tbetmask, _aseg)
+///   rustbx T1w.nii.gz                    (all outputs: _tbet, _tbetmask, _aseg, _affine, _norm)
 ///   rustbx data/*.nii.gz -o output_dir -m
 ///   rustbx data/T1w_dir -o results/ -b -a
 #[derive(Parser, Debug)]
-#[command(version, about = "TigerBx tBET and ASEG using ONNX Runtime (no option: -b -m -a)")]
+#[command(version, about = "TigerBx tBET, ASEG and template registration using ONNX Runtime (no option: all outputs)")]
 struct Args {
     /// Input NIfTI files, glob patterns, or directories
     inputs: Vec<String>,
@@ -43,6 +48,14 @@ struct Args {
     #[arg(short = 'a', long)]
     aseg: bool,
 
+    /// Save the tBET brain affinely registered to the template (_affine; numreg, as tigerbx.reg('A'))
+    #[arg(short = 'A', long)]
+    affine: bool,
+
+    /// Save the tBET brain normalised to the template (_norm; numreg affine + VFA, as tigerbx.reg('AD') / VBM)
+    #[arg(short = 'n', long)]
+    norm: bool,
+
     /// tBET ONNX model file (default: embedded mprage_bet_v005_opt)
     #[arg(long)]
     bet_model: Option<PathBuf>,
@@ -50,6 +63,10 @@ struct Args {
     /// ASEG ONNX model file (default: embedded mprage_aseg43_v0011_opt)
     #[arg(long)]
     aseg_model: Option<PathBuf>,
+
+    /// VFA registration ONNX model file (default: embedded mprage_reg_v004_vfa)
+    #[arg(long)]
+    vfa_model: Option<PathBuf>,
 
     /// ONNX Runtime intra-op threads (default: 70% of available CPUs)
     #[arg(short, long)]
@@ -62,6 +79,8 @@ struct Outputs {
     bet: bool,
     betmask: bool,
     aseg: bool,
+    affine: bool,
+    norm: bool,
 }
 
 /// Model bytes from `path`, or the embedded model.
@@ -115,10 +134,10 @@ fn main() -> Result<()> {
     }
 
     // No output option: all of them
-    let outputs = if args.bet || args.betmask || args.aseg {
-        Outputs { bet: args.bet, betmask: args.betmask, aseg: args.aseg }
+    let outputs = if args.bet || args.betmask || args.aseg || args.affine || args.norm {
+        Outputs { bet: args.bet, betmask: args.betmask, aseg: args.aseg, affine: args.affine, norm: args.norm }
     } else {
-        Outputs { bet: true, betmask: true, aseg: true }
+        Outputs { bet: true, betmask: true, aseg: true, affine: true, norm: true }
     };
 
     // Expand inputs (globs, directories, literal files)
@@ -140,6 +159,12 @@ fn main() -> Result<()> {
     } else {
         None
     };
+    let mut vfa_session = if outputs.norm {
+        Some(inference::create_session(&model_bytes(&args.vfa_model, EMBEDDED_VFA, "VFA")?, threads)?)
+    } else {
+        None
+    };
+    let template = if outputs.affine || outputs.norm { Some(reg::load_template(EMBEDDED_TEMPLATE)?) } else { None };
     println!("Models loaded ({} threads).\n", threads);
 
     println!("Found {} file(s) to process\n", files.len());
@@ -148,7 +173,8 @@ fn main() -> Result<()> {
     let mut failed = 0usize;
     for (i, input) in files.iter().enumerate() {
         println!("[{}/{}] {}", i + 1, files.len(), input.display());
-        if let Err(e) = process_file(input, args.output.as_deref(), outputs, &mut bet_session, aseg_session.as_mut()) {
+        let sessions = Sessions { bet: &mut bet_session, aseg: aseg_session.as_mut(), vfa: vfa_session.as_mut() };
+        if let Err(e) = process_file(input, args.output.as_deref(), outputs, sessions, template.as_ref()) {
             eprintln!("  ERROR: {:#}", e);
             failed += 1;
         }
@@ -164,17 +190,23 @@ fn main() -> Result<()> {
 }
 
 /// Process a single NIfTI file and write the requested outputs.
+struct Sessions<'a> {
+    bet: &'a mut ort::session::Session,
+    aseg: Option<&'a mut ort::session::Session>,
+    vfa: Option<&'a mut ort::session::Session>,
+}
+
 fn process_file(
     input: &Path,
     output_dir: Option<&Path>,
     outputs: Outputs,
-    bet_session: &mut ort::session::Session,
-    aseg_session: Option<&mut ort::session::Session>,
+    sessions: Sessions,
+    template: Option<&reg::Template>,
 ) -> Result<()> {
     let start = std::time::Instant::now();
 
     let (header, data) = nifti_io::read_nifti(input)?;
-    let res = bx::run_bx(&data, &header, bet_session, aseg_session)?;
+    let res = bx::run_bx(&data, &header, sessions.bet, sessions.aseg)?;
 
     if outputs.bet {
         let p = output_path(input, output_dir, "tbet");
@@ -190,6 +222,32 @@ fn process_file(
         let p = output_path(input, output_dir, "aseg");
         nifti_io::write_nifti_u8(&p, &header, aseg)?;
         println!("  -> {}", p.display());
+    }
+
+    if let Some(t) = template {
+        let brain = res.brain.view().into_dimensionality::<ndarray::Ix3>()?.to_owned();
+        let r = reg::run_reg(&brain, &header, t, sessions.vfa)?;
+        if outputs.affine {
+            let p = output_path(input, output_dir, "affine");
+            nifti_io::write_nifti_f32(&p, &t.header, &r.affine.into_dyn())?;
+            println!("  -> {}", p.display());
+        }
+        if let Some(dir) = std::env::var_os("RUSTBX_DUMP_REG") {
+            // validation aid: the registration (template -> input world matrix, VFA grid) for applying it to labels
+            let stem = output_path(input, Some(Path::new(&dir)), "reg");
+            let stem = stem.to_string_lossy().replace("_reg.nii.gz", "");
+            let m: Vec<String> = r.matrix.iter().flatten().map(|v| format!("{v:.17e}")).collect();
+            std::fs::write(format!("{stem}_M.txt"), m.join(" "))?;
+            if let Some(g) = r.grid.as_ref() {
+                let bytes: Vec<u8> = g.iter().flat_map(|v| v.to_le_bytes()).collect();
+                std::fs::write(format!("{stem}_grid.f32"), bytes)?;
+            }
+        }
+        if let Some(norm) = r.norm {
+            let p = output_path(input, output_dir, "norm");
+            nifti_io::write_nifti_f32(&p, &t.header, &norm.into_dyn())?;
+            println!("  -> {}", p.display());
+        }
     }
 
     println!("  Done in {:.1}s", start.elapsed().as_secs_f64());

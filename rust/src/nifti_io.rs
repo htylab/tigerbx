@@ -38,6 +38,15 @@ pub fn write_nifti_u8(path: &Path, header: &NiftiHeader, data: &ArrayD<u8>) -> R
     Ok(())
 }
 
+/// Write an f32 ndarray (template-space images) to a NIfTI file, using a reference header.
+pub fn write_nifti_f32(path: &Path, header: &NiftiHeader, data: &ArrayD<f32>) -> Result<()> {
+    WriterOptions::new(path)
+        .reference_header(header)
+        .write_nifti(data)
+        .with_context(|| format!("Failed to write NIfTI file: {}", path.display()))?;
+    Ok(())
+}
+
 /// Write the tBET brain as TigerBx does: in the input's data type when the values fit it (integers truncated
 /// toward zero, no scaling), float32 when an integer type cannot hold them.
 pub fn write_tbet(path: &Path, header: &NiftiHeader, data: &ArrayD<f64>) -> Result<()> {
