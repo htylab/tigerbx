@@ -40,8 +40,8 @@ tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 ### Install a specific version
 
 ```bash
-pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.4.tar.gz"
-pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.4.tar.gz"
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.0.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.0.tar.gz"
 ```
 
 > **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):

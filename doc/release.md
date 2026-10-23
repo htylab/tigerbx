@@ -8,6 +8,9 @@
   - New bundled MNI-space template; FuseMorph, SyN and SyNCC removed
   - Outputs renamed `_Af` → `_affine`, `_reg` → `_VXM`; VBM writes `_norm`; license CC BY-NC-SA 4.0
   - ASEG label 99 `Unlabeled-Intracranial`: TIV = all non-zero `_aseg` voxels
+  - New `tigerbx.embed`; VBM batch-safe with `vbm_summary.csv` and `qc_flags`
+  - Faster tBET / ASEG / HLC (optimised models, no softmax); HLC uint8 label fix
+  - Removed: tBET QC score, `bx` flags `q` / `S` / `W`, NERVE
 - [`v0.2.4`](release/releasenote024.md)
   - New default ASEG model `mprage_aseg43_v0011_allseg.onnx` (IBSR18 0.8129 vs 0.8076, same labels)
   - No GPU out-of-memory across many input shapes; `TIGERBX_GPU_MEM_LIMIT_GB`

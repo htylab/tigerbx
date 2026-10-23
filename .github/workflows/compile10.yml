@@ -1,6 +1,8 @@
 name: Compile10
 
 on:
+  push:
+    tags: ['v*']       # pushing a release tag builds it and creates a draft release for that tag
   workflow_dispatch:
     inputs:
       make_release:
@@ -102,7 +104,7 @@ jobs:
 # ============================================================
   release:
     needs: build
-    if: ${{ inputs.make_release }}
+    if: ${{ github.event_name == 'push' || inputs.make_release }}
     runs-on: ubuntu-latest
 
     steps:
@@ -118,8 +120,8 @@ jobs:
     - name: Create draft GitHub Release
       uses: ncipollo/release-action@v1
       with:
-        tag: v${{ github.run_number }}
-        name: Release ${{ github.run_number }}
+        tag: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', github.run_number) }}
+        name: ${{ github.event_name == 'push' && github.ref_name || format('Release {0}', github.run_number) }}
         draft: true
         artifacts: release/tigerbx-*.zip
         token: ${{ secrets.GITHUB_TOKEN }}

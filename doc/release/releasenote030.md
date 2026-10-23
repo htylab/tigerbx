@@ -14,15 +14,19 @@
 - **Renamed outputs** — `_Af` → `_affine`, `_reg` → `_VXM`; VBM writes `_norm`
 - **New `tigerbx.embed`** — VFA brain embedding: mean encoder feature per ASEG structure ([37, 96]) + volumes, TIV
   and image quality per T1w (`tiger embed`); AD vs CN AUC 0.857 fused with volumes
-- **VBM for real batches** — one bad input no longer stops a run; `vbm_summary.csv` with QC, TIV, GM / WM / CSF
-  volumes and image-quality measures per input
+- **VBM for real batches** — one bad input no longer stops a run; `vbm_summary.csv` with TIV, GM / WM / CSF
+  volumes, image-quality measures and `qc_flags` (batch outliers) per input
+- **Faster inference, same results** — optimised default tBET / ASEG / HLC models and no softmax: ASEG inference +
+  post-processing 9.1 → 5.3 s per T1w, HLC 1.3x faster
+- **Removed** — the tBET QC score, `bx` flags `q`, `S` (SynthSeg-style ASEG), `W` (WMH), and NERVE
+- **HLC fix** — `_hlc` of a uint8 input kept only 17 of its 171 labels; re-run HLC on uint8 inputs
 - **TIV from aseg** — new label 99 `Unlabeled-Intracranial`; TIV = all non-zero `_aseg` voxels
 - **License** — CC BY-NC-SA 4.0 (was CC BY-NC 4.0)
 
 > **Breaking release.** Registration defaults, output file names, the
-> template and the license change. Results from 0.2.x and 0.3.0
-> registration / VBM should not be mixed in one study. See
-> [Migration](#7-migration-from-02x).
+> template and the license change, and several `bx` options are removed.
+> Results from 0.2.x and 0.3.0 registration / VBM should not be mixed in one
+> study. See [Migration](#8-migration-from-02x).
 
 ---
 
@@ -79,8 +83,12 @@ group vote of per-subject aseg maps.
 | `antspyx` dependency | numreg (adds the small pure-Python `threadpoolctl`, used to keep its BLAS single-threaded) |
 | `mprage_rigid_v002` rigid model | numreg `dof=6` |
 | transform ONNX models (`mprage_transform_v002_*`, `mprage_affinetransform_v002_*`) | numpy/scipy resampling in `core/warp.py`, identical output |
+| tBET QC score: `QC` / `QC_raw` in results, `_qc-<score>.log`, `tigerbx.qc_stat`, `QC_raw` in `val` bet CSVs, `QC` in `_embed.npz` | VBM `qc_flags`; `tigerbx.core.qa.image_quality` |
+| `bx` flags `q`, `S` (SynthSeg-style ASEG, `_syn`), `W` (WMH, `_wmh`) and CLI `-q` / `-S` / `-W`; `val` task `syn` | — (`a` for ASEG) |
+| NERVE (`tigerbx.nerve`, `tiger nerve`) | `tigerbx.embed` (regional VFA embedding) |
 
-Removed steps raise a `ValueError` that names the replacement.
+Removed steps raise a `ValueError` that names the replacement; so does a `tigerbx.run` argstring with `q`, `S`
+or `W`.
 `tigerbx.transform` still applies `Fuse_dense_warp` from an older
 `warp.npz` and skips old SyN entries with a warning.
 
@@ -104,9 +112,9 @@ for the rigid and affine images too.
   stopping the run; this includes file errors such as an unwritable folder
   or a full disk (a single input still raises, after writing its row to the
   summary).
-- **`vbm_summary.csv`** in the output folder: status, QC, TIV and native
-  GM / WM / CSF volumes per input (and the error of failed ones), ready to
-  use as group-analysis covariates.
+- **`vbm_summary.csv`** in the output folder: status, `qc_flags`, TIV and
+  native GM / WM / CSF volumes per input (and the error of failed ones),
+  ready to use as group-analysis covariates.
 - **One tBET per input**: the BET / CGW result is reused by the
   registration stage (about 40% less CPU time per subject in our test).
 - **Flat output folder**: `_SmoothedGM` sits next to `_norm`
@@ -119,8 +127,13 @@ for the rigid and affine images too.
 - **Image quality and homogeneity** in `vbm_summary.csv`: `noise`, `bias`,
   `contrast`, `edge`, `res` (no-reference, from the image and its ASEG; no
   model) and `homog_z` (each SmoothedGM map's agreement with the batch;
-  z < -3 is logged, mostly misregistration / orientation errors). Helpers in
+  z < -3 mostly means misregistration / orientation errors). Helpers in
   `tigerbx.core.qa`.
+- **`qc_flags`** replaces the tBET QC score: `fail`, or the measures that
+  are outliers of the batch (robust z > 3 in the worse direction: `noise`,
+  `bias` higher, `contrast`, `edge` lower; `res` is not flagged) and
+  `homog` (z < -3), for batches of >= 10 successful inputs. Flags are
+  relative to the batch: run each study or site separately.
 - Docs: modulation uses the nonlinear Jacobian only (affine scaling not
   included), return-value convention, summary columns.
 - Tested on 224 sessions of a public multi-site dementia cohort (AD 114, CN
@@ -131,13 +144,32 @@ for the rigid and affine images too.
 
 - `tigerbx.embed(input, output)` / `tiger embed`: tBET + ASEG, numreg affine, then the encoder of the VFA
   registration model (`mprage_embed_v001_vfa.onnx`, 6.8 MB, same weights as the `D` step) gives 2 mm / 4 mm feature
-  maps; their mean inside each of the 37 ASEG structures is saved with the structure volumes, TIV, QC and image
+  maps; their mean inside each of the 37 ASEG structures is saved with the structure volumes, TIV and image
   quality in `<stem>_embed.npz` (~15 KB). Batch-safe like VBM (`_embedfail.log`, `embed_summary.csv`).
 - Dementia cohort, 527 sessions: AD vs CN AUC 0.836 (embedding), 0.849 (volumes), 0.857 (late fusion);
   random encoder 0.765. See `doc/embed.md`.
-- NERVE stays for now; the embedding is meant to replace it in a later release.
+- NERVE is removed; the embedding replaces it.
 
-## 6. Fixes
+## 6. Faster inference
+
+The default tBET, ASEG and HLC models have the same weights in an optimised graph (`mprage_bet_v005_opt`,
+`mprage_aseg43_v0011_opt`, `mprage_hlc_v004_opt`), made with the new `tigerbx.dev.onnx_optimize`:
+
+- Exported GroupNorm layers are rewritten into ops that ONNX Runtime runs faster on CPU (same arithmetic; they
+  were ~30% of a forward pass).
+- The models return labels (tBET mask, ASEG labels, HLC heads) instead of all logits, and tigerbx no longer
+  computes a softmax / sigmoid, which does not change the labels.
+- HLC builds one session per batch; resampling onto the same grid is a copy.
+
+ASEG inference + post-processing 9.1 → 5.3 s per T1w; HLC on 10 T1w 700 → 536 s (32 CPU cores). Against the
+previous models on 30 T1w: tBET mask identical in 29 (1 voxel), ASEG identical in 27 (≤ 6 voxels), VBM volumes,
+image-quality measures and `homog_z` identical. Use `onnx_optimize` on newly trained models (see
+`doc/models.md`).
+
+## 7. Fixes
+
+- **HLC**: the `_hlc` output of a uint8 input was saved as uint8 with a scale factor, which merged its 171 labels
+  into 17 values. It is now int16. Re-run HLC on uint8 inputs (e.g. FreeSurfer-conformed T1w).
 
 - Registration of int16 images with a large `scl_slope` no longer
   overflows.
@@ -170,7 +202,7 @@ for the rigid and affine images too.
   normalisation (CSF 1/3, GM 2/3, WM 1) for images on the template grid.
   Not used by any pipeline yet; see `doc/core/tissuenorm.md`.
 
-## 7. Migration from 0.2.x
+## 8. Migration from 0.2.x
 
 | 0.2.x | 0.3.0 |
 |---|---|
@@ -181,12 +213,18 @@ for the rigid and affine images too.
 | `tigerbx.vbm(..., reg_plan='AF')` | `tigerbx.vbm(...)` (default `AD`) |
 | `pip install antspyx optuna` for reg | not needed |
 | summing all `_aseg` labels as brain volume | exclude label 99 (it is the rest of the intracranial volume); with it the sum is TIV |
+| `tigerbx.run('...q')`, `'...S'`, `'...W'`; `tiger bx -q / -S / -W` | drop the flag (`ValueError` otherwise) |
+| `result['QC']`, `QC_raw`, `tigerbx.qc_stat` | VBM `qc_flags`, `tigerbx.core.qa.image_quality` |
+| `tigerbx.nerve`, `tiger nerve` | `tigerbx.embed`, `tiger embed` |
 | results tied to the old bundled template | template changed; to keep the old one, pass `-T MNI152_T1_1mm_brain.nii.gz` (shipped with 0.2.4, not with 0.3.0) |
 
-`tiger hlc`, `tiger gdm` and the ASEG model are unchanged from 0.2.4;
-`tiger bx -a` only adds label 99 to the `_aseg` file.
+`tiger gdm` is unchanged from 0.2.4. The ASEG and HLC models keep their 0.2.4 weights (optimised graphs);
+`tiger bx -a` adds label 99 to the `_aseg` file.
 
-## 8. License
+`rust/` holds the source of `rustbx`, a native tBET executable with the same model and preprocessing (not
+released yet).
+
+## 9. License
 
 TigerBx is now licensed under **CC BY-NC-SA 4.0** (Attribution –
 NonCommercial – ShareAlike). Derivatives must be shared under the same
