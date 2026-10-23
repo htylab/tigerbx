@@ -28,9 +28,6 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     application_path = os.path.dirname(os.path.abspath(__file__))
 
-# Calibrated QC threshold: qc_raw at which BET Dice ≈ 0.95 (from qc_stat calibration).
-# qc_raw values at or above this level are considered "good" and displayed as 100.
-_QC_RAW_GOOD = 0.7581
 _NATIVE_111 = (0.99, 1.01)
 _NATIVE_111_LOOSE = (0.9, 1.1)
 
@@ -65,8 +62,7 @@ def _prepare_tbet111_crop(tbet_nib, native_111_range=_NATIVE_111):
 def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, session=None):
     """Shared inference core: load, run model, resample, apply brainmask, cast dtype.
 
-    Returns (output_nib, mask_nib_resp, prob_resp).
-    mask_nib_resp and prob_resp are in model space (before resampling to input space).
+    Returns (output_nib, mask_nib_resp); mask_nib_resp is in model space (before resampling to input space).
     """
     input_nib = nib.load(f)
 
@@ -75,7 +71,7 @@ def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, sessi
     else:
         input_nib_resp = copy.deepcopy(tbet111)  # avoid modifying caller's copy
 
-    mask_nib_resp, prob_resp = lib_bx.run(
+    mask_nib_resp = lib_bx.run(
         model_ff, input_nib_resp, GPU=GPU, patch=patch, session=session)
 
     mask_nib = resample_to_img(
@@ -92,34 +88,20 @@ def _infer_mask(model_ff, f, GPU, patch, brainmask_nib=None, tbet111=None, sessi
     output_nib = nib.Nifti1Image(output, input_nib.affine, input_nib.header)
     output_nib.header.set_data_dtype(dtype)
 
-    return output_nib, mask_nib_resp, prob_resp
+    return output_nib, mask_nib_resp
 
 
 def produce_betmask(model, f, GPU=False, patch=False, session=None):
-    """Run BET model and return (output_nib, qc_score, qc_raw).
-
-    QC is always computed: qc_raw in [0, 1] based on mean binary entropy
-    across all predicted brain voxels.
-
-    qc_score is rescaled so that qc_raw >= _QC_RAW_GOOD (calibrated Dice >= 0.95
-    boundary) displays as 100:
-        qc_score = int(clip(qc_raw / _QC_RAW_GOOD * 100, 0, 100))
-    """
+    """Run the BET model and return the brain mask (nibabel image on the input grid)."""
     model_ff = lib_tool.get_model(model)
 
-    output_nib, mask_nib_resp, prob_resp = _infer_mask(
+    output_nib, mask_nib_resp = _infer_mask(
         model_ff, f, GPU, patch, session=session)
 
-    probmax     = np.max(prob_resp, axis=0)
-    within_mask = lib_tool.read_nib(mask_nib_resp) > 0
-    if not np.any(within_mask):
+    if not np.any(lib_tool.read_nib(mask_nib_resp) > 0):
         raise RuntimeError(f'BET produced an empty brain mask for {f!r}.')
-    p           = probmax.clip(1e-7, 1 - 1e-7)
-    entropy     = -(p * np.log(p) + (1 - p) * np.log(1 - p))  # binary entropy [0, ln2]
-    qc_raw   = 1.0 - float(np.mean(entropy[within_mask])) / np.log(2)
-    qc_score = int(np.clip(qc_raw / _QC_RAW_GOOD * 100, 0, 100))
 
-    return output_nib, qc_score, qc_raw
+    return output_nib
 
 
 def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None,
@@ -131,7 +113,7 @@ def produce_mask(model, f, GPU=False, brainmask_nib=None, tbet111=None,
     """
     model_ff = lib_tool.get_model(model)
 
-    output_nib, _, _ = _infer_mask(
+    output_nib, _ = _infer_mask(
         model_ff, f, GPU, patch, brainmask_nib, tbet111, session=session)
 
     return output_nib
@@ -145,8 +127,6 @@ def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
         'bet':     'tbet',
         'aseg':    'aseg',
         'dgm':     'dgm',
-        'wmh':     'wmh',
-        'syn':     'syn',
         'cgw':     ('cgw_pve0', 'cgw_pve1', 'cgw_pve2'),
         'ct':      'ct',
     }
@@ -158,6 +138,10 @@ def _all_outputs_exist(f, output_dir, run_d, gz, common_folder=None):
                 if not os.path.isfile(ftemplate.replace('@@@@', postfix)):
                     return False
     return True
+
+# flags removed in this release -> what they did (an argstring with one of them raises)
+REMOVED_FLAGS = {'q': 'tBET QC score', 'S': 'SynthSeg-style ASEG', 'W': 'white-matter hypointensity mask'}
+
 
 def run(argstring, input=None, output=None, model=None, verbose=0,
         chunk_size=50, continue_=False, silent=False, save_outputs=True):
@@ -184,15 +168,16 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
 
     if args.clean_onnx:
         argstring = ''
+    removed = [c for c in REMOVED_FLAGS if c in argstring]
+    if removed:
+        raise ValueError('tigerbx.run: flag(s) ' + ', '.join(f"'{c}' ({REMOVED_FLAGS[c]})" for c in removed)
+                         + ' have been removed. For image quality see tigerbx.core.qa.image_quality.')
     args.betmask = 'm' in argstring
     args.aseg = 'a' in argstring
     args.bet = 'b' in argstring
     args.ct = 'c' in argstring
     args.cgw = 'C' in argstring
     args.dgm = 'd' in argstring
-    args.wmh = 'W' in argstring
-    args.syn = 'S' in argstring
-    args.qc = 'q' in argstring
     args.gz = 'z' in argstring
     args.patch = 'p' in argstring
     return run_args(args)
@@ -200,11 +185,24 @@ def run(argstring, input=None, output=None, model=None, verbose=0,
 
 # ── per-model inference helpers ───────────────────────────────────────────────
 
+def _fill_unlabeled_intracranial(aseg_nib, tbetmask_nib):
+    """Label the tBET-mask voxels that aseg leaves at 0 as Unlabeled-Intracranial (99)."""
+    aseg = np.asarray(aseg_nib.dataobj)
+    mask = np.asarray(tbetmask_nib.dataobj) > 0
+    if aseg.shape != mask.shape:
+        return aseg_nib
+    aseg = aseg.copy()
+    aseg[mask & (aseg == 0)] = lib_bx.ASEG_UNLABELED_INTRACRANIAL
+    return nib.Nifti1Image(aseg, aseg_nib.affine, aseg_nib.header)
+
+
 def _run_seg(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
     result_nib = produce_mask(model_ff, f, GPU=GPU,
                               brainmask_nib=cache['tbetmask_nib'],
                               tbet111=cache['tbet111_crop'],
                               patch=patch, session=session)
+    if key == 'aseg':
+        result_nib = _fill_unlabeled_intracranial(result_nib, cache['tbetmask_nib'])
     if save_outputs:
         fn = save_nib(result_nib, cache['ftemplate'], key)
         _logger.debug('Writing output file: %s', fn)
@@ -262,19 +260,16 @@ def _run_ct(key, session, model_ff, f, cache, GPU, patch, save_outputs=True):
 _MODEL_RUNNERS = {
     'aseg': _run_seg,
     'dgm':  _run_seg,
-    'wmh':  _run_seg,
-    'syn':  _run_seg,
     'cgw':  _run_cgw,
     'ct':   _run_ct,
 }
 
-_SEG_ORDER = ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct']
+_SEG_ORDER = ['aseg', 'dgm', 'cgw', 'ct']
 
 
 # ── main entry point ──────────────────────────────────────────────────────────
 
 def run_args(args):
-
     run_d      = vars(args)
     verbose    = run_d.get('verbose', 0)
     chunk_size = run_d.get('chunk_size', 50)
@@ -292,8 +287,7 @@ def run_args(args):
         _logger.warning(' '.join(str(x) for x in msg))
 
     if True not in [run_d['betmask'], run_d['aseg'], run_d['bet'], run_d['dgm'],
-                    run_d['ct'], run_d['qc'], run_d['wmh'],
-                    run_d['cgw'], run_d['syn'], run_d['patch']]:
+                    run_d['ct'], run_d['cgw'], run_d['patch']]:
         run_d['bet'] = True
 
     if run_d['clean_onnx']:
@@ -305,13 +299,11 @@ def run_args(args):
 
     output_dir = args.output
     omodel = {
-        'bet':  'mprage_bet_v005_mixsynthv4.onnx',
-        'aseg': 'mprage_aseg43_v0011_allseg.onnx',
+        'bet':  'mprage_bet_v005_opt.onnx',
+        'aseg': 'mprage_aseg43_v0011_opt.onnx',
         'ct':   'mprage_mix_ct.onnx',
         'dgm':  'mprage_dgm12_v002_mix6.onnx',
-        'wmh':  'mprage_wmh_v002_betr111.onnx',
         'cgw':  'mprage_cgw_v001_r111.onnx',
-        'syn':  'mprage_synthseg_v003_r111.onnx',
     }
 
     if isinstance(args.model, dict):
@@ -335,7 +327,7 @@ def run_args(args):
     if not input_file_list:
         return []
 
-    _needs_tbet111_crop = any(run_d.get(k) for k in ['aseg', 'dgm', 'wmh', 'syn', 'cgw', 'ct'])
+    _needs_tbet111_crop = any(run_d.get(k) for k in ['aseg', 'dgm', 'cgw', 'ct'])
     if any(run_d.get(k) for k in ['cgw', 'ct']):
         _native_111_range = _NATIVE_111
     else:
@@ -344,7 +336,6 @@ def run_args(args):
 
     result_accum = {f: [{}, {}] for f in input_file_list}
     bet_model_ff = lib_tool.get_model(omodel['bet'])
-    _low_qc = []   # collect (basename, qc_score) across all chunks for end-of-run summary
 
     # ── Chunked loop ──────────────────────────────────────────────────────────
     for chunk_start in range(0, len(input_file_list), chunk_size):
@@ -359,7 +350,7 @@ def run_args(args):
 
             ftemplate, _ = get_template(f, output_dir, args.gz, common_folder)
 
-            tbetmask_nib, qc_score, qc_raw = produce_betmask(
+            tbetmask_nib = produce_betmask(
                 omodel['bet'], f, GPU=args.gpu, patch=run_d['patch'],
                 session=bet_session)
 
@@ -372,26 +363,9 @@ def run_args(args):
                 tbet111_crop = _prepare_tbet111_crop(
                     tbet_nib, native_111_range=_native_111_range)
 
-            name18 = f"{os.path.basename(f)[:18]:<18}"
-            _pbar.set_postfix_str(f"{name18} | QC={qc_score}")
+            _pbar.set_postfix_str(os.path.basename(f))
             rd  = result_accum[f][0]
             rfd = result_accum[f][1]
-            rd['QC'] = qc_score
-            rd['QC_raw'] = qc_raw
-            rfd['QC'] = qc_score
-            rfd['QC_raw'] = qc_raw
-
-            if qc_score < 50:
-                tqdm.write(f'[WARNING] Low QC score ({qc_score}) for {os.path.basename(f)}'
-                           ' — check result carefully.')
-                _low_qc.append((os.path.basename(f), qc_score))
-            if save_outputs and (run_d['qc'] or qc_score < 50):
-                _dir, _base = os.path.split(ftemplate)
-                _base = _base.replace('.nii', '').replace('.gz', '')
-                qcfile = os.path.join(_dir, _base.replace('@@@@', f'qc-{qc_score}.log'))
-                with open(qcfile, 'a') as the_file:
-                    the_file.write(f'QC: {qc_score} \n')
-                _dbg('Writing output file: ', qcfile)
 
             if run_d['betmask']:
                 rd['tbetmask']  = tbetmask_nib
@@ -432,12 +406,6 @@ def run_args(args):
             del session
 
         bet_cache.clear()
-
-    # ── low-QC summary (ensure warnings aren't missed in long runs) ───────────
-    if _low_qc:
-        printer(f'\n[WARNING] {len(_low_qc)} file(s) with low QC score — check results carefully:')
-        for fname, qc in _low_qc:
-            printer(f'  QC={qc}: {fname}')
 
     # ── return (format unchanged) ─────────────────────────────────────────────
     if len(input_file_list) == 1:

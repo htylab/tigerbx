@@ -1,8 +1,7 @@
 from os.path import basename
 import numpy as np
 import nibabel as nib
-from scipy.special import softmax
-from tigerbx.core.onnx import predict
+from tigerbx.core.onnx import create_session, has_labels_output, predict, predict_labels
 from tigerbx.core.resample import reorder_img, resample_voxel
 
 from tigerbx import lib_tool
@@ -10,6 +9,9 @@ from tigerbx import lib_tool
 label_all = dict()
 label_all['aseg43'] = (2,3,4,5,7,8,10,11,12,13,14,15,16,17,18,24,26,28,30,31,41,42,43,
                 44,46,47,49,50,51,52,53,54,58,60,62,63,77,85,251,252,253,254,255)
+# aseg output only (not a model channel): voxels inside the tBET mask that no aseg structure claims (sulcal /
+# extra-cerebral CSF, pial partial volume, meninges, vessels), so that TIV = (aseg > 0).sum() * voxel volume
+ASEG_UNLABELED_INTRACRANIAL = 99
 label_all['dkt'] = ( 1002, 1003,
                1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015,
                1016, 1017, 1018, 1019, 1020, 1021, 1022, 1023, 1024, 1025, 1026,
@@ -26,12 +28,10 @@ label_all['wmp'] = (  251,  252,  253,  254,  255, 3001, 3002, 3003, 3005, 3006,
                      4018, 4019, 4020, 4021, 4022, 4023, 4024, 4025, 4026, 4027, 4028,
                      4029, 4030, 4031, 4032, 4033, 4034, 4035)
 
-label_all['synthseg'] = ( 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24,
-                         26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60)
 #nib.Nifti1Header.quaternion_threshold = -100
 
 
-SEG_MODES = ('bet', 'aseg43', 'dkt', 'dgm12', 'wmp', 'seg3', 'wmh', 'synthseg')
+SEG_MODES = ('bet', 'aseg43', 'dkt', 'dgm12', 'wmp', 'seg3')
 
 
 def get_mode(model_ff):
@@ -55,28 +55,6 @@ def getLarea(input_mask):
         mask = input_mask
     return mask
 
-def logit_to_prob(logits, seg_mode):
-    label_num = dict()
-    label_num['bet'] = 2
-    label_num['aseg43'] = 44
-    label_num['dkt'] = 63
-    label_num['dgm12'] = 13
-    label_num['wmp'] = 74
-    label_num['seg3'] = 4
-    label_num['wmh'] = 2
-    label_num['synthseg'] = 33
-    #so far we only use sigmoid in tBET
-    if label_num[seg_mode] > logits.shape[0]:
-        #sigmoid
-        th = 0.5
-        from scipy.special import expit
-        prob = expit(logits)
-    else:
-        #softmax mode
-        #print(logits.shape)
-        prob = softmax(logits, axis=0)
-    return prob
-
 def run(model_ff, input_nib, GPU, patch=False, session=None):
 
     seg_mode, _, model_str = get_mode(model_ff)
@@ -84,31 +62,28 @@ def run(model_ff, input_nib, GPU, patch=False, session=None):
     data = lib_tool.read_nib(input_nib)
 
     image = data[None, ...][None, ...]
-    if seg_mode == 'synthseg':
-        rng = np.max(image) - np.min(image)
-        if rng > 0:
-            image = (image - np.min(image)) / rng
-    else:
-        mx = np.max(image)
-        if mx > 0:
-            image = image / mx
+    mx = np.max(image)
+    if mx > 0:
+        image = image / mx
 
-    if patch:
-        logits = predict(model_ff, image, GPU, mode='patch', session=session)[0, ...]
+    # Only the label of each voxel is needed: tBET thresholds sigmoid(logit) at 0.5, i.e. logit >= 0, and the
+    # segmentation models take the argmax, which softmax does not change. A model with a ``labels`` output
+    # (tigerbx.dev.onnx_optimize --labels) computes that itself, so the logits never leave ONNX Runtime. Patch
+    # inference blends logits across patches, so it always uses them.
+    if not patch and session is None:
+        session = create_session(model_ff, GPU)
+    if not patch and has_labels_output(session):
+        mask_pred = predict_labels(session, image)[0]
     else:
-        logits = predict(model_ff, image, GPU, session=session)[0, ...]
-    prob = logit_to_prob(logits, seg_mode)
-
-    if seg_mode =='bet': #sigmoid 1 channel
-        th = 0.5
-        mask_pred = np.ones(prob[0, ...].shape)
-        mask_pred[prob[0, ...] < th] = 0
+        if patch:
+            logits = predict(model_ff, image, GPU, mode='patch', session=session)[0, ...]
+        else:
+            logits = predict(model_ff, image, GPU, session=session)[0, ...]
+        mask_pred = (logits[0] >= 0) if seg_mode == 'bet' else np.argmax(logits, axis=0)
+    if seg_mode == 'bet':
         mask_pred = getLarea(mask_pred)
-    else:
-        mask_pred = np.argmax(prob, axis=0)
 
-
-    if seg_mode in ['aseg43', 'dkt', 'wmp', 'synthseg']:
+    if seg_mode in ['aseg43', 'dkt', 'wmp']:
         labels = label_all[seg_mode]
         lut = np.zeros(len(labels) + 2, dtype=np.int32)
         for ii, lbl in enumerate(labels):
@@ -123,7 +98,7 @@ def run(model_ff, input_nib, GPU, patch=False, session=None):
     output_nib = nib.Nifti1Image(
         mask_pred, input_nib.affine, input_nib.header)
 
-    return output_nib, prob
+    return output_nib
 
 
 

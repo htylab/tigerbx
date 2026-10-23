@@ -2,6 +2,11 @@ name: Compile10
 
 on:
   workflow_dispatch:
+    inputs:
+      make_release:
+        description: "Create a draft GitHub Release with the zips"
+        type: boolean
+        default: true
 
 permissions:
   contents: write      # 建立 Release 需要
@@ -14,11 +19,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-        py: ['tiger']          # 主要執行入口 (tigerbx_cli/tiger.py)
+        include:
+          - os: windows-latest
+          - os: macos-latest
+          # Linux: build inside AlmaLinux 8 (glibc 2.28, the manylinux_2_28 base) so the binary runs on
+          # RHEL/Rocky 8+, Ubuntu 20.04+ and Debian 10+; a build on ubuntu-latest needs glibc >= 2.38.
+          # (manylinux images' Pythons have no shared libpython, which PyInstaller needs.)
+          - os: ubuntu-latest
+            container: almalinux:8
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || '' }}
 
     steps:
+    - name: Install system packages (Linux container)
+      if: ${{ matrix.container }}
+      run: |
+        dnf -y install python3.11 python3.11-pip binutils zip git
+        echo "PY=python3.11" >> "$GITHUB_ENV"
+        ldd --version | head -1
+
     - name: Checkout source
       uses: actions/checkout@v4
 
@@ -32,23 +51,33 @@ jobs:
       run: echo "SYSTEM_VERSION_COMPAT=0" >> "$GITHUB_ENV"
 
     - name: Set up Python 3.10
+      if: ${{ !matrix.container }}
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
     - name: Install build dependencies
+      shell: bash
       run: |
-        python -m pip install --upgrade pip
-        pip install ".[cpu]"
-        pip install pyinstaller
+        PY=${PY:-python}
+        $PY -m pip install --upgrade pip
+        $PY -m pip install ".[cpu]"
+        $PY -m pip install pyinstaller
 
     - name: PyInstaller
       shell: bash
       run: |
-        pyinstaller -c -p . \
+        ${PY:-python} -m PyInstaller -c -p . \
           --additional-hooks-dir=./pyinstaller_hooks \
           --icon=./tigerbx/exe/ico.ico \
-          -F ./tigerbx_cli/${{ matrix.py }}.py
+          -F ./tigerbx_cli/tiger.py
+
+    - name: Smoke test
+      shell: bash
+      run: |
+        BIN=dist/tiger; [[ "$RUNNER_OS" == "Windows" ]] && BIN=dist/tiger.exe
+        "$BIN" --help
+        "$BIN" embed --help
 
     - name: Package binary into zip
       shell: bash
@@ -73,6 +102,7 @@ jobs:
 # ============================================================
   release:
     needs: build
+    if: ${{ inputs.make_release }}
     runs-on: ubuntu-latest
 
     steps:

@@ -4,7 +4,7 @@ Run tigerbx inference and compare outputs.
 Usage:
     python tests/run_and_compare.py [MODULE ...] [options]
 
-    MODULE   one or more of: bx  hlc  reg  nerve  all  (default: all)
+    MODULE   one or more of: bx  hlc  reg  all  (default: all)
 
 Options:
     --output-dir DIR    where to save new test outputs
@@ -19,7 +19,6 @@ Examples:
     python tests/run_and_compare.py bx hlc
     python tests/run_and_compare.py all
     python tests/run_and_compare.py all --output-dir /tmp/test_new
-    python tests/run_and_compare.py nerve --run-only
     python tests/run_and_compare.py all --compare-only
 """
 import sys
@@ -30,7 +29,7 @@ import numpy as np
 import nibabel as nib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE = os.path.join(ROOT, 'tigerbx', 'template', 'MNI152_T1_1mm_brain.nii.gz')
+TEMPLATE = os.path.join(ROOT, 'tigerbx', 'template', 'mni_template.nii.gz')
 SCRIPTS_DIR = os.path.dirname(sys.executable)
 if sys.platform == 'win32':
     _tiger_candidate = os.path.join(SCRIPTS_DIR, 'tiger.exe')
@@ -40,7 +39,7 @@ if sys.platform == 'win32':
 else:
     TIGER_BIN = os.path.join(SCRIPTS_DIR, 'tiger')
 
-ALL_MODULES = ['bx', 'hlc', 'reg', 'nerve']
+ALL_MODULES = ['bx', 'hlc', 'reg']
 
 PASS = []
 FAIL = []
@@ -81,14 +80,13 @@ def run_cli(label, cmd):
 # ── per-module inference ──────────────────────────────────────────────────────
 
 def run_bx(output_dir, tigerbx):
-    # b=bet  m=betmask  a=aseg  c=ct  C=cgw  d=dgm  S=syn  W=wmh  t=tumor  q=qc
-    # Note: k=dkt and w=wmp are API-only; omitted to keep API/CLI outputs comparable
+    # b=bet  m=betmask  a=aseg  c=ct  C=cgw  d=dgm
     api_dir = make_dir(output_dir, 'bx', 'api')
     cli_dir = make_dir(output_dir, 'bx', 'cli')
-    run_api('bx — all outputs', lambda: tigerbx.run('bmacdCSWtq', TEMPLATE, api_dir))
+    run_api('bx — all outputs', lambda: tigerbx.run('bmacdC', TEMPLATE, api_dir))
     run_cli('bx — all outputs', [
         TIGER_BIN, 'bx',
-        '-b', '-m', '-a', '-c', '-C', '-d', '-S', '-W', '-t', '-q',
+        '-b', '-m', '-a', '-c', '-C', '-d',
         TEMPLATE, '-o', cli_dir,
     ])
 
@@ -108,24 +106,6 @@ def run_reg(output_dir, tigerbx):
     run_api('reg — affine + VMnet', lambda: tigerbx.reg('AV', TEMPLATE, api_dir))
     run_cli('reg — AV', [TIGER_BIN, 'reg', 'AV', TEMPLATE, '-o', cli_dir])
 
-
-def run_nerve(output_dir, tigerbx):
-    # e=encode (.npz)  p=save patches (.nii.gz)
-    api_dir = make_dir(output_dir, 'nerve', 'api')
-    cli_dir = make_dir(output_dir, 'nerve', 'cli')
-    run_api('nerve — encode + save_patch', lambda: tigerbx.nerve('ep', TEMPLATE, api_dir))
-    run_cli('nerve — -e -p', [TIGER_BIN, 'nerve', '-e', '-p', TEMPLATE, '-o', cli_dir])
-
-
-MODULE_RUNNERS = {
-    'bx':    run_bx,
-    'hlc':   run_hlc,
-    'reg':   run_reg,
-    'nerve': run_nerve,
-}
-
-
-# ── comparison helpers ────────────────────────────────────────────────────────
 
 def compare_nifti(path_old, path_new):
     arr_old = nib.load(path_old).get_fdata()
@@ -217,7 +197,6 @@ examples:
   python tests/run_and_compare.py bx hlc
   python tests/run_and_compare.py all
   python tests/run_and_compare.py all --output-dir /tmp/test_new
-  python tests/run_and_compare.py nerve --run-only
   python tests/run_and_compare.py all --compare-only
         """,
     )

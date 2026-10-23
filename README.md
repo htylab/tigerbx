@@ -16,7 +16,7 @@
 
 ## License
 
-TigerBx is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. Commercial use is not permitted. See `LICENSE` for details.
+TigerBx, including the model weights it downloads, is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)** license. Commercial use is not permitted, and adaptations must be shared under the same license. See `LICENSE` for details.
 
 ## Quick Start
 
@@ -62,7 +62,7 @@ import tigerbx
 tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdC', 'T1w.nii.gz', 'output_dir')
 
 # Process a directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
@@ -73,7 +73,7 @@ tigerbx.run('bmadg', '/data/T1w_dir', '/data/output')
 
 ```bash
 tiger bx T1w.nii.gz -bmad -o output_dir
-tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
+tiger bx T1w.nii.gz -bmacdC -o output_dir
 tiger bx /data/T1w_dir -bmadg -o /data/output
 ```
 
@@ -112,7 +112,8 @@ See [HLC usage](doc/hlc.md) for a complete description.
 
 ### `reg` — Registration
 
-Supports affine (C2FViT / ANTs), VMnet, FuseMorph, SyN, and SyNCC registration.
+Supports affine (numreg / C2FViT), VFA and VMnet registration.
+The default and recommended plan is `AD` (numreg affine + VFA).
 High-level workflows such as VBM are documented separately under
 [pipeline usage](doc/pipelines.md).
 
@@ -121,14 +122,17 @@ The registration pipeline was developed by **Pei-Mao Sun**.
 ```python
 import tigerbx
 
-# Affine registration (C2FViT)
+# Affine registration (numreg)
 tigerbx.reg('A', r'C:\T1w_dir', r'C:\output_dir')
 
-# Affine + VMnet nonlinear registration
-tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir')
+# Affine + VFA nonlinear registration (recommended)
+tigerbx.reg('AD', r'C:\T1w_dir', r'C:\output_dir')
 
-# Affine + FuseMorph with ANTs affine
-tigerbx.reg('AF', r'C:\T1w_dir', r'C:\output_dir', affine_type='ANTs')
+# Affine (C2FViT) + VMnet nonlinear registration
+tigerbx.reg('AV', r'C:\T1w_dir', r'C:\output_dir', affine_type='C2FViT')
+
+# Affine + VFA, saving the warp field for tigerbx.transform
+tigerbx.reg('AD', r'C:\T1w_dir', r'C:\output_dir', save_displacement=True)
 
 # Apply a saved warp field to a label map
 tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
@@ -137,8 +141,8 @@ tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
 
 ```bash
 tiger reg A T1w.nii.gz -o output_dir
-tiger reg AV T1w.nii.gz -o output_dir
-tiger reg AF T1w.nii.gz -o output_dir --affine_type ANTs
+tiger reg AD T1w.nii.gz -o output_dir
+tiger reg AD T1w.nii.gz -o output_dir --save_displacement
 ```
 
 See [registration usage](doc/reg.md) for detailed usage.
@@ -162,13 +166,16 @@ tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 
 # Customize the registration stage used inside the pipeline
 tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir',
-                 reg_plan='AF', affine_type='ANTs')
+                 reg_plan='AV', affine_type='C2FViT')
 ```
 
 ```bash
 tiger vbm /data/T1w_dir -o /data/output
-tiger vbm /data/T1w_dir -o /data/output --reg-plan AF --affine_type ANTs
+tiger vbm /data/T1w_dir -o /data/output --reg-plan AV --affine_type C2FViT
 ```
+
+Each input gives `_SmoothedGM` (modulated, smoothed GM in template space) and `_norm`; `vbm_summary.csv` lists
+TIV, GM / WM / CSF volumes, image-quality measures and QC flags (batch outliers) per input. A failing input is logged and skipped.
 
 See [pipeline usage](doc/pipelines.md) for dispatcher and VBM details.
 
@@ -204,37 +211,21 @@ See [GDM usage](doc/gdm.md) for a complete description.
 
 ---
 
-### `nerve` — NERVE Embedding Pipeline
+### `embed` — VFA Brain Embedding
 
-Extracts hippocampus and amygdala patches and encodes them into latent vectors using a variational autoencoder. Embeddings can be used for downstream tasks such as Alzheimer's disease detection.
-
-The NERVE module was developed by **Pei-Shin Chen**.
+Regional features for downstream models: the mean VFA encoder feature in each of 37 ASEG structures
+(`[37, 96]` per image), with structure volumes, TIV and image-quality measures, in one `<stem>_embed.npz`.
 
 ```python
 import tigerbx
-
-# Encode to latent vectors
-nerve_result = tigerbx.nerve('e', 'T1w.nii.gz', 'output_dir')
-# Single input: {'latent': '..._nerve.npz'}
-
-# Encode and save ROI patch images
-tigerbx.nerve('ep', 'T1w.nii.gz', 'output_dir')
-
-# Evaluate reconstruction quality
-tigerbx.nerve('v', 'T1w.nii.gz', 'output_dir')
-
-# Decode previously saved .npz files
-tigerbx.nerve('d', '/data/nerve_out', '/data/recon_out')
+tigerbx.embed(r'C:\T1w_dir', r'C:\output_dir')
 ```
 
 ```bash
-tiger nerve T1w.nii.gz -e -o output_dir
-tiger nerve T1w.nii.gz -e -p -o output_dir
-tiger nerve T1w.nii.gz -v -o output_dir
-tiger nerve /data/nerve_out -d -o /data/recon_out
+tiger embed /data/T1w_dir -o /data/embed_out
 ```
 
-See [NERVE usage](doc/nerve.md) for a complete description.
+See [embed usage](doc/embed.md) for the file layout, how to use the features and validation.
 
 ---
 
@@ -268,42 +259,13 @@ See [eval usage](doc/eval.md) for the full API reference and examples.
 
 ## Agent Skills (Claude Code / Codex CLI)
 
-TigerBx ships with a ready-to-use **skill pack** for AI coding assistants that support the skills standard, including [Claude Code](https://claude.ai/code) and Codex CLI.
-
-Once installed, your assistant will automatically know when and how to call `tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.gdm`, `tigerbx.nerve`, and `tigerbx.eval` — without you having to explain the API.
-
-### Install — Claude Code
-
-```bash
-# Project-level (this project only)
-cp -r skills/tigerbx .claude/skills/
-
-# User-level (all your projects)
-cp -r skills/tigerbx ~/.claude/skills/
-```
-
-Reload Claude Code. The `/tigerbx` skill becomes available, and Claude will proactively use it for any brain MRI analysis task.
-
-### Install — Codex CLI
-
-In Codex CLI interactive mode, run:
+TigerBx ships a skill for AI coding assistants. Just ask Claude Code or Codex:
 
 ```
-$skill-installer https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
+Install the tigerbx skill from https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
 ```
 
-### What the skill provides
-
-| Skill file | Covers |
-|---|---|
-| `SKILL.md` | Environment check, module dispatch table, conventions |
-| `bx.md` | `run()` flag reference, output naming |
-| `hlc.md` | `hlc()` save options, tissue maps |
-| `reg.md` | `reg()` / `transform()` registration modes |
-| `gdm.md` | `gdm()` EPI distortion correction |
-| `nerve.md` | `nerve()` hippocampus/amygdala VAE embedding |
-| `eval.md` | `eval()` metrics, use cases, kwargs |
-| `labels.md` | ASEG, DeepGM, HLC, SynthSeg label tables |
+After that the assistant knows when and how to use the TigerBx API and CLI.
 
 ---
 
@@ -319,7 +281,8 @@ tiger bx --help
 tiger hlc --help
 tiger reg --help
 tiger gdm --help
-tiger nerve --help
+tiger vbm --help
+tiger embed --help
 ```
 
 ---

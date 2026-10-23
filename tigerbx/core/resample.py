@@ -129,8 +129,12 @@ def resample_img(
     if xmax < 0 or ymax < 0 or zmax < 0:
         raise ValueError("Target affine FOV does not contain any of the source data.")
 
+    # same grid: every output voxel sits exactly on an input voxel, where nearest, linear and spline
+    # interpolation all return the input value, so the (single-threaded) interpolation is skipped below
+    same_grid = False
     if np.allclose(target_affine, src_affine):
         composite = np.eye(4)
+        same_grid = tuple(int(s) for s in target_shape) == tuple(data.shape[:3])
     else:
         composite = linalg.inv(src_affine).dot(target_affine)
 
@@ -152,13 +156,18 @@ def resample_img(
 
     target_shape = tuple(int(s) for s in target_shape)
     other_shape = list(data.shape[3:])
-    resampled = np.zeros(list(target_shape) + other_shape, dtype=out_dtype, order=order)
+    if same_grid:
+        resampled = np.array(data, dtype=out_dtype, order=order)
+    else:
+        resampled = np.zeros(list(target_shape) + other_shape, dtype=out_dtype, order=order)
 
     if np.all(np.diag(np.diag(A)) == A):
         A = np.diag(A)
 
     all_img = (slice(None),) * 3
-    if not other_shape:
+    if same_grid:
+        pass
+    elif not other_shape:
         _resample_one_img(
             data,
             A,

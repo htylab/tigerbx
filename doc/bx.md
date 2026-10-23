@@ -28,8 +28,10 @@ If no segmentation flag is provided, brain extraction (`b`) runs by default.
 
 ### Return value
 
-- **Single file:** `dict` containing output nibabel images (keys match the flag names, e.g. `'tbetmask'`, `'tbet'`, `'aseg'`) plus `'QC'` and `'QC_raw'`.
-- **Multiple files:** `list` of `dict`, one per input file, containing output file paths and `'QC'` and `'QC_raw'` values.
+- **Single file:** `dict` containing output nibabel images, keyed by the output suffix (not the flag letter): `m` →
+  `'tbetmask'`, `b` → `'tbet'`, `a` → `'aseg'`, `C` → `'cgw'` (list of CSF / GM / WM maps).
+  For example the brain mask of `run('m', ...)` is `result['tbetmask']`, not `result['tbet']`.
+- **Multiple files:** `list` of `dict`, one per input file, containing output file paths.
 
 ---
 
@@ -47,13 +49,10 @@ tiger bx <input> [input ...] [-o OUTPUT] [flags ...]
 |----------|----------|----------------------|-------------|
 | `b`      | `-b`     | `_tbet`              | Brain-extracted image |
 | `m`      | `-m`     | `_tbetmask`          | Binary brain mask |
-| `a`      | `-a`     | `_aseg`              | ASEG tissue segmentation (43 regions) |
+| `a`      | `-a`     | `_aseg`              | ASEG segmentation (43 regions + 99 Unlabeled-Intracranial; TIV = all non-zero voxels) |
 | `c`      | `-c`     | `_ct`                | Cortical thickness map |
 | `C`      | `-C`     | `_cgw_pve0/1/2`      | CSF / GM / WM probability maps (3 files, FSL-style PVE) |
 | `d`      | `-d`     | `_dgm`               | Deep gray matter mask (12 structures) |
-| `S`      | `-S`     | `_syn`               | SynthSeg-style ASEG segmentation |
-| `W`      | `-W`     | `_wmh`               | White matter hypointensity mask |
-| `q`      | `-q`     | `_qc-<score>.log`    | QC score log (also written automatically when QC < 50) |
 | `g`      | `-g`     | —                    | Use GPU for inference |
 | `z`      | `-z`     | —                    | Force `.nii.gz` output format |
 | `p`      | `-p`     | —                    | Enable patch-based inference |
@@ -67,6 +66,10 @@ Additional CLI-only options:
 | `--continue`            | off     | Skip files whose outputs already exist |
 | `--model MODEL`         | —       | Specify a custom ONNX model path or dict string |
 | `--clean_onnx`          | —       | Delete all downloaded ONNX model files |
+
+
+The flags `q` (tBET QC score), `S` (SynthSeg-style ASEG) and `W` (white-matter hypointensity) have been removed; an
+argstring containing one of them raises a `ValueError`. For image quality use `tigerbx.core.qa.image_quality`.
 
 ---
 
@@ -84,7 +87,7 @@ tigerbx.run('b', 'T1w.nii.gz', 'output_dir')
 tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 
 # Full pipeline — all output types
-tigerbx.run('bmacdCSWq', 'T1w.nii.gz', 'output_dir')
+tigerbx.run('bmacdC', 'T1w.nii.gz', 'output_dir')
 
 # Process an entire directory; outputs saved next to each input file
 tigerbx.run('bm', '/data/T1w_dir')
@@ -115,7 +118,7 @@ tiger bx T1w.nii.gz -bmad -o output_dir
 tiger bx T1w.nii.gz -bm -o output_dir
 
 # Full pipeline — all output types
-tiger bx T1w.nii.gz -bmacdCSWq -o output_dir
+tiger bx T1w.nii.gz -bmacdC -o output_dir
 
 # Process a whole directory with GPU
 tiger bx /data/T1w_dir -bmadg -o /data/output
@@ -153,20 +156,7 @@ For an input named `sub-001_T1w.nii.gz`, outputs are:
 | `-c` | `sub-001_T1w_ct.nii.gz` |
 | `-C` | `sub-001_T1w_cgw_pve0.nii.gz`, `_pve1.nii.gz`, `_pve2.nii.gz` (CSF / GM / WM) |
 | `-d` | `sub-001_T1w_dgm.nii.gz` |
-| `-S` | `sub-001_T1w_syn.nii.gz` |
-| `-W` | `sub-001_T1w_wmh.nii.gz` |
-| `-q` | `sub-001_T1w_qc-<score>.log` |
 
 ---
 
-## QC Score
-
-Every run computes a QC confidence score (0–100) for the brain extraction step:
-
-- **100**: high-confidence extraction (predicted Dice ≥ 0.95)
-- **< 50**: low confidence — a `[WARNING]` is printed immediately and again in a summary at the end of the run; a `.log` file is also written automatically
-- The `QC_raw` float value (0–1) is always available in the return dict
-
----
-
-For label definitions used in ASEG, DeepGM, and SynthSeg outputs, see [Label definitions](seglabel.md).
+For label definitions used in ASEG and DeepGM outputs, see [Label definitions](seglabel.md).

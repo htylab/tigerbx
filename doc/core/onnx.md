@@ -64,13 +64,11 @@ Unified inference entry point supporting multiple modes.
 | `'reg'` | `[moving, fixed]` list | list of arrays | registration |
 | `'affine_transform'` | `[vol, flow, matrix]` list | list of arrays | affine transform |
 | `'patch'` | `[1, 1, D, H, W]` float | `[1, C, D, H, W]` stitched logits | hlc, large inputs |
-| `'encode'` | `[1, 1, D, H, W]` float | `(mu, sigma)` | NERVE encoder |
-| `'decode'` | `[1, latent_dim]` float | reconstructed array | NERVE decoder |
 
 ```python
 from tigerbx.core.onnx import create_session, predict
 
-model_ff = lib_tool.get_model('mprage_bet_v005_mixsynthv4.onnx')
+model_ff = lib_tool.get_model('mprage_bet_v005_opt.onnx')
 session = create_session(model_ff, GPU=False)
 output = predict(model_ff, input_data, GPU=False, session=session)
 del session
@@ -81,18 +79,6 @@ del session
 ### `predict_single_output(session, data)`
 
 Simplified single-output inference. Runs the session and returns the first output.
-
----
-
-### `encode_latent(enc_sess, vol)`
-
-Run a VAE encoder session. Returns `(mu, sigma)` arrays.
-
----
-
-### `decode_latent(dec_sess, latent)`
-
-Run a VAE decoder session. Returns the reconstructed output array.
 
 ---
 

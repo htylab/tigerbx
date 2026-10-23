@@ -69,10 +69,12 @@ tigerbx/
 │   ├── __init__.py      # Public API exports
 │   ├── bx.py            # Brain extraction pipeline
 │   ├── hlc.py           # HLC parcellation
-│   ├── reg.py           # Registration (plan-driven: R/A/V/N/C/F)
+│   ├── reg.py           # Registration (plan-driven: R/A/V/D)
 │   ├── pipeline_api.py  # High-level pipeline dispatcher
 │   ├── pipelines/       # High-level pipelines
 │   │   └── vbm.py       # VBM pipeline (separate from reg)
+│   ├── embed.py         # VFA brain embedding (ASEG-region encoder features)
+│   ├── embed.py         # VFA brain embedding (ASEG-region encoder features)
 │   ├── core/            # Shared utilities (see doc/core/)
 │   │   ├── io.py        # NIfTI I/O, path templates, input resolution
 │   │   ├── onnx.py      # ONNX session management, inference
@@ -81,7 +83,6 @@ tigerbx/
 │   │   ├── metrics.py   # Segmentation and reconstruction metrics
 │   │   └── deform.py    # Displacement fields, Jacobian, warping
 │   ├── gdmi.py          # EPI distortion correction
-│   ├── nerve.py         # NERVE hippocampus/amygdala pipeline
 │   ├── eval.py          # Public metric facade
 │   └── validate.py      # Validation helpers and benchmarks
 ├── tigerbx_cli/         # CLI parsers and dispatch
@@ -186,7 +187,8 @@ Update both before tagging a release. TigerBx follows [Semantic Versioning](http
 
 ## 7. Adding a New Model
 
-1. Train and export the model to ONNX format.
+1. Train and export the model to ONNX format (see [models.md](models.md) for the naming and I/O contract), then
+   optimise it with `python -m tigerbx.dev.onnx_optimize model.onnx model_opt.onnx --labels`.
 2. Upload the `.onnx` file to the model hub release on GitHub (`modelhub` tag).
 3. Register the model name in `bx.py` (or the relevant module) under `omodel`.
 4. The model is downloaded on first use via `lib_tool.get_model()`.
@@ -201,7 +203,7 @@ To regression-test a change against a known-good version:
 # Create a separate venv for the baseline release
 uv venv .venv_old
 uv pip install --python .venv_old \
-    "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.1.tar.gz"
+    "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.2.4.tar.gz"
 
 # Run comparison script using each venv's Python
 uv run --python .venv_old python tests/run_and_compare.py --input T1w.nii.gz --tag old
@@ -212,19 +214,22 @@ uv run pytest tests/ -v   # current version
 
 ## 9. Building the Standalone Executable (CI)
 
-Executables are built automatically by GitHub Actions on `workflow_dispatch`:
+Executables are built by GitHub Actions on `workflow_dispatch`:
+[`compile10.yml`](../.github/workflows/compile10.yml) builds Windows, macOS and Linux binaries, runs
+`tiger --help` / `tiger embed --help` on each, and (input `make_release`, default on) attaches the zips to a draft
+GitHub Release. The Linux binary is built in an AlmaLinux 8 container (glibc 2.28), so it runs on RHEL/Rocky 8+,
+Ubuntu 20.04+ and Debian 10+.
 
-- [`compile10.yml`](../.github/workflows/compile10.yml) — full build (all features)
-- [`compile_manylinux.yml`](../.github/workflows/compile_manylinux.yml) — release build with a manylinux Linux target
+To trigger a build, go to **Actions → Compile10 → Run workflow** on GitHub. Before publishing the draft, set its tag
+to the release tag (e.g. `v0.3.0`) and paste the release notes.
 
-To trigger a build, go to **Actions → Compile10** or **Actions → CompileMany**
-and choose **Run workflow** on GitHub.
+[`ci.yml`](../.github/workflows/ci.yml) runs the hermetic unit tests on every push and pull request.
 
 ---
 
 ## 10. Coding Conventions
 
-- **No top-level heavy imports** — `ants`, `optuna`, `onnxruntime` must be imported inside the functions that use them (lazy import), to keep startup time fast.
+- **No top-level heavy imports** — `onnxruntime` must be imported inside the functions that use them (lazy import), to keep startup time fast.
 - **Path handling** — use `os.path` functions (`join`, `basename`, `dirname`), never `pathlib`.
 - **NIfTI I/O** — use `nibabel` for reading/writing; avoid hard-coding voxel assumptions.
 - **Model inference** — always go through `core.onnx.create_session()` and `core.onnx.predict()`, never create `ort.InferenceSession` directly in feature modules.

@@ -13,11 +13,8 @@ Combine case-sensitive flags; no flags defaults to `b`.
 | `m` | `tbetmask` | binary brain mask |
 | `a` | `aseg` | 43-label ASEG |
 | `d` | `dgm` | 12-label deep gray matter |
-| `W` | `wmh` | white-matter hypointensity |
-| `S` | `syn` | SynthSeg-style segmentation |
 | `c` | `ct` | cortical thickness |
 | `C` | `cgw` | `[CSF, GM, WM]` PVE images |
-| `q` | `QC`, `QC_raw` | QC values; always computed even without `q` |
 | `g` | — | GPU |
 | `p` | — | patch inference |
 | `z` | — | gzip saved NIfTI |
@@ -35,7 +32,7 @@ batch_paths = tigerbx.run('bma', '/data/T1w/', 'out/', continue_=True)
 
 Do not pass `GPU=True`; add `g` to `flags`. Pass an output folder (default writes next to the input) or `save_outputs=False`. `silent` is deprecated; use `verbose=0`.
 
-Saved suffixes: `_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_wmh`, `_syn`, `_ct`, and `_cgw_pve0/1/2`. Read [labels.md](labels.md) only for label lookup.
+Saved suffixes: `_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_ct`, and `_cgw_pve0/1/2`. Read [labels.md](labels.md) only for label lookup.
 
 CLI:
 

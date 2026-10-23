@@ -3,9 +3,7 @@ import numpy as np
 import glob
 import nibabel as nib
 import tigerbx
-from tigerbx import lib_tool
 from tigerbx import lib_reg
-from tigerbx.core.onnx import predict
 from tigerbx.core.io import resolve_nifti_inputs
 import sys
 import os
@@ -166,29 +164,6 @@ def _print_col_means(column_names, mean_per_column):
 
 # ── registration pipeline helper ──────────────────────────────────────────────
 
-def _apply_reg_to_seg(result, seg_file, template_nib, pad_width,
-                      model_affine_transform, model_transform, reorder_img_fn):
-    """Apply affine + dense-warp registration result to a segmentation file."""
-    moving_seg_nib  = reorder_img_fn(nib.load(seg_file), resample='nearest')
-    moving_seg_data = moving_seg_nib.get_fdata().astype(np.float32)
-    moving_seg_data, _ = lib_reg.pad_to_shape(moving_seg_data, (256, 256, 256))
-    moving_seg_data, _ = lib_reg.crop_image(moving_seg_data, target_shape=(256, 256, 256))
-    moving_seg = np.expand_dims(np.expand_dims(moving_seg_data, axis=0), axis=1)
-
-    init_flow  = result['init_flow'].get_fdata().astype(np.float32)
-    affine_mat = np.expand_dims(result['Affine_matrix'].astype(np.float32), axis=0)
-    out = predict(model_affine_transform,
-                           [moving_seg, init_flow, affine_mat],
-                           GPU=None, mode='affine_transform')
-    moved_seg = lib_reg.remove_padding(np.squeeze(out[0]), pad_width)
-
-    moved_seg = np.expand_dims(np.expand_dims(moved_seg, axis=0), axis=1)
-    warp = np.expand_dims(result['dense_warp'].get_fdata().astype(np.float32), axis=0)
-    out  = predict(model_transform, [moved_seg, warp], GPU=None, mode='reg')
-    moved_nib = nib.Nifti1Image(np.squeeze(out[0]), template_nib.affine, template_nib.header)
-    return reorder_img_fn(moved_nib, resample='nearest').get_fdata().astype(int)
-
-
 # ── individual validation functions ──────────────────────────────────────────
 
 def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
@@ -205,18 +180,15 @@ def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
         cat_list.append('_'.join(basename(dirname(f)).split('_')[:2]))
         mask_pred = _nib_data(res, 'tbetmask')
         mask_gt   = nib.load(f.replace('image.nii.gz', 'mask.nii.gz')).get_fdata()
-        dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
-        return dice, res['QC_raw']
+        return getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
 
-    f_list, results = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
-                                    debug=debug, files_filter=files_filter)
-    dsc_list   = [r[0] for r in results]
-    qcraw_list = [r[1] for r in results]
+    f_list, dsc_list = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
+                                     debug=debug, files_filter=files_filter)
 
     _write_csv(output_dir, 'val_bet_synstrip.csv',
-               ['type', 'category', 'DICE', 'QC_raw'],
+               ['type', 'category', 'DICE'],
                f_list,
-               [[t, c, d, q] for t, c, d, q in zip(tt_list, cat_list, dsc_list, qcraw_list)])
+               [[t, c, d] for t, c, d in zip(tt_list, cat_list, dsc_list)])
 
     # per-category mean Dice (stdlib + numpy; no pandas required)
     from collections import defaultdict
@@ -228,7 +200,7 @@ def val_bet_synstrip(input_dir, output_dir=None, GPU=False,
     metric = float(np.mean(dsc_list))
     print(f'mean Dice of all data: {metric:.4f}')
     data = {'Filename': f_list, 'type': tt_list,
-            'category': cat_list, 'DICE': dsc_list, 'QC_raw': qcraw_list}
+            'category': cat_list, 'DICE': dsc_list}
     return data, metric
 
 
@@ -242,20 +214,16 @@ def val_bet_NFBS(input_dir, output_dir=None, GPU=False,
     def compute_metrics(f, res):
         mask_pred = _nib_data(res, 'tbetmask')
         mask_gt   = nib.load(f.replace('T1w.nii.gz', 'T1w_brainmask.nii.gz')).get_fdata()
-        dice = getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
-        return dice, res['QC_raw']
+        return getdice((mask_pred > 0).flatten(), (mask_gt > 0).flatten())
 
-    f_list, results = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
-                                    debug=debug, files_filter=files_filter)
-    dsc_list   = [r[0] for r in results]
-    qcraw_list = [r[1] for r in results]
+    f_list, dsc_list = _run_bx_batch(ffs, argstr, GPU, run_model, compute_metrics,
+                                     debug=debug, files_filter=files_filter)
 
-    _write_csv(output_dir, 'val_bet_NFBS.csv', ['DICE', 'QC_raw'], f_list,
-               [[d, q] for d, q in zip(dsc_list, qcraw_list)])
+    _write_csv(output_dir, 'val_bet_NFBS.csv', ['DICE'], f_list, [[d] for d in dsc_list])
 
     metric = float(np.mean(dsc_list))
     print(f'mean Dice of all data: {metric:.4f}')
-    return {'Filename': f_list, 'DICE': dsc_list, 'QC_raw': qcraw_list}, metric
+    return {'Filename': f_list, 'DICE': dsc_list}, metric
 
 
 def _val_seg_123(model_str, run_option, input_dir, output_dir=None,
@@ -325,7 +293,9 @@ def val_hlc_123(input_dir, output_dir=None, GPU=False,
 
 def val_reg_60(input_dir, output_dir=None, GPU=False,
                debug=False, files_filter=None, template=None,
-               bet_model=None, seg_model=None, **kwargs):
+               bet_model=None, seg_model=None, plan='AD', affine_type='numreg', **kwargs):
+    """Registration Dice on raw60/label60: each label60 map is carried to the template by the subject's own
+    registration (plan, default 'AD' = numreg affine + VFA) and scored against the template aseg (26 structures)."""
     from tigerbx.core.resample import reorder_img  # lazy import - local resample helper
     column_names = [
         'Left-Cerebral WM',       'Right-Cerebral WM',
@@ -345,24 +315,21 @@ def val_reg_60(input_dir, output_dir=None, GPU=False,
     ffs = resolve_nifti_inputs([join(input_dir, 'raw60', '*.nii.gz')])
     run_model = {}
     if bet_model: run_model['bet'] = bet_model
-    if seg_model: run_model['reg'] = seg_model
+    if seg_model: run_model['vfa' if 'D' in plan.upper() else 'reg'] = seg_model
     run_model = run_model or None
 
-    # load models and template once, outside the per-file loop
-    model_transform        = lib_tool.get_model('mprage_transform_v002_near.onnx')
-    model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
-    template_nib = reorder_img(lib_reg.get_template(template), resample='continuous')
-    _, pad_width = lib_reg.pad_to_shape(template_nib.get_fdata(), (256, 256, 256))
-    mask_gt      = reorder_img(lib_reg.get_template_seg(template),
-                               resample='nearest').get_fdata().astype(int)
+    import importlib
+    from types import SimpleNamespace
+    reg_mod = importlib.import_module('tigerbx.reg')     # tigerbx.reg is the reg() function after import
+    mask_gt = reorder_img(lib_reg.get_template_seg(template),
+                          resample='nearest').get_fdata().astype(int)
 
     def compute(f, _tmp):
-        result = tigerbx.reg('AV', f, _tmp,
-                             model=run_model, template=template, gpu=GPU)
-        mask_pred = _apply_reg_to_seg(
-            result, f.replace('raw60', 'label60'),
-            template_nib, pad_width,
-            model_affine_transform, model_transform, reorder_img)
+        args = SimpleNamespace(plan=plan, input=[f], output=_tmp, model=run_model, gpu=GPU, gz=False,
+                               template=template, save_displacement=False, affine_type=affine_type, verbose=0)
+        _, _, reg_ctx = reg_mod.run_case(args, f)
+        moved = reg_mod.apply_warp(nib.load(f.replace('raw60', 'label60')), reg_ctx, interpolation='nearest')
+        mask_pred = reorder_img(moved, resample='nearest').get_fdata().astype(int)
         return get_dice26(mask_gt, mask_pred)
 
     f_list, dsc_list = _run_loop(ffs, compute, debug=debug, files_filter=files_filter)
@@ -402,7 +369,6 @@ DATASET_REGISTRY = [
         'funcs': [
             ('aseg_123', lambda **kw: _val_seg_123('aseg', 'a', **kw), 'aseg'),
             ('dgm_123',  lambda **kw: _val_seg_123('dgm',  'd', **kw), 'dgm'),
-            ('syn_123',  lambda **kw: _val_seg_123('syn',  'S', **kw), 'syn'),
             ('hlc_123',  val_hlc_123,                                  'hlc'),
         ],
     },
@@ -594,7 +560,7 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
         Where to write per-validation CSV files.  No CSV saved when None.
     task       : str, optional
         Run only tasks whose name contains this string.
-        Valid values: ``'bet'``, ``'aseg'``, ``'dgm'``, ``'syn'``,
+        Valid values: ``'bet'``, ``'aseg'``, ``'dgm'``,
         ``'hlc'``, ``'reg'``.  Default: run all discovered tasks.
     bet_model  : str, optional
         Override BET model filename for all tasks.
@@ -634,118 +600,3 @@ def val(val_dir=None, output_dir=None, model=None, GPU=False,
                      task=task, bet_model=bet_model, seg_model=seg_model)
 
 
-# ── QC calibration ────────────────────────────────────────────────────────────
-
-def qc_stat(csv_paths, dice_threshold=0.9):
-    """
-    Analyse the relationship between QC_raw and Dice from validation CSV files
-    and suggest a calibrated QC_raw threshold.
-
-    Reads any CSV(s) produced by ``val_bet_NFBS`` or ``val_bet_synstrip`` that
-    contain ``DICE`` and ``QC_raw`` columns, then prints:
-
-    * Distribution statistics for QC_raw and DICE.
-    * Pearson correlation between QC_raw and DICE.
-    * A suggested ``qc_score`` warning threshold such that ≥ 90 % of cases
-      with Dice < *dice_threshold* are flagged, with the lowest possible
-      false-alarm rate on good cases.
-
-    Parameters
-    ----------
-    csv_paths : str or list of str
-        Path(s) to validation CSVs.  Glob patterns are accepted
-        (e.g. ``'val_out/*.csv'``).
-    dice_threshold : float
-        Dice below which a case is considered failed.  Default 0.9.
-
-    Returns
-    -------
-    dict with keys ``dice``, ``qc_raw``, ``suggested_threshold``, ``pearson_r``.
-
-    Examples
-    --------
-    >>> tigerbx.qc_stat('val_out/val_bet_NFBS.csv')
-    >>> tigerbx.qc_stat(['val_out/val_bet_NFBS.csv',
-    ...                  'val_out/val_bet_synstrip.csv'])
-    """
-    import glob as _glob
-
-    if isinstance(csv_paths, str):
-        expanded = _glob.glob(csv_paths)
-        csv_paths = expanded if expanded else [csv_paths]
-
-    dice_all, qcraw_all = [], []
-    for path in csv_paths:
-        with open(path, newline='') as fh:
-            reader = csv.DictReader(fh)
-            for row in reader:
-                if 'DICE' in row and 'QC_raw' in row:
-                    dice_all.append(float(row['DICE']))
-                    qcraw_all.append(float(row['QC_raw']))
-
-    if not dice_all:
-        print('No DICE / QC_raw columns found in the provided CSVs.')
-        return {}
-
-    dice  = np.array(dice_all)
-    qcraw = np.array(qcraw_all)
-    n     = len(dice)
-    n_fail = int(np.sum(dice < dice_threshold))
-    sep = '─' * 62
-
-    # ── descriptive stats ─────────────────────────────────────────────────────
-    print(f'\n{sep}')
-    print(f'QC calibration report   (n={n},  fail = Dice < {dice_threshold})')
-    print(sep)
-    print(f'  QC_raw  mean={np.mean(qcraw):.4f}  std={np.std(qcraw):.4f}  '
-          f'min={np.min(qcraw):.4f}  '
-          f'p1={np.percentile(qcraw, 1):.4f}  p5={np.percentile(qcraw, 5):.4f}')
-    print(f'  DICE    mean={np.mean(dice):.4f}  std={np.std(dice):.4f}  '
-          f'min={np.min(dice):.4f}')
-    print(f'  Failed (Dice < {dice_threshold}): {n_fail} / {n}  '
-          f'({100 * n_fail / n:.1f} %)')
-
-    pearson_r = None
-    if n > 2:
-        pearson_r = float(np.corrcoef(qcraw, dice)[0, 1])
-        print(f'  Pearson r(QC_raw, DICE) = {pearson_r:.4f}')
-
-    # ── threshold search ──────────────────────────────────────────────────────
-    # Sweep candidate thresholds; find t with sensitivity ≥ 90 % and minimum
-    # false-alarm rate (fraction of good cases incorrectly flagged).
-    best_t, best_far = None, 1.0
-    fail_mask = dice < dice_threshold
-    if n_fail > 0:
-        for t in np.sort(np.unique(qcraw)):
-            flagged = qcraw < t
-            sens    = float(np.sum(flagged & fail_mask)) / n_fail
-            if sens >= 0.90:
-                far = float(np.sum(flagged & ~fail_mask)) / max(1, n - n_fail)
-                if far < best_far:
-                    best_far, best_t = far, float(t)
-
-    # ── guidance ──────────────────────────────────────────────────────────────
-    print(f'\n{sep}')
-    if best_t is not None:
-        suggested_score = int(np.clip(best_t * 100, 0, 100))
-        print(f'  Suggested threshold : QC_raw = {best_t:.4f}  '
-              f'→  qc_score = {suggested_score}')
-        print(f'    → captures ≥ 90 % of failed cases  '
-              f'(false-alarm rate ≈ {100 * best_far:.1f} %)')
-        print(f'')
-        print(f'  Recommendation: change the warning threshold in bx.py run_args()')
-        print(f'    from:  if qc_score < 50:')
-        print(f'    to:    if qc_score < {suggested_score}:')
-    else:
-        print('  Could not determine a threshold.')
-        print('  Possible reasons:')
-        print('    • Too few failed cases — model may already be excellent on this data.')
-        print('    • QC_raw does not vary enough — try including harder / lower-quality scans.')
-    print(f'{sep}\n')
-
-    return {
-        'dice':                dice_all,
-        'qc_raw':              qcraw_all,
-        'suggested_threshold': best_t,
-        'pearson_r':           pearson_r,
-    }

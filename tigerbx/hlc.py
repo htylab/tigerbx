@@ -11,7 +11,7 @@ from tqdm import tqdm
 from tigerbx import lib_tool
 from tigerbx.bx import produce_betmask
 from tigerbx.core.io import get_template, save_nib, resolve_inputs
-from tigerbx.core.onnx import predict
+from tigerbx.core.onnx import create_session, predict
 from tigerbx.core.resample import resample_to_img, reorder_img, resample_voxel
 from tigerbx.core.spatial import crop_cube, restore_result
 
@@ -36,16 +36,44 @@ def hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, patch
     args.verbose = verbose
     return run_args(args)
 
+# Outputs of an HLC model optimised with tigerbx.dev.onnx_optimize --heads
+# parc:0:57:argmax,lr:57:60:argmax,dw:60:63:argmax,ct:63:64:slice,cgw:64:67:slice. Without them (or with patch
+# inference, which blends logits) the 67-channel logits are used.
+HLC_HEADS = ('parc', 'lr', 'dw', 'ct', 'cgw')
+
+
+def _hlc_outputs(session, model_ff, image, gpu, patch, save):
+    """The HLC results ``save`` needs: parc / lr / dw labels [X, Y, Z], ct [X, Y, Z], cgw [3, X, Y, Z]."""
+    want = []
+    if 'h' in save:
+        want += ['parc', 'lr', 'dw']
+    if 't' in save:
+        want.append('ct')
+    if any(c in save for c in 'cgw'):
+        want.append('cgw')
+    if not want:
+        return {}
+    if not patch and set(HLC_HEADS) <= {o.name for o in session.get_outputs()}:
+        out = session.run(want, {session.get_inputs()[0].name: image.astype(np.float32)})
+        res = {k: v[0] for k, v in zip(want, out)}
+        if 'ct' in res:
+            res['ct'] = res['ct'][0]
+        return res
+    logits = predict(model_ff, image, gpu, mode='patch' if patch else None, session=session)
+    res = {}
+    if 'parc' in want:
+        res.update(parc=get_argmax(logits, 0, 57), lr=get_argmax(logits, 57, 60), dw=get_argmax(logits, 60, 63))
+    if 'ct' in want:
+        res['ct'] = logits[0, 63]
+    if 'cgw' in want:
+        res['cgw'] = logits[0, 64:67]
+    return res
+
+
 def get_argmax(logits, start, end):
+    """Label index of channels [start, end) per voxel (softmax does not change the argmax, so it is skipped)."""
     import numpy as np
-    from scipy.special import softmax
-    logits_slice = logits[:, start:end, ...].squeeze(0)  # [C', D, H, W]
-    
-    softmax_output = softmax(logits_slice, axis=0)
-    
-    argmax_output = np.argmax(softmax_output, axis=0)
-    
-    return argmax_output
+    return np.argmax(logits[0, start:end], axis=0)
 
 #import numpy as np
 
@@ -204,8 +232,8 @@ def run_args(args):
 
     output_dir = args.output
     omodel = dict()
-    omodel['bet'] = 'mprage_bet_v005_mixsynthv4.onnx'
-    omodel['HLC'] = 'mprage_hlc_v004_resunetplusT2.onnx'
+    omodel['bet'] = 'mprage_bet_v005_opt.onnx'
+    omodel['HLC'] = 'mprage_hlc_v004_opt.onnx'
 
     # if you want to use other models
     if isinstance(args.model, dict):
@@ -218,6 +246,14 @@ def run_args(args):
             omodel[mm] = model_dict[mm]
 
     printer('Total nii files:', len(input_file_list))
+
+    # one session per model for the whole batch
+    bet_session = create_session(lib_tool.get_model(omodel['bet']), args.gpu)
+    hlc_model_ff = None
+    hlc_session = None
+    if any(c in args.save for c in 'htcgw'):
+        hlc_model_ff = lib_tool.get_model(omodel['HLC'])
+        hlc_session = create_session(hlc_model_ff, args.gpu)
 
     result_all = []
     result_filedict = dict()
@@ -232,7 +268,7 @@ def run_args(args):
         ftemplate, f_output_dir = get_template(f, output_dir, args.gz, common_folder)
 
 
-        tbetmask_nib, qc_score, _ = produce_betmask(omodel['bet'], f, GPU=args.gpu)
+        tbetmask_nib = produce_betmask(omodel['bet'], f, GPU=args.gpu, session=bet_session)
         input_nib = nib.load(f)
         tbet_nib = lib_tool.read_nib(input_nib) * lib_tool.read_nib(tbetmask_nib)
 
@@ -262,12 +298,8 @@ def run_args(args):
         if mx > 0:
             image = image / mx
         image = image[None, ...][None, ...]
-        model_ff = lib_tool.get_model(omodel['HLC'])
         printer('Perform HLC model....')
-        if args.patch:
-            logits = predict(model_ff, image, args.gpu, mode='patch')
-        else:
-            logits = predict(model_ff, image, args.gpu)
+        heads = _hlc_outputs(hlc_session, hlc_model_ff, image, args.gpu, args.patch, args.save) if hlc_session else {}
 
 
         if 'm' in args.save:            
@@ -285,22 +317,22 @@ def run_args(args):
             result_dict['tbet'] = tbet_nib
             result_filedict['tbet'] = fn
         if 'h' in args.save:
-            all_arg = get_argmax(logits, 0, 57)
-            lr_arg = get_argmax(logits, 57, 60)
-            dw_arg = get_argmax(logits, 60, 63)
-            HLCparc = HLC_decoder(all_arg, lr_arg, dw_arg)
+            HLCparc = HLC_decoder(heads['parc'], heads['lr'], heads['dw'])
 
             HLCparc = restore_result(image_orig.shape, HLCparc, xyz6).astype(int)
 
             hlc_nib = nib.Nifti1Image(HLCparc, tbet_nib111.affine, tbet_nib111.header)
             hlc_nib = resample_to_img(hlc_nib,
             input_nib, interpolation="nearest")
+            # labels go up to 5002: never inherit a uint8 input dtype (nibabel would then scale and merge labels)
+            hlc_nib = nib.Nifti1Image(np.asarray(hlc_nib.dataobj).astype(np.int16), hlc_nib.affine, hlc_nib.header)
+            hlc_nib.header.set_data_dtype(np.int16)
             fn = save_nib(hlc_nib, ftemplate, 'hlc')
             result_dict['hlc'] = hlc_nib
             result_filedict['hlc'] = fn
 
         if 't' in args.save: #thickness
-            ct = logits[0,63,...].squeeze()
+            ct = heads['ct']
             ct[ct < 0.2] = 0
             ct[ct > 5] = 5
 
@@ -320,7 +352,7 @@ def run_args(args):
             result_filedict['ct'] = fn
 
         
-        cgw = logits[0,64:67,...].squeeze()
+        cgw = heads.get('cgw')
         cgwnames = ['CSF', 'GM', 'WM']
         cgw_short = ['c', 'g', 'w']
         for kk in range(3):

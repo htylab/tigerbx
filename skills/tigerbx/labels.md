@@ -48,14 +48,10 @@ Output: `_aseg.nii.gz` from `tiger bx -a`
 |     |                         | 253 | CC Central |
 |     |                         | 254 | CC Mid Anterior |
 |     |                         | 255 | CC Anterior |
+| 99  | Unlabeled-Intracranial (0.3.0+: tBET-mask voxels no structure claims) | | |
 
----
-
-## SynthSeg — SynthSeg-style ASEG
-
-Output: `_syn.nii.gz` from `tiger bx -S`
-
-Uses the same label space as ASEG above.
+Deprecated in 0.3.0 (still in the file, not reliable for volumes or analyses): 30, 31, 62, 63, 77, 85.
+TIV = all non-zero `_aseg` voxels; brain volume = sum without 99 (`tigerbx.embed` keeps the other 37 structures).
 
 ---
 

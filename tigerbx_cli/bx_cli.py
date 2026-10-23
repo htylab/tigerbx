@@ -13,9 +13,6 @@ def setup_parser(parser):
     parser.add_argument('-c', '--ct', action='store_true', help='Producing cortical thickness map')
     parser.add_argument('-C', '--cgw', action='store_true', help='Producing FSL-style PVE segmentation')
     parser.add_argument('-d', '--dgm', action='store_true', help='Producing deep GM mask')
-    parser.add_argument('-S', '--syn', action='store_true', help='Producing ASEG mask using SynthSeg-like method')
-    parser.add_argument('-W', '--wmh', action='store_true', help='Producing white matter hypo-intensity mask')
-    parser.add_argument('-q', '--qc', action='store_true', help='Saving QC score (pay attention to results with QC scores less than 50)')
     parser.add_argument('-z', '--gz', action='store_true', help='Forcing storing in nii.gz format')
     parser.add_argument('-p', '--patch', action='store_true', help='patch inference')
     parser.add_argument('--verbose', type=int, default=1, metavar='N',

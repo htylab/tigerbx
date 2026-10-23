@@ -14,6 +14,9 @@ ORT_INTER_THREADS_ENV = "TIGERBX_ORT_INTER_THREADS"
 GPU_MEM_LIMIT_ENV = "TIGERBX_GPU_MEM_LIMIT_GB"
 DEFAULT_ORT_INTRA_THREADS_RATIO = 0.7
 DEFAULT_ORT_INTER_THREADS = 1
+# Optional second output of a segmentation model: argmax of the logits over channels, as uint8 (added by
+# tigerbx.dev.onnx_optimize --labels). Requesting only this output avoids returning the full logits array.
+LABELS_OUTPUT = "labels"
 _GPU_FALLBACK_WARNED = False
 
 
@@ -157,18 +160,6 @@ def predict(
         input_names = [input.name for input in session.get_inputs()]
         inputs = {input_names[0]: data[0], input_names[1]: data[1]}
         return session.run(None, inputs)
-    if mode == "affine_transform":
-        input_names = [input.name for input in session.get_inputs()]
-        inputs = {input_names[0]: data[0], input_names[1]: data[1], input_names[2]: data[2]}
-        return session.run(None, inputs)
-    if mode == "encode":
-        mu, sigma = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)})
-        return mu, sigma
-
-    if mode == "decode":
-        result = session.run(None, {session.get_inputs()[0].name: data.astype(data_type)})
-        return result[0]
-
     if mode == "patch":
         patch_size = _resolve_patch_size(patch_size)
         input_shape = session.get_inputs()[0].shape
@@ -197,20 +188,27 @@ def predict(
 
         return logits
 
-    return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)})[0]
+    return _run_first_output(session, data.astype(data_type))
+
+
+def _run_first_output(session, data):
+    """Run and return only the first output (the logits), so an extra output such as labels is not computed."""
+    return session.run([session.get_outputs()[0].name], {session.get_inputs()[0].name: data})[0]
+
+
+def has_labels_output(session):
+    return any(o.name == LABELS_OUTPUT for o in session.get_outputs())
+
+
+def predict_labels(session, data):
+    """Per-voxel label index (argmax over channels) from a model with a ``labels`` output."""
+    data_type = _session_data_type(session)
+    return session.run([LABELS_OUTPUT], {session.get_inputs()[0].name: data.astype(data_type)})[0]
 
 
 def predict_single_output(session, data):
     data_type = _session_data_type(session)
-    return session.run(None, {session.get_inputs()[0].name: data.astype(data_type)})[0]
-
-
-def encode_latent(enc_sess, vol):
-    return enc_sess.run(None, {enc_sess.get_inputs()[0].name: vol.astype(np.float32)})
-
-
-def decode_latent(dec_sess, latent):
-    return dec_sess.run(None, {dec_sess.get_inputs()[0].name: latent})[0]
+    return _run_first_output(session, data.astype(data_type))
 
 
 def patch_inference_3d_lite(
@@ -222,7 +220,7 @@ def patch_inference_3d_lite(
 ):
     patches, point_list = img_to_patches(vol_d, patch_size, tile_step_size)
     gaussian_map = compute_gaussian(patch_size) if gaussian else None
-    patch_logits_shape = session.run(None, {session.get_inputs()[0].name: patches[0]})[0].shape
+    patch_logits_shape = _run_first_output(session, patches[0]).shape
     prob_tensor = np.zeros(((patch_logits_shape[1],) + vol_d.shape[-3:]))
     weight_tensor = np.zeros(vol_d.shape[-3:])
     if gaussian:
@@ -232,7 +230,7 @@ def patch_inference_3d_lite(
     for p in point_list:
         weight_tensor[p[0] : p[0] + patch_size[0], p[1] : p[1] + patch_size[1], p[2] : p[2] + patch_size[2]] += weight_patch
     for patch, p in zip(patches, point_list):
-        logits = session.run(None, {session.get_inputs()[0].name: patch})[0]
+        logits = _run_first_output(session, patch)
         output_patch = logits.squeeze(0) * gaussian_map if gaussian else logits.squeeze(0)
         prob_tensor[:, p[0] : p[0] + patch_size[0], p[1] : p[1] + patch_size[1], p[2] : p[2] + patch_size[2]] += output_patch
     prob_tensor = prob_tensor / weight_tensor

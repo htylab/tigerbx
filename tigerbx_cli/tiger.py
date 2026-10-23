@@ -1,6 +1,6 @@
 import sys
 import argparse
-from tigerbx_cli import bx_cli, gdm_cli, hlc_cli, reg_cli, nerve_cli, vbm_cli
+from tigerbx_cli import bx_cli, gdm_cli, hlc_cli, reg_cli, vbm_cli, embed_cli
 
 _BX_SHORT_FLAGS = set('bmacCdSWtqzpg')
 
@@ -35,7 +35,7 @@ def main():
     hlc_cli.setup_parser(subparsers.add_parser("hlc", help="Run hlc module"))
     reg_cli.setup_parser(subparsers.add_parser("reg", help="Run reg module"))
     vbm_cli.setup_parser(subparsers.add_parser("vbm", help="Run vbm pipeline"))
-    nerve_cli.setup_parser(subparsers.add_parser("nerve", help="Run NERVE module"))
+    embed_cli.setup_parser(subparsers.add_parser("embed", help="VFA brain embedding (ASEG-region features)"))
 
     args = parser.parse_args()
 
@@ -45,7 +45,7 @@ def main():
         "hlc": hlc_cli,
         "reg": reg_cli,
         "vbm": vbm_cli,
-        "nerve": nerve_cli,
+        "embed": embed_cli,
     }
     if args.command in dispatch:
         dispatch[args.command].run_args(args)

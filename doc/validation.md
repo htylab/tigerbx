@@ -30,7 +30,7 @@ sub-directories for known dataset patterns. Directory names are not fixed.
 |---------------|---------------------------|----------------------------------|
 | SynthStrip    | `*/image.nii.gz`          | `bet_synstrip`                   |
 | NFBS          | `*/*T1w.nii.gz`           | `bet_NFBS`                       |
-| seg123        | `raw123/*.nii.gz`         | `aseg`, `dgm`, `syn`, `hlc`      |
+| seg123        | `raw123/*.nii.gz`         | `aseg`, `dgm`, `hlc`             |
 | reg60         | `raw60/*.nii.gz`          | `reg`                            |
 
 ---
@@ -57,7 +57,6 @@ tigerbx.val(GPU=True, task='aseg', seg_model='mprage_aseg43_v009_test.onnx', out
 
 ```python
 tigerbx.val(GPU=True, task='dgm', seg_model='mprage_dgm12_v003_test.onnx',  output_dir='val_out')
-tigerbx.val(GPU=True, task='syn', seg_model='mprage_synthseg_v004_test.onnx',  output_dir='val_out')
 tigerbx.val(GPU=True, task='hlc', seg_model='new_hlc.onnx',  output_dir='val_out')
 tigerbx.val(GPU=True, task='reg', seg_model='new_reg.onnx',  output_dir='val_out')
 ```
@@ -72,69 +71,13 @@ tigerbx.val(GPU=True, task='aseg',
 ```
 
 bet / aseg / dgm / syn model files must be named `<prefix>_<mode>_<version>_<tag>.onnx` (mode = `bet`, `aseg43`,
-`dgm12`, `synthseg`, ...): the mode in the filename selects the preprocessing and label table — see [models.md](models.md).
+`dgm12`, ...): the mode in the filename selects the preprocessing and label table — see [models.md](models.md).
 
-**Valid `task` values:** `'bet'`, `'aseg'`, `'dgm'`, `'syn'`, `'hlc'`, `'reg'`
-
----
-
-## 3. QC Calibration (BET)
-
-BET validation records a `QC_raw` confidence score for each image alongside
-its Dice coefficient. Use `qc_stat()` to analyse the QC–Dice relationship
-and find an appropriate warning threshold.
-
-### Step 1 — Run BET validation and save CSVs
-
-```python
-tigerbx.val(GPU=True, task='bet', full=True, output_dir='val_out')
-# Produces: val_out/val_bet_synstrip.csv  and  val_out/val_bet_NFBS.csv
-```
-
-### Step 2 — Analyse the QC–Dice relationship
-
-```python
-# Single CSV
-tigerbx.qc_stat('val_out/val_bet_synstrip.csv')
-
-# Combine both datasets (recommended — more samples, better statistics)
-tigerbx.qc_stat(['val_out/val_bet_synstrip.csv',
-                 'val_out/val_bet_NFBS.csv'])
-```
-
-**Output:**
-- Distribution statistics for `QC_raw` and `DICE`
-- Pearson r between `QC_raw` and `DICE`
-- Suggested `qc_score` warning threshold (captures ≥ 90 % of failed cases)
-
-### Step 3 — Apply the suggested threshold
-
-```
-Example output:
-  Suggested threshold : QC_raw = 0.6123  →  qc_score = 81
-  Recommendation: change the warning threshold in bx.py run_args()
-    from:  if qc_score < 66:
-    to:    if qc_score < 81:
-```
-
-### QC formula
-
-```
-qc_raw      = 1 - mean(entropy[brain_voxels]) / ln2
-_QC_RAW_GOOD = 0.7581           # calibrated: qc_raw at Dice ≈ 0.95
-qc_score    = int(clip(qc_raw / _QC_RAW_GOOD × 100, 0, 100))
-
-entropy  = -(p · log p + (1−p) · log(1−p))   # binary entropy, p = P(brain)
-```
-
-- Score = 100: qc_raw ≥ 0.7581 (predicted Dice ≥ 0.95 — good extraction)
-- Score < 100: qc_raw below calibrated good threshold; extraction may be imperfect
-- Score → 0: model is very uncertain; extraction likely poor
-- Only predicted-brain voxels are used — captures false positives, not false negatives
+**Valid `task` values:** `'bet'`, `'aseg'`, `'dgm'`, `'hlc'`, `'reg'`
 
 ---
 
-## 4. Validation Datasets
+## 3. Validation Datasets
 
 | #  | Task              | Dataset                                                                              |
 |----|-------------------|--------------------------------------------------------------------------------------|
@@ -148,7 +91,7 @@ entropy  = -(p · log p + (1−p) · log(1−p))   # binary entropy, p = P(brain
 
 ---
 
-## 5. Validation Results — Version 0.1.20
+## 4. Validation Results — Version 0.1.20
 
 ### Skull Stripping (Dice)
 
@@ -171,7 +114,9 @@ entropy  = -(p · log p + (1−p) · log(1−p))   # binary entropy, p = P(brain
 
 ### Registration (Dice)
 
-| Method    | Dice  |
-|-----------|-------|
-| Default   | 0.797 |
-| FuseMorph | 0.804 |
+`tigerbx.val(task='reg')`, reg60 (60 subjects), Dice against the template aseg after warping each subject's labels.
+
+| Method                                 | Dice  |
+|----------------------------------------|-------|
+| `AD`: numreg affine + VFA (default)     | 0.852 |
+| `AV`: C2FViT + VMnet (default up to 0.2.4) | 0.797 |

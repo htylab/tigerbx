@@ -12,6 +12,10 @@
 | 11        | Left-Amygdala        | 12        | Right-Amygdala        |
 
 ## ASEG labels
+
+The model outputs 43 labels: 37 structures (below) plus 6 deprecated labels. Since 0.3.0 the `_aseg` file also has
+label 99 (below), so it has 44 labels.
+
 | Label | Structure              | Label | Structure               |
 | ----- | ---------------------- | ----- | ----------------------- |
 | 2     | Left Cerebral WM       | 41    | Right Cerebral WM       |
@@ -24,19 +28,36 @@
 | 11    | Left Caudate           | 50    | Right Caudate           |
 | 12    | Left Putamen           | 51    | Right Putamen           |
 | 13    | Left Pallidum          | 52    | Right Pallidum          |
-| 14    | 3rd Ventricle          | 53    | Right Hippocampus       |
-| 15    | 4th Ventricle          | 54    | Right Amygdala          |
-| 16    | Brain Stem             | 58    | Right Accumbens area    |
-| 17    | Left Hippocampus       | 60    | Right VentralDC         |
-| 18    | Left Amygdala          | 62    | Right vessel            |
-| 24    | CSF                    | 63    | Right choroid plexus    |
-| 26    | Left Accumbens area    | 77    | WM hypointensities      |
-| 28    | Left VentralDC         | 85    | Optic Chiasm            |
-| 30    | Left vessel            | 251   | CC Posterior            |
-| 31    | Left choroid plexus    | 252   | CC Mid Posterior        |
-|       |                        | 253   | CC Central              |
-|       |                        | 254   | CC Mid Anterior         |
+| 17    | Left Hippocampus       | 53    | Right Hippocampus       |
+| 18    | Left Amygdala          | 54    | Right Amygdala          |
+| 26    | Left Accumbens area    | 58    | Right Accumbens area    |
+| 28    | Left VentralDC         | 60    | Right VentralDC         |
+| 14    | 3rd Ventricle          | 251   | CC Posterior            |
+| 15    | 4th Ventricle          | 252   | CC Mid Posterior        |
+| 16    | Brain Stem             | 253   | CC Central              |
+| 24    | CSF                    | 254   | CC Mid Anterior         |
 |       |                        | 255   | CC Anterior             |
+
+### Unlabeled-Intracranial (99, new in 0.3.0)
+
+| Label | Structure                 | Description |
+| ----- | ------------------------- | ----------- |
+| 99    | Unlabeled-Intracranial    | Voxels inside the tBET brain mask that no other ASEG label claims: sulcal and extra-cerebral CSF, pial partial volume, meninges, vessels |
+
+All non-zero `_aseg` voxels together are the tBET mask, so **TIV = (aseg > 0) voxel count x voxel volume**. Without
+label 99 the sum of the structures is pial-bounded brain + ventricles and underestimates TIV by about 19% (more with
+atrophy). TIV accuracy depends on tBET. Label 99 is not a structure; leave it out of structure-wise analyses.
+
+### Deprecated in 0.3.0
+
+Still produced by the ASEG model for backward compatibility, but not reliable; do not use them for volumes or
+analyses. A later ASEG model may drop them.
+
+| Label | Structure              | Label | Structure               |
+| ----- | ---------------------- | ----- | ----------------------- |
+| 30    | Left vessel            | 62    | Right vessel            |
+| 31    | Left choroid plexus    | 63    | Right choroid plexus    |
+| 77    | WM hypointensities     | 85    | Optic Chiasm            |
 
 ## DKT labels
 

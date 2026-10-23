@@ -2,6 +2,7 @@
 
 import glob
 import os
+import time
 import warnings
 from os.path import basename, dirname, join, relpath
 
@@ -9,10 +10,12 @@ import nibabel as nib
 import numpy as np
 
 
-# Postfixes tigerbx itself writes (save_nib / qc logs). A directory input that already contains outputs of an
-# earlier run (the default output dir is the input folder) must not re-ingest them as new subjects.
+# Postfixes tigerbx itself writes or wrote (save_nib). A directory input that already contains outputs of an
+# earlier run (the default output dir is the input folder) must not re-ingest them as new subjects; wmh / syn
+# (removed bx flags W / S) stay listed so outputs of older versions are still skipped.
 OUTPUT_POSTFIXES = ('tbet', 'tbetmask', 'aseg', 'dgm', 'wmh', 'syn', 'ct', 'cgw_pve0', 'cgw_pve1', 'cgw_pve2',
-                    'hlc', 'CSF', 'GM', 'WM', 'reg', 'rigid', 'Af', 'Fuse', 'SmoothedGM', 'gdm')
+                    'hlc', 'CSF', 'GM', 'WM', 'reg', 'rigid', 'Af', 'Fuse', 'SmoothedGM', 'ModulatedGM', 'gdm',
+                    'affine', 'VXM', 'VFA', 'norm')   # reg/Af/Fuse: names used before 0.3
 
 
 def _stem(f):
@@ -97,7 +100,6 @@ def get_template(f, output_dir, gz=None, common_folder=None):
         if explicit_dir and common_folder is not None:
             ftemplate = _apply_common_header(ftemplate, f, common_folder)
         ftemplate = ftemplate.replace(".nii.gz", "").replace(".nii", "")
-        ftemplate = ftemplate.replace("_nerve.npz", "").replace(".npz", "")
 
     ftemplate = join(f_output_dir, ftemplate)
     return ftemplate, f_output_dir
@@ -180,3 +182,22 @@ def write_gdm_nifti_like_input(input_file, output_dir, vol_out, inmem=False, pos
         result = create_nifti_from_array(vol_out, input_nib)
 
     return write_nifti_file(result, output_file, inmem=inmem)
+
+
+def write_fail_log(path, f, msg):
+    """Best-effort ``<stem>_*fail.log`` (time, input, error) for batch pipelines; never raises."""
+    try:
+        os.makedirs(dirname(path), exist_ok=True)
+        with open(path, 'w') as fh:
+            fh.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}\n{f}\n{msg}\n')
+    except Exception as exc:                     # noqa: BLE001 - logging a failure must not stop a batch
+        warnings.warn(f'could not write {path}: {exc}')
+
+
+def remove_quietly(path):
+    """Remove *path* if it exists (e.g. a stale fail log); never raises."""
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError as exc:
+        warnings.warn(f'could not remove {path}: {exc}')

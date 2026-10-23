@@ -11,7 +11,7 @@ from tigerbx import validate
 
 def test_get_mode_parses_release_names():
     assert lib_bx.get_mode('/m/mprage_aseg43_v007_16ksynth.onnx') == ('aseg43', 'v007', '16ksynth.onnx')
-    assert lib_bx.get_mode('mprage_synthseg_v003_r111.onnx')[0] == 'synthseg'
+    assert lib_bx.get_mode('mprage_dgm12_v002_mix6.onnx')[0] == 'dgm12'
 
 
 @pytest.mark.parametrize('name', ['mprage_aseg_v009.onnx', 'mprage_aseg_v009_test.onnx', 'new_aseg.onnx'])

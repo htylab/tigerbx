@@ -7,14 +7,14 @@ TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registratio
 - CLI: `tiger`
 
 Current baseline:
-- Version: `0.2.4`
+- Version: `0.3.0`
 - Python: `>=3.10`
 - Stack: ONNX Runtime, nibabel, numpy, scipy
 
 ## Project Structure (key folders)
 
-- `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `nerve`, `gdm`, `eval`, `validate`)
-- `tigerbx/pipeline/vbm.py`: VBM pipeline (separate from `reg`)
+- `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `embed`, `gdm`, `eval`, `validate`)
+- `tigerbx/pipelines/vbm.py`: VBM pipeline (separate from `reg`)
 - `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers
 - `tigerbx_cli/`: CLI parsers + dispatch (`tiger`)
 - `tests/run_and_compare.py`: primary integration/regression runner
@@ -31,7 +31,7 @@ Current baseline:
 ### Imports
 
 - Order: stdlib -> third-party -> internal.
-- Heavy imports (`onnxruntime`, `antspyx`, `optuna`) should be lazy (inside functions).
+- Heavy imports (`onnxruntime`) should be lazy (inside functions).
 
 ### Typing / Docstrings
 
@@ -46,8 +46,8 @@ Current baseline:
 
 ### `reg` / `vbm` Contracts
 
-- `reg` uses uppercase plan strings (positional): `R/A/V/N/C/F`
-  - `R` rigid, `A` affine, `V` VMnet, `N` SyN, `C` SyNCC, `F` FuseMorph
+- `reg` uses uppercase plan strings (positional): `R/A/V/D` (default `AD`)
+  - `R` rigid, `A` affine, `D` VFA, `V` VMnet
 - `VBM` is a separate pipeline/CLI (`tiger vbm`), not a `reg` mode.
 
 ### Output Path Contract (important)

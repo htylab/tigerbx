@@ -1,6 +1,6 @@
 ---
 name: tigerbx
-description: "Use TigerBx 0.2.3+ for research-use neuroimaging workflows: T1w brain extraction and segmentation, HLC parcellation, registration, VBM, EPI/DTI distortion correction, NERVE embeddings, and image metrics. Trigger when choosing or calling tigerbx Python APIs/CLI, interpreting outputs or labels, or building TigerBx batch pipelines."
+description: "Use TigerBx 0.3.0+ for research-use neuroimaging workflows: T1w brain extraction and segmentation, HLC parcellation, registration, VBM, EPI/DTI distortion correction, VFA brain embeddings, and image metrics. Trigger when choosing or calling tigerbx Python APIs/CLI, interpreting outputs or labels, or building TigerBx batch pipelines."
 ---
 
 # TigerBx
@@ -11,12 +11,12 @@ Use this skill to select the smallest correct TigerBx API and avoid mixing pipel
 
 | Need | API | Read |
 |---|---|---|
-| BET, mask, ASEG, DeepGM, WMH, SynthSeg, CT, tissue PVE | `tigerbx.run()` | [bx.md](bx.md) |
+| BET, mask, ASEG, DeepGM, CT, tissue PVE | `tigerbx.run()` | [bx.md](bx.md) |
 | HLC parcellation or HLC tissue outputs | `tigerbx.hlc()` | [hlc.md](hlc.md) |
 | Rigid/affine/nonlinear registration; apply saved warp | `tigerbx.reg()`, `tigerbx.transform()` | [reg.md](reg.md) |
 | VBM | `tigerbx.vbm()` or `tigerbx.pipeline('vbm', ...)` | [reg.md](reg.md) |
 | EPI/DTI distortion correction | `tigerbx.gdm()` | [gdm.md](gdm.md) |
-| Hippocampus/amygdala VAE latent/reconstruction | `tigerbx.nerve()` | [nerve.md](nerve.md) |
+| Regional brain embedding (features for ML), structure volumes, TIV | `tigerbx.embed()` | [../../doc/embed.md](../../doc/embed.md) |
 | Dice, IoU, distances, IQA, MI, classification metrics | `tigerbx.eval()` | [eval.md](eval.md) |
 | Numeric segmentation labels | — | [labels.md](labels.md) |
 | Validate / compare models on benchmark datasets | `tigerbx.val()` | [val.md](val.md) |
@@ -27,8 +27,8 @@ Read only the routed file. Read `labels.md` only when label meaning is needed.
 ## Non-negotiable contracts
 
 - Treat all outputs as research-use only; do not make clinical or diagnostic claims.
-- `reg` plans are ordered uppercase steps: `R/A/V/N/C/F`. VBM is a separate API, never a reg step.
-- Single NIfTI input normally returns a dict of nibabel objects; batch input returns a list of dicts containing saved paths. NERVE returns named path dicts because its primary artifact is NPZ.
+- `reg` plans are ordered uppercase steps: `R/A/V/D` (`D` = VFA, default plan `AD`). VBM is a separate API, never a reg step.
+- Single NIfTI input normally returns a dict of nibabel objects; batch input returns a list of dicts containing saved paths.
 - Access a nibabel image array with `.get_fdata()`.
 - Models download automatically on first execution. Do not install packages or download models unless the user asks to run the workflow and the environment lacks them.
 - For GPU: use `g` inside `tigerbx.run()` flags; use the documented `GPU=True` or `gpu=True` spelling for other APIs.

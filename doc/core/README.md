@@ -12,6 +12,9 @@ The `core` package contains shared utilities used by all TigerBx modules. These 
 | `core.spatial` | Cropping, padding, bounding box operations | [spatial.md](spatial.md) |
 | `core.metrics` | Segmentation, reconstruction, and classification metrics | [metrics.md](metrics.md) |
 | `core.deform` | Displacement fields, Jacobian determinants, image warping | [deform.md](deform.md) |
+| `core.numreg` | numpy/scipy rigid and affine registration | — |
+| `core.qa` | No-reference image quality (`image_quality`) and sample homogeneity (`homogeneity`) | [../pipelines.md](../pipelines.md#image-quality-and-homogeneity) |
+| `core.tissuenorm` | Tissue-anchored T1 intensity normalisation (CSF 1/3, GM 2/3, WM 1) | [tissuenorm.md](tissuenorm.md) |
 
 ## Usage from Feature Modules
 

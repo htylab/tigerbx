@@ -18,27 +18,27 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Files to compute per-label Dice (multi-class segmentation)
 MULTILABEL_FILES = [
-    'MNI152_T1_1mm_brain_aseg.nii.gz',
-    'MNI152_T1_1mm_brain_dgm.nii.gz',
-    'MNI152_T1_1mm_brain_dkt.nii.gz',
-    'MNI152_T1_1mm_brain_syn.nii.gz',
-    'MNI152_T1_1mm_brain_wmp.nii.gz',
+    'mni_template_aseg.nii.gz',
+    'mni_template_dgm.nii.gz',
+    'mni_template_dkt.nii.gz',
+    'mni_template_syn.nii.gz',
+    'mni_template_wmp.nii.gz',
 ]
 
 # Files to compute binary Dice
 BINARY_FILES = [
-    'MNI152_T1_1mm_brain_wmh.nii.gz',
-    'MNI152_T1_1mm_brain_tumor.nii.gz',
-    'MNI152_T1_1mm_brain_tbetmask.nii.gz',
+    'mni_template_wmh.nii.gz',
+    'mni_template_tumor.nii.gz',
+    'mni_template_tbetmask.nii.gz',
 ]
 
 # Skipped (not segmentation)
 SKIP_FILES = [
-    'MNI152_T1_1mm_brain_cgw_pve0.nii.gz',
-    'MNI152_T1_1mm_brain_cgw_pve1.nii.gz',
-    'MNI152_T1_1mm_brain_cgw_pve2.nii.gz',
-    'MNI152_T1_1mm_brain_ct.nii.gz',
-    'MNI152_T1_1mm_brain_tbet.nii.gz',
+    'mni_template_cgw_pve0.nii.gz',
+    'mni_template_cgw_pve1.nii.gz',
+    'mni_template_cgw_pve2.nii.gz',
+    'mni_template_ct.nii.gz',
+    'mni_template_tbet.nii.gz',
 ]
 
 
@@ -86,7 +86,7 @@ def compare_dir(old_dir, new_dir, mode_label):
         a = np.round(nib.load(op).get_fdata()).astype(int)
         b = np.round(nib.load(np_).get_fdata()).astype(int)
         mean_dice, per_label = dice_multilabel(a, b)
-        tag = fname.replace('MNI152_T1_1mm_brain_', '').replace('.nii.gz', '')
+        tag = fname.replace('mni_template_', '').replace('.nii.gz', '')
         print(f"  {tag:12s}  mean Dice = {mean_dice:.4f}  (over {len(per_label)} labels)")
         results[tag] = mean_dice
 
@@ -99,7 +99,7 @@ def compare_dir(old_dir, new_dir, mode_label):
         a = nib.load(op).get_fdata()
         b = nib.load(np_).get_fdata()
         d = dice_binary(a, b)
-        tag = fname.replace('MNI152_T1_1mm_brain_', '').replace('.nii.gz', '')
+        tag = fname.replace('mni_template_', '').replace('.nii.gz', '')
         print(f"  {tag:12s}  Dice = {d:.4f}")
         results[tag] = d
 

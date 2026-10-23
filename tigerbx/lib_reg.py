@@ -4,13 +4,13 @@ from os.path import join, isfile
 import nibabel as nib
 import numpy as np
 import sys
-from tigerbx import lib_tool
-from tigerbx.core.metrics import dice as metrics_dice
+from types import SimpleNamespace
 from tigerbx.core.io import get_template as build_output_template, save_nib
-from tigerbx.core.onnx import predict
 from tigerbx.core.spatial import crop_image, pad_to_shape, remove_padding
 from tigerbx.core.resample import resample_img, reorder_img, resample_voxel
 from scipy.ndimage import gaussian_filter
+from tigerbx.core import numreg
+from tigerbx.core.warp import affine_transform, dense_transform
 warnings.filterwarnings("ignore", category=UserWarning)
 nib.Nifti1Header.quaternion_threshold = -100
 
@@ -24,7 +24,7 @@ elif __file__:
     
     
 def get_template(template_ff):
-    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain.nii.gz'))
+    mni_template = nib.load(join(application_path, 'template', 'mni_template.nii.gz'))
     mni_affine = mni_template.affine
     
     if template_ff:
@@ -45,7 +45,7 @@ def get_template(template_ff):
 
 
 def get_template_seg(template_ff):
-    mni_template = nib.load(join(application_path, 'template', 'MNI152_T1_1mm_brain_aseg.nii.gz'))
+    mni_template = nib.load(join(application_path, 'template', 'mni_template_aseg.nii.gz'))
     mni_affine = mni_template.affine
 
     if template_ff:
@@ -80,45 +80,6 @@ def apply_gaussian_smoothing(image, fwhm):
     sigma = fwhm / np.sqrt(8 * np.log(2))
     return gaussian_filter(image, sigma=sigma)
 
-def FuseMorph_evaluate_params(params, warps, moving_seg, model_transform, fixed_seg_image, gpu):
-    x, y, z = params
-    warp = warps[0]*x + warps[1]*y + warps[2]*z
-    output = predict(model_transform, [moving_seg, warp], GPU=gpu, mode='reg')
-    #dice_output = predict(model_dice, [output[0], fixed_seg_image], GPU=gpu, mode='reg')
-    #dice_score = np.mean(dice_output[0])
-    output_np = output[0]
-    fixed_seg_image_np = fixed_seg_image
-    dice_scores = metrics_dice(output_np, fixed_seg_image_np)
-    #return (x, y, z, dice_score, warp)
-    return (x, y, z, dice_scores['mean'], warp)
-
-def optimize_fusemorph(warps, moving_seg, model_transform, fixed_seg_image, args):
-    import optuna
-
-    def objective(trial):
-        x = trial.suggest_float("x", 0.9, 1.0)
-        y = trial.suggest_float("y", 0.1, 1.0)
-        z = trial.suggest_float("z", 0.1, 1.0)
-        params = (x, y, z)
-        x, y, z, dice_score, warp = FuseMorph_evaluate_params(
-            params, warps, moving_seg, model_transform, fixed_seg_image, args.gpu
-        )
-        nonlocal best_dice, best_warp
-        if dice_score > best_dice:
-            best_dice = dice_score
-            best_warp = warp
-
-        return dice_score
-    best_dice = float("-inf")
-    best_warp = None
-    moving_seg = np.expand_dims(np.expand_dims(moving_seg, axis=0), axis=1)
-    sampler = optuna.samplers.TPESampler(seed=42) 
-    study = optuna.create_study(direction="maximize", sampler=sampler)
-    study.optimize(objective, n_trials=100)  # Number of trials can be adjusted
-    best_params = study.best_params
-    best_dice = study.best_value
-    return best_params, best_dice, best_warp
-
 def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='nearest'):
     
     data = np.load(warp_path, allow_pickle=True)
@@ -132,27 +93,21 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     affine_matrix = displacement_dict['affine_matrix']
     reference_info = displacement_dict['reference_info']
     dense_warp = displacement_dict['dense_warp']
-    SyN_dense_warp = displacement_dict['SyN_dense_warp']
-    SyNCC_dense_warp = displacement_dict['SyNCC_dense_warp']
-    Fuse_dense_warp = displacement_dict['Fuse_dense_warp']
+    Fuse_dense_warp = displacement_dict.get('Fuse_dense_warp')   # warp.npz from releases that had FuseMorph
+    VFA_dense_warp = displacement_dict.get('VFA_dense_warp')      # absent in warp.npz files before 'D'
 
-    if (init_flow is None or (isinstance(init_flow, np.ndarray) and not np.any(init_flow))) and (reference_info is None or (isinstance(reference_info, dict) and not reference_info)):
+    if (init_flow is None or init_flow.shape == ()) and (reference_info is None or (isinstance(reference_info, dict) and not reference_info)):
         raise ValueError("Both init_flow and reference_info are None or empty. The program cannot proceed.")
 
-    if (dense_warp is not None or Fuse_dense_warp is not None) and (affine_matrix is None or (isinstance(affine_matrix, np.ndarray) and not np.any(affine_matrix))):
+    if (dense_warp is not None or Fuse_dense_warp is not None or VFA_dense_warp is not None) and (affine_matrix is None or (isinstance(affine_matrix, np.ndarray) and not np.any(affine_matrix))):
         raise ValueError("affine_matrix is None or empty, and at least one of dense_warp or Fuse_dense_warp is not None.")
     
     method_check = {'affine':'C2FViT', 'nonlinear':'VMnet'}
     if init_flow is None or init_flow.shape == ():
-        method_check['affine'] = 'ants'
+        method_check['affine'] = 'numreg'      # also old ANTs-affine warp.npz files (converted below)
     
-    ftemplate, f_output_dir = build_output_template(image_path, output_dir, None)
+    ftemplate, f_output_dir = build_output_template(image_path, output_dir, True)   # ..._@@@@.nii.gz
     
-    model_transform = lib_tool.get_model('mprage_transform_v002_near.onnx')
-    model_transform_bili = lib_tool.get_model('mprage_transform_v002_bili.onnx')
-    model_affine_transform = lib_tool.get_model('mprage_affinetransform_v002_near.onnx')
-    model_affine_transform_bili = lib_tool.get_model('mprage_affinetransform_v002_bili.onnx')
-        
     template_nib =get_template(None)
     template_nib = reorder_img(template_nib, resample='continuous')
     template_data = template_nib.get_fdata()
@@ -165,14 +120,15 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     if method_check['affine'] == 'C2FViT':
         input_data, _ = pad_to_shape(input_data, (256, 256, 256))
         input_data, _ = crop_image(input_data, target_shape=(256, 256, 256))
-        input_data = np.expand_dims(np.expand_dims(input_data, axis=0), axis=1)
-        init_flow = init_flow.astype(np.float32)
-    #Rigid    
-    if rigid_matrix is not None and rigid_matrix.shape != ():
-        rigid_matrix = np.expand_dims(rigid_matrix.astype(np.float32), axis=0)
-        model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
-        output = predict(model, [input_data, init_flow, rigid_matrix], GPU=GPU, mode='affine_transform')
-        rigid = remove_padding(np.squeeze(output[0]), pad_width)
+    #Rigid: numreg (dict with M) or, in warp.npz from before 0.3, the C2FViT-style rigid model (init_flow + matrix)
+    if isinstance(rigid_matrix, dict) and 'M' in rigid_matrix:
+        ref = SimpleNamespace(affine=np.asarray(reference_info['affine']), shape=tuple(reference_info['shape']))
+        raw = reorder_img(nib.load(image_path), resample=interpolation).get_fdata().astype(np.float32)
+        rigid = numreg.apply(input_nib, ref, rigid_matrix['M'], data=raw,
+                             order=0 if interpolation in ('nearest', 'nearestNeighbor') else 1)
+        save_nib(nib.Nifti1Image(rigid, template_nib.affine, template_nib.header), ftemplate, 'rigid')
+    elif rigid_matrix is not None and rigid_matrix.shape != ():
+        rigid = remove_padding(affine_transform(input_data, init_flow, rigid_matrix, interpolation), pad_width)
         rigid_nib = nib.Nifti1Image(rigid,
                                       template_nib.affine, template_nib.header)
         fn = save_nib(rigid_nib, ftemplate, 'rigid')
@@ -180,127 +136,58 @@ def transform(image_path, warp_path, output_dir=None, GPU=False, interpolation='
     affined = None
     if method_check['affine'] == 'C2FViT':
         if affine_matrix is not None and affine_matrix.shape != ():
-            affine_matrix = np.expand_dims(affine_matrix.astype(np.float32), axis=0)
-            model = model_affine_transform if interpolation == 'nearest' else model_affine_transform_bili
-            output = predict(model, [input_data, init_flow, affine_matrix], GPU=GPU, mode='affine_transform')
-            affined = remove_padding(np.squeeze(output[0]), pad_width)
+            affined = remove_padding(affine_transform(input_data, init_flow, affine_matrix, interpolation), pad_width)
             affined_nib = nib.Nifti1Image(affined,
                                           template_nib.affine, template_nib.header)
-            fn = save_nib(affined_nib, ftemplate, 'Af')
-    elif method_check['affine'] == 'ants':
-        if isinstance(affine_matrix["parameters"], np.ndarray) and affine_matrix["parameters"].shape != ():
-            ants_input, _ = get_ants_info(input_data, input_nib.affine)
-            affined = ants_transform(ants_input, displacement_dict, interpolation=interpolation, mode='affine')
-            
-            affined_nib = nib.Nifti1Image(affined,
-                                          template_nib.affine, template_nib.header)
-            fn = save_nib(affined_nib, ftemplate, 'Af')
-    #Nonlinear(SyN, SyNCC)
-    for ants_reg_str in ['SyN_dense_warp', 'SyNCC_dense_warp']:
-        if displacement_dict[ants_reg_str] is not None and displacement_dict[ants_reg_str].shape != ():
-            input_data = input_nib.get_fdata().astype(np.float32)
-            ants_input, _ = get_ants_info(input_data, input_nib.affine)
-            ants_output = ants_transform(ants_input, displacement_dict, interpolation=interpolation, mode=ants_reg_str)
-            
-            ants_output_nib = nib.Nifti1Image(ants_output,
-                                          template_nib.affine, template_nib.header)
-            fn = save_nib(ants_output_nib, ftemplate, ants_reg_str.split("_")[0])
+            fn = save_nib(affined_nib, ftemplate, 'affine')
+    elif affine_matrix is not None:
+        if 'M' in affine_matrix:
+            M = affine_matrix['M']
+            ref = SimpleNamespace(affine=np.asarray(reference_info['affine']), shape=tuple(reference_info['shape']))
+        else:                                   # warp.npz from the removed ANTs affine
+            M, ref = legacy_ants_affine(affine_matrix, reference_info)
+        affined = numreg.apply(input_nib, ref, M, data=input_data,
+                               order=0 if interpolation in ('nearest', 'nearestNeighbor') else 1)
+        affined_nib = nib.Nifti1Image(affined, template_nib.affine, template_nib.header)
+        fn = save_nib(affined_nib, ftemplate, 'affine')
+    #Nonlinear(SyN, SyNCC): removed; their warp.npz entries were paths to temporary ANTs files
+    for key in ('SyN_dense_warp', 'SyNCC_dense_warp'):
+        v = displacement_dict.get(key)
+        if v is not None and np.asarray(v).shape != ():
+            warnings.warn(f"{key} in {warp_path} is no longer supported (SyN / SyNCC were removed); skipped.")
     #Nonlinear(VMnet)
     if dense_warp is not None and dense_warp.shape != ():
         if affined is None:
             raise ValueError("dense_warp requires affine registration output, but affined is None.")
-        affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
-        dense_warp = np.expand_dims(dense_warp.astype(np.float32), axis=0)
-        model = model_transform if interpolation == 'nearest' else model_transform_bili
-        output = predict(model, [affined_exp, dense_warp], GPU=GPU, mode='reg')
-        reged = np.squeeze(output[0])
+        reged = dense_transform(affined, dense_warp, interpolation)
         reged_nib = nib.Nifti1Image(reged,
                                     template_nib.affine, template_nib.header)
-        fn = save_nib(reged_nib, ftemplate, 'reg')
-    #Nonlinear(FuseMorph)
+        fn = save_nib(reged_nib, ftemplate, 'VXM')
+    #Nonlinear(FuseMorph; old warp.npz only)
     if Fuse_dense_warp is not None and Fuse_dense_warp.shape != ():
         if affined is None:
             raise ValueError("Fuse_dense_warp requires affine registration output, but affined is None.")
-        affined_exp = np.expand_dims(np.expand_dims(affined, axis=0), axis=1)
-        Fuse_dense_warp = np.expand_dims(Fuse_dense_warp.astype(np.float32), axis=0)
-        model = model_transform if interpolation == 'nearest' else model_transform_bili
-        output = predict(model, [affined_exp, Fuse_dense_warp], GPU=GPU, mode='reg')
-        Fused = np.squeeze(output[0])
+        Fused = dense_transform(affined, Fuse_dense_warp, interpolation)
         Fused_nib = nib.Nifti1Image(Fused,
                                     template_nib.affine, template_nib.header)
         fn = save_nib(Fused_nib, ftemplate, 'Fuse')
+    #Nonlinear(VFA)
+    if VFA_dense_warp is not None and VFA_dense_warp.shape != ():
+        if affined is None:
+            raise ValueError("VFA_dense_warp requires affine registration output, but affined is None.")
+        vfa_moved = dense_transform(affined, VFA_dense_warp, interpolation)
+        save_nib(nib.Nifti1Image(vfa_moved, template_nib.affine, template_nib.header), ftemplate, 'VFA')
 
-def get_ants_info(image, affine):
-    import ants
-    ants_img = ants.from_numpy(image)
-    
-    rot = affine[:3, :3]
-    spacing = np.linalg.norm(rot, axis=0)
-    direction_matrix = rot / spacing
-    
-    ants_img.set_origin(affine[:3, 3].tolist())
-    ants_img.set_spacing(spacing.tolist())
-    ants_img.set_direction(direction_matrix.tolist())
-    
-    ants_dict = {
-        "reference_info": {
-            "origin": ants_img.origin,
-            "spacing": ants_img.spacing,
-            "direction": ants_img.direction,
-            "shape": ants_img.shape
-            }
-        }    
-    return ants_img, ants_dict
-
-def apply_ANTs_reg(ants_moving, ants_fixed, mode):
-    import ants
-    registration = ants.registration(fixed=ants_fixed, moving=ants_moving, type_of_transform=mode)  
-    transformed_moving_image = registration['warpedmovout']    
-    transformed_array = transformed_moving_image.numpy()
-    
-    if mode=='Affine':
-        aff_tx = ants.read_transform(registration['fwdtransforms'][0])
-        ants_dict = {
-            "affine_matrix": {
-                "parameters": aff_tx.parameters,
-                "fixed_parameters": aff_tx.fixed_parameters
-                }
-            }
-    else:
-        ants_dict = {mode + "_dense_warp": registration['fwdtransforms']}
-    return transformed_array, ants_dict
-
-def ants_transform(ants_moving, displacement_dict, interpolation='nearestNeighbor', mode='affine'):
-    import ants
-    if interpolation == 'nearest':
-        interpolation = 'nearestNeighbor'
-
-    ref_info = displacement_dict["reference_info"]
-    dummy_array = np.zeros(ref_info["shape"], dtype=np.float32)
-
-    reference = ants.from_numpy(dummy_array)
-    reference.set_origin(list(ref_info["origin"]))
-    reference.set_spacing(list(ref_info["spacing"]))
-    reference.set_direction(list(ref_info["direction"]))    
-    
-    if mode == 'affine':
-        aff_tx = ants.create_ants_transform(dimension=3, transform_type="AffineTransform")
-        aff_tx.set_parameters(displacement_dict["affine_matrix"]["parameters"])
-        aff_tx.set_fixed_parameters(displacement_dict["affine_matrix"]["fixed_parameters"])
-    
-        resampled_img = ants.apply_ants_transform_to_image(
-            transform=aff_tx,
-            image=ants_moving,
-            reference=reference,
-            interpolation=interpolation  #linear
-        )
-    else:
-        resampled_img = ants.apply_transforms(
-        fixed=reference,
-        moving=ants_moving,
-        transformlist=displacement_dict[mode].tolist(),
-        interpolator=interpolation  # use nearest for segmentation
-        )
-        
-    resampled_array = resampled_img.numpy()
-    return resampled_array
+def legacy_ants_affine(affine_matrix, reference_info):
+    """warp.npz written by the removed ANTs affine (tigerbx <= 0.2.x) -> (M, reference grid) for numreg.apply.
+    tigerbx passed RAS world coordinates to ITK as-is (no LPS flip), so the ITK matrix is already RAS -> RAS."""
+    p = np.asarray(affine_matrix['parameters'], dtype=np.float64).ravel()
+    c = np.asarray(affine_matrix['fixed_parameters'], dtype=np.float64).ravel()
+    A, t = p[:9].reshape(3, 3), p[9:12]
+    M = np.eye(4)
+    M[:3, :3] = A
+    M[:3, 3] = t + c - A @ c
+    ref = np.eye(4)
+    ref[:3, :3] = np.asarray(reference_info['direction'], dtype=np.float64).reshape(3, 3) * np.asarray(reference_info['spacing'])
+    ref[:3, 3] = reference_info['origin']
+    return M, SimpleNamespace(affine=ref, shape=tuple(reference_info['shape']))

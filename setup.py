@@ -14,12 +14,12 @@ def _read_version():
 setup(
      name='tigerbx',
      version=_read_version(),
-     license='CC BY-NC 4.0',
+     license='CC BY-NC-SA 4.0',
      license_files=['LICENSE'],
 
      packages=find_packages(),
      package_data={
-        'tigerbx': ['template/*.nii.gz'],  # include the MNI152 template
+        'tigerbx': ['template/*.nii.gz'],  # include the MNI-space template
      },
      include_package_data=True,
 
@@ -33,11 +33,10 @@ setup(
              'numpy>=1.21.6',
              'scipy',
              'nibabel',
-             'optuna',
-             'antspyx',
              'platformdirs',
              'filelock',
              'tqdm',
+             'threadpoolctl>=3.1',   # numreg limits BLAS to one thread (faster for its N x 3 products)
          ],
      extras_require={
          'cpu': ['onnxruntime>=1.18.0'],
