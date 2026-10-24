@@ -68,6 +68,9 @@ CPU build); the CUDA 12 and cuDNN 9 libraries must be on the library path (a CUD
 any setup where the GPU provider cannot load print a warning and run on the CPU. On the GPU the models' `labels`
 output is dropped (CUDA ArgMax needs ~10x the logits as workspace) and the argmax runs on the CPU; cuDNN uses
 heuristic algorithm selection without its maximum workspace, and the GPU arena is released after every run.
+TF32 stays off (CPU and GPU agree; with TF32 ~100 `_aseg` voxels differ). Newer cuDNN (9.2x) then logs "No execution
+plans support the graph" and falls back to another algorithm; ONNX Runtime's log is limited to fatal messages
+(`TIGERBX_ORT_LOG=1` shows its errors), failures are still reported per input.
 `--seg -g` on IBSR18: ~6 s per subject, GPU peak ~8 GB; CPU and GPU agree (IBSR_01: tBET mask identical, 4 `_aseg`
 voxels differ) since the optimised models compute GroupNorm statistics in stages (see `tigerbx.dev.onnx_optimize`).
 

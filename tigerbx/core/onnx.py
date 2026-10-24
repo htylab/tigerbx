@@ -203,7 +203,9 @@ def create_session(model_ff, GPU):
     """Build an ort.InferenceSession for the given model path."""
     import onnxruntime as ort
 
-    ort.set_default_logger_severity(3)
+    # ORT's own log: fatal only (failures still raise). With TF32 off, cuDNN >= 9.2x logs "No execution plans support
+    # the graph" for strict-FP32 convolutions and falls back to another algorithm.
+    ort.set_default_logger_severity(4)
     so = ort.SessionOptions()
     intra_threads = _get_env_positive_int(ORT_INTRA_THREADS_ENV)
     if intra_threads is None:
@@ -214,13 +216,14 @@ def create_session(model_ff, GPU):
 
     so.intra_op_num_threads = intra_threads
     so.inter_op_num_threads = inter_threads
-    so.log_severity_level = 3
+    so.log_severity_level = 4
     if GPU and ort.get_device() == "GPU":
         # Default kNextPowerOfTwo arena grows with every new input shape (tigerbx crops differ per subject)
         # and is never released -> OOM after a few dozen files on a shared GPU. Allocate exactly what is needed.
         # cuDNN: an exhaustive algorithm search reruns for every new shape and its workspaces (up to the maximum)
         # are allocated outside the arena / gpu_mem_limit -> heuristic search, no maximum workspace.
-        cuda_opts = {"arena_extend_strategy": "kSameAsRequested",
+        # TF32 off: GPU results match the CPU (with TF32 ~100 ASEG voxels per subject differ).
+        cuda_opts = {"arena_extend_strategy": "kSameAsRequested", "use_tf32": "0",
                      "cudnn_conv_algo_search": "HEURISTIC", "cudnn_conv_use_max_workspace": "0"}
         mem_gb = _get_env_positive_int(GPU_MEM_LIMIT_ENV)
         if mem_gb is not None:
