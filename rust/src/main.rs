@@ -13,17 +13,18 @@ use std::path::{Path, PathBuf};
 /// Embedded models (compiled into the binary): TigerBx's defaults, from the modelhub release
 static EMBEDDED_BET: &[u8] = include_bytes!("../models/mprage_bet_v005_opt.onnx");
 static EMBEDDED_ASEG: &[u8] = include_bytes!("../models/mprage_aseg43_v0011_opt.onnx");
+static EMBEDDED_DGM: &[u8] = include_bytes!("../models/mprage_dgm12_v002_mix6.onnx");
 static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v004_vfa.onnx");
 /// TigerBx's bundled registration template (same file as the Python package)
 static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
 
 /// Postfixes rustbx / TigerBx write; inputs ending in one of them are earlier outputs, not new images.
-const OUTPUT_POSTFIXES: [&str; 5] = ["tbet", "tbetmask", "aseg", "affine", "norm"];
+const OUTPUT_POSTFIXES: [&str; 6] = ["tbet", "tbetmask", "aseg", "dgm", "affine", "norm"];
 
 /// rustbx — TigerBx brain extraction, ASEG and template registration as a native executable
 ///
 /// Supports glob patterns, directories, and multiple files:
-///   rustbx T1w.nii.gz                    (all outputs: _tbet, _tbetmask, _aseg, _affine, _norm)
+///   rustbx T1w.nii.gz                    (all outputs: _tbet, _tbetmask, _aseg, _dgm, _affine, _norm)
 ///   rustbx data/*.nii.gz -o output_dir -m
 ///   rustbx data/T1w_dir -o results/ -b -a
 #[derive(Parser, Debug)]
@@ -44,9 +45,14 @@ struct Args {
     #[arg(short = 'm', long)]
     betmask: bool,
 
-    /// Save the ASEG segmentation (_aseg; 43 structures + 99 Unlabeled-Intracranial)
+    /// Save the ASEG segmentation (_aseg; 43 structures + 99 Unlabeled-Intracranial), its 12 deep-GM
+    /// structures taken from DGM12
     #[arg(short = 'a', long)]
     aseg: bool,
+
+    /// Save the DGM12 deep gray-matter segmentation (_dgm; labels 1-12, as tigerbx.run('d'))
+    #[arg(short = 'd', long)]
+    dgm: bool,
 
     /// Save the tBET brain affinely registered to the template (_affine; numreg, as tigerbx.reg('A'))
     #[arg(short = 'A', long)]
@@ -64,6 +70,10 @@ struct Args {
     #[arg(long)]
     aseg_model: Option<PathBuf>,
 
+    /// DGM12 ONNX model file (default: embedded mprage_dgm12_v002_mix6)
+    #[arg(long)]
+    dgm_model: Option<PathBuf>,
+
     /// VFA registration ONNX model file (default: embedded mprage_reg_v004_vfa)
     #[arg(long)]
     vfa_model: Option<PathBuf>,
@@ -79,6 +89,7 @@ struct Outputs {
     bet: bool,
     betmask: bool,
     aseg: bool,
+    dgm: bool,
     affine: bool,
     norm: bool,
 }
@@ -134,10 +145,10 @@ fn main() -> Result<()> {
     }
 
     // No output option: all of them
-    let outputs = if args.bet || args.betmask || args.aseg || args.affine || args.norm {
-        Outputs { bet: args.bet, betmask: args.betmask, aseg: args.aseg, affine: args.affine, norm: args.norm }
+    let outputs = if args.bet || args.betmask || args.aseg || args.dgm || args.affine || args.norm {
+        Outputs { bet: args.bet, betmask: args.betmask, aseg: args.aseg, dgm: args.dgm, affine: args.affine, norm: args.norm }
     } else {
-        Outputs { bet: true, betmask: true, aseg: true, affine: true, norm: true }
+        Outputs { bet: true, betmask: true, aseg: true, dgm: true, affine: true, norm: true }
     };
 
     // Expand inputs (globs, directories, literal files)
@@ -159,6 +170,12 @@ fn main() -> Result<()> {
     } else {
         None
     };
+    // DGM12 also runs for -a: the ASEG deep-GM structures come from it
+    let mut dgm_session = if outputs.dgm || outputs.aseg {
+        Some(inference::create_session(&model_bytes(&args.dgm_model, EMBEDDED_DGM, "DGM12")?, threads)?)
+    } else {
+        None
+    };
     let mut vfa_session = if outputs.norm {
         Some(inference::create_session(&model_bytes(&args.vfa_model, EMBEDDED_VFA, "VFA")?, threads)?)
     } else {
@@ -173,7 +190,12 @@ fn main() -> Result<()> {
     let mut failed = 0usize;
     for (i, input) in files.iter().enumerate() {
         println!("[{}/{}] {}", i + 1, files.len(), input.display());
-        let sessions = Sessions { bet: &mut bet_session, aseg: aseg_session.as_mut(), vfa: vfa_session.as_mut() };
+        let sessions = Sessions {
+            bet: &mut bet_session,
+            aseg: aseg_session.as_mut(),
+            dgm: dgm_session.as_mut(),
+            vfa: vfa_session.as_mut(),
+        };
         if let Err(e) = process_file(input, args.output.as_deref(), outputs, sessions, template.as_ref()) {
             eprintln!("  ERROR: {:#}", e);
             failed += 1;
@@ -193,6 +215,7 @@ fn main() -> Result<()> {
 struct Sessions<'a> {
     bet: &'a mut ort::session::Session,
     aseg: Option<&'a mut ort::session::Session>,
+    dgm: Option<&'a mut ort::session::Session>,
     vfa: Option<&'a mut ort::session::Session>,
 }
 
@@ -206,7 +229,7 @@ fn process_file(
     let start = std::time::Instant::now();
 
     let (header, data) = nifti_io::read_nifti(input)?;
-    let res = bx::run_bx(&data, &header, sessions.bet, sessions.aseg)?;
+    let res = bx::run_bx(&data, &header, sessions.bet, sessions.aseg, sessions.dgm)?;
 
     if outputs.bet {
         let p = output_path(input, output_dir, "tbet");
@@ -221,6 +244,11 @@ fn process_file(
     if let Some(aseg) = res.aseg.as_ref() {
         let p = output_path(input, output_dir, "aseg");
         nifti_io::write_nifti_u8(&p, &header, aseg)?;
+        println!("  -> {}", p.display());
+    }
+    if let (true, Some(dgm)) = (outputs.dgm, res.dgm.as_ref()) {
+        let p = output_path(input, output_dir, "dgm");
+        nifti_io::write_nifti_u8(&p, &header, dgm)?;
         println!("  -> {}", p.display());
     }
 
