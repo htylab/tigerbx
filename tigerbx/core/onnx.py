@@ -16,6 +16,7 @@ DEFAULT_ORT_INTRA_THREADS_RATIO = 0.7
 DEFAULT_ORT_INTER_THREADS = 1
 # Optional second output of a segmentation model: argmax of the logits over channels, as uint8 (added by
 # tigerbx.dev.onnx_optimize --labels). Requesting only this output avoids returning the full logits array.
+# On the GPU it is removed from the graph instead (see _keep_outputs).
 LABELS_OUTPUT = "labels"
 _GPU_FALLBACK_WARNED = False
 
@@ -97,8 +98,105 @@ def _warn_gpu_fallback(reason):
     global _GPU_FALLBACK_WARNED
     if not _GPU_FALLBACK_WARNED:
         _GPU_FALLBACK_WARNED = True
-        warnings.warn(f"GPU=True but running on CPU: {reason}. "
-                      "tigerbx[cu12] needs onnxruntime-gpu < 1.27 (CUDA 12).", RuntimeWarning, stacklevel=3)
+        warnings.warn(f"GPU=True but running on CPU: {reason}. tigerbx[cu12] needs onnxruntime-gpu < 1.27 "
+                      "(CUDA 12), tigerbx[cu13] >= 1.27 (CUDA 13).", RuntimeWarning, stacklevel=3)
+
+
+# --- minimal ONNX protobuf surgery (no onnx dependency) ------------------------------------------------------------
+# ONNX Runtime runs every node even when only some outputs are fetched, and the CUDA ArgMax behind the labels output
+# needs a workspace of ~10x the logits (15.7 GB for an ASEG crop). On the GPU the labels branch is therefore removed
+# from the model and the argmax is done on the CPU from the logits.
+
+def _varint(b, pos):
+    v = shift = 0
+    while True:
+        byte = b[pos]
+        pos += 1
+        v |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return v, pos
+        shift += 7
+
+
+def _fields(b):
+    """[(field number, raw bytes incl. key, payload of a length-delimited field or None)]"""
+    out, pos = [], 0
+    while pos < len(b):
+        start = pos
+        key, pos = _varint(b, pos)
+        wire, payload = key & 7, None
+        if wire == 0:
+            _, pos = _varint(b, pos)
+        elif wire == 1:
+            pos += 8
+        elif wire == 2:
+            n, pos = _varint(b, pos)
+            payload = b[pos:pos + n]
+            pos += n
+        elif wire == 5:
+            pos += 4
+        else:
+            raise ValueError("unsupported protobuf wire type")
+        out.append((key >> 3, b[start:pos], payload))
+    return out
+
+
+def _strings(msg, num):
+    return [p.decode("utf-8", "replace") for n, _, p in _fields(msg) if n == num and p is not None]
+
+
+def _put_varint(v):
+    out = bytearray()
+    while v >= 0x80:
+        out.append((v & 0x7F) | 0x80)
+        v >>= 7
+    out.append(v)
+    return bytes(out)
+
+
+def _output_names(model):
+    graph = next(p for n, _, p in _fields(model) if n == 7)               # ModelProto.graph
+    return [_strings(p, 1)[0] for n, _, p in _fields(graph) if n == 12]    # GraphProto.output -> ValueInfoProto.name
+
+
+def _keep_outputs(model, keep):
+    """The model with only the graph outputs in ``keep`` and the nodes they need (ONNX nodes are topologically sorted)."""
+    top = _fields(model)
+    graph = next(p for n, _, p in top if n == 7)
+    gf = _fields(graph)
+    needed, keep_node = set(keep), [False] * len(gf)
+    for i in range(len(gf) - 1, -1, -1):
+        num, _, node = gf[i]
+        if num == 1 and needed.intersection(_strings(node, 2)):              # NodeProto.output
+            keep_node[i] = True
+            needed.update(x for x in _strings(node, 1) if x)                 # NodeProto.input
+    new_graph = b"".join(raw for i, (num, raw, p) in enumerate(gf)
+                         if not ((num == 1 and not keep_node[i]) or (num == 12 and _strings(p, 1)[0] not in keep)))
+    return b"".join(_put_varint((7 << 3) | 2) + _put_varint(len(new_graph)) + new_graph if num == 7 else raw
+                    for num, raw, _ in top)
+
+
+def _gpu_model(model_ff):
+    """Model bytes for a GPU session: without the labels branch when there is one (else the path)."""
+    try:
+        with open(model_ff, "rb") as f:
+            model = f.read()
+        names = _output_names(model)
+        if len(names) > 1 and LABELS_OUTPUT in names:
+            return _keep_outputs(model, names[:1])
+    except Exception:                                                       # noqa: BLE001 - fall back to the file
+        pass
+    return model_ff
+
+
+def _run(session, outputs, feeds):
+    """session.run; on CUDA the GPU arena is released after the run (each subject's crop has another shape)."""
+    if "CUDAExecutionProvider" in session.get_providers():
+        import onnxruntime as ort
+        ro = ort.RunOptions()
+        ro.add_run_config_entry("memory.enable_memory_arena_shrinkage", "gpu:0")
+        return session.run(outputs, feeds, ro)
+    return session.run(outputs, feeds)
 
 
 def create_session(model_ff, GPU):
@@ -120,12 +218,15 @@ def create_session(model_ff, GPU):
     if GPU and ort.get_device() == "GPU":
         # Default kNextPowerOfTwo arena grows with every new input shape (tigerbx crops differ per subject)
         # and is never released -> OOM after a few dozen files on a shared GPU. Allocate exactly what is needed.
-        cuda_opts = {"arena_extend_strategy": "kSameAsRequested"}
+        # cuDNN: an exhaustive algorithm search reruns for every new shape and its workspaces (up to the maximum)
+        # are allocated outside the arena / gpu_mem_limit -> heuristic search, no maximum workspace.
+        cuda_opts = {"arena_extend_strategy": "kSameAsRequested",
+                     "cudnn_conv_algo_search": "HEURISTIC", "cudnn_conv_use_max_workspace": "0"}
         mem_gb = _get_env_positive_int(GPU_MEM_LIMIT_ENV)
         if mem_gb is not None:
             cuda_opts["gpu_mem_limit"] = mem_gb * 1024 ** 3
         sess = ort.InferenceSession(
-            model_ff,
+            _gpu_model(model_ff),
             providers=[("CUDAExecutionProvider", cuda_opts), "CPUExecutionProvider"],
             sess_options=so,
         )
@@ -134,7 +235,7 @@ def create_session(model_ff, GPU):
             _warn_gpu_fallback(f"CUDAExecutionProvider failed to load (onnxruntime {ort.__version__})")
         return sess
     if GPU:
-        _warn_gpu_fallback(f"onnxruntime {ort.__version__} has no GPU support (install tigerbx[cu12])")
+        _warn_gpu_fallback(f"onnxruntime {ort.__version__} has no GPU support (install tigerbx[cu12] or [cu13])")
     return ort.InferenceSession(
         model_ff,
         providers=["CPUExecutionProvider"],
@@ -159,7 +260,7 @@ def predict(
     if mode == "reg":
         input_names = [input.name for input in session.get_inputs()]
         inputs = {input_names[0]: data[0], input_names[1]: data[1]}
-        return session.run(None, inputs)
+        return _run(session, None, inputs)
     if mode == "patch":
         patch_size = _resolve_patch_size(patch_size)
         input_shape = session.get_inputs()[0].shape
@@ -192,8 +293,8 @@ def predict(
 
 
 def _run_first_output(session, data):
-    """Run and return only the first output (the logits), so an extra output such as labels is not computed."""
-    return session.run([session.get_outputs()[0].name], {session.get_inputs()[0].name: data})[0]
+    """Run and return only the first output (the logits); an extra output such as labels is still computed by ORT."""
+    return _run(session, [session.get_outputs()[0].name], {session.get_inputs()[0].name: data})[0]
 
 
 def has_labels_output(session):
@@ -203,7 +304,7 @@ def has_labels_output(session):
 def predict_labels(session, data):
     """Per-voxel label index (argmax over channels) from a model with a ``labels`` output."""
     data_type = _session_data_type(session)
-    return session.run([LABELS_OUTPUT], {session.get_inputs()[0].name: data.astype(data_type)})[0]
+    return _run(session, [LABELS_OUTPUT], {session.get_inputs()[0].name: data.astype(data_type)})[0]
 
 
 def predict_single_output(session, data):

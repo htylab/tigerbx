@@ -83,3 +83,21 @@ def test_lib_bx_run_same_with_labels_output(tmp_path):
     a = np.asarray(lib_bx.run(str(plain), img, GPU=False).dataobj)
     b = np.asarray(lib_bx.run(str(labelled), img, GPU=False).dataobj)
     np.testing.assert_array_equal(a, b)
+
+
+def test_gpu_prune_drops_labels_branch(tmp_path):
+    """core.onnx._keep_outputs (used for GPU sessions) drops the labels output and its nodes, logits unchanged."""
+    from tigerbx.core import onnx as core_onnx
+    model = oo.add_label_output(oo.optimize_model(_model(3))[0])
+    raw = model.SerializeToString()
+    assert core_onnx._output_names(raw) == ['y', 'labels']
+    pruned = onnx.load_from_string(core_onnx._keep_outputs(raw, ['y']))
+    onnx.checker.check_model(pruned)
+    assert [o.name for o in pruned.graph.output] == ['y']
+    assert len(pruned.graph.node) < len(model.graph.node)
+    assert not any(n.op_type == 'ArgMax' for n in pruned.graph.node)
+    x = RNG.random((1, 1, 6, 5, 4), dtype=np.float32)
+    np.testing.assert_array_equal(_run(pruned, x)[0], _run(model, x, ['y'])[0])
+    f = tmp_path / 'm.onnx'
+    f.write_bytes(raw)
+    assert core_onnx._output_names(core_onnx._gpu_model(str(f))) == ['y']
