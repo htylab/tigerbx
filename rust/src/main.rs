@@ -133,6 +133,7 @@ fn model_bytes(path: &Option<PathBuf>, embedded: &'static [u8], name: &str) -> R
 
 /// ONNX Runtime is loaded at run time: ORT_DYLIB_PATH if set, else a library next to the executable, else the
 /// system search path.
+#[cfg(feature = "dynamic-ort")]
 fn init_onnxruntime() -> Result<()> {
     if std::env::var_os("ORT_DYLIB_PATH").is_some() {
         return Ok(());
@@ -153,6 +154,12 @@ fn init_onnxruntime() -> Result<()> {
     if let Some(lib) = names.into_iter().find(|p| p.is_file()) {
         ort::init_from(&lib)?.commit();
     }
+    Ok(())
+}
+
+/// ONNX Runtime is linked into the executable (static-ort).
+#[cfg(not(feature = "dynamic-ort"))]
+fn init_onnxruntime() -> Result<()> {
     Ok(())
 }
 

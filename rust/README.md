@@ -24,8 +24,9 @@ within 6.4e-4 relative and the voxel values within 5e-4. T1 only: when the peaks
 (T2, PD, ...) `_norm` falls back to img / p99 of the brain with a warning, and the batch goes on.
 `--norm-minmax` keeps the min-max `_norm` of `tigerbx.reg('AD')`.
 
-Prebuilt executables: the `rustbx` GitHub workflow builds Linux (glibc 2.28+, x64), macOS (arm64) and Windows
-(x64) zips with the ONNX Runtime library next to the executable, as workflow artifacts on every change under `rust/`
+Prebuilt executables: the `rustbx` GitHub workflow builds Linux (glibc 2.28+, x64) and macOS (arm64) zips with the
+ONNX Runtime library next to the executable, and Windows (x64) as a single `rustbx.exe` (ONNX Runtime and the C
+runtime linked statically: no DLL, no VC++ redistributable), as workflow artifacts on every change under `rust/`
 and attached to the draft release of each `v*` tag (Compile10).
 
 ## Build
@@ -36,6 +37,9 @@ for m in mprage_bet_v005_opt mprage_aseg43_v0011_opt mprage_dgm12_v002_opt mprag
   curl -L -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
 done
 cargo build --release
+# Windows, single executable (pyke's static ONNX Runtime build, statically linked C runtime):
+#   set RUSTFLAGS=-C target-feature=+crt-static
+#   cargo build --release --no-default-features --features static-ort
 ```
 
 The models and the TigerBx template (`../tigerbx/template/mni_template.nii.gz`) are embedded in the binary (~100 MB). ONNX Runtime is loaded at run time (`ort` with `load-dynamic`): from

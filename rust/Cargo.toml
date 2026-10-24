@@ -7,9 +7,17 @@ description = "Brain extraction tool using ONNX Runtime"
 [dependencies]
 nifti = { version = "0.17", features = ["ndarray_volumes"] }
 ndarray = { version = "0.16", features = ["rayon"] }
-ort = { version = "=2.0.0-rc.11", default-features = false, features = ["std", "ndarray", "load-dynamic"] }
+ort = { version = "=2.0.0-rc.11", default-features = false, features = ["std", "ndarray"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 glob = "0.3"
 rayon = "1"
 flate2 = "1"
+
+[features]
+# ONNX Runtime loaded at run time (Linux, macOS: the library ships next to the executable)
+default = ["dynamic-ort"]
+dynamic-ort = ["ort/load-dynamic"]
+# ONNX Runtime linked statically from pyke's prebuilt binaries (Windows: a single rustbx.exe);
+# build with --no-default-features --features static-ort
+static-ort = ["ort/download-binaries", "ort/tls-rustls"]
