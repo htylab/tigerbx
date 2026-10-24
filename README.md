@@ -6,7 +6,7 @@
 **TigerBx** is a deep learning toolkit for brain extraction and tissue segmentation. It provides:
 
 * Pretrained models for structural brain segmentation.
-* A stand-alone application for Windows, macOS, and Linux.
+* A stand-alone executable (rustbx: tBET, ASEG, template normalisation) for Windows, macOS, and Linux.
 * Python APIs for advanced users and scripting.
 * Designed strictly for **research purposes only**—not for clinical or commercial use.
 
@@ -269,21 +269,23 @@ After that the assistant knows when and how to use the TigerBx API and CLI.
 
 ---
 
-## Installation (stand-alone CLI)
+## Installation (stand-alone executable: rustbx)
 
-Download the latest stand-alone release (no Python required):
-[https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases)
-
-After installation, all subcommands are available via `tiger`:
+`rustbx` is a native executable (no Python) for tBET, ASEG and template normalisation with the same models.
+Download the zip for Linux (x64, glibc 2.28+), macOS (arm64) or Windows (x64) from
+[https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases) and unpack it; keep the
+files together (Linux / macOS: the ONNX Runtime library next to `rustbx`).
 
 ```bash
-tiger bx --help
-tiger hlc --help
-tiger reg --help
-tiger gdm --help
-tiger vbm --help
-tiger embed --help
+rustbx T1w.nii.gz                 # _tbet
+rustbx data/ -o out/ --seg        # _tbet, _aseg
+rustbx data/ -o out/ --norm       # _tbet, _norm (template space, tissue-normalised)
+rustbx data/ -o out/ --all        # _tbet, _aseg, _norm
+rustbx --help
 ```
+
+The other modules (`hlc`, `reg` options, `vbm`, `embed`, `gdm`, GPU) are in the Python package (`tiger` CLI
+above). See [rust/README.md](rust/README.md) for details.
 
 ---
 

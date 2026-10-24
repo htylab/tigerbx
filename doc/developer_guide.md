@@ -214,16 +214,15 @@ uv run pytest tests/ -v   # current version
 
 ## 9. Building the Standalone Executable (CI)
 
-Executables are built by GitHub Actions when a `v*` tag is pushed, or on `workflow_dispatch`:
-[`compile10.yml`](../.github/workflows/compile10.yml) builds Windows, macOS and Linux binaries, runs
-`tiger --help` / `tiger embed --help` on each, and (input `make_release`, default on) attaches the zips to a draft
-GitHub Release. The Linux binary is built in an AlmaLinux 8 container (glibc 2.28), so it runs on RHEL/Rocky 8+,
-Ubuntu 20.04+ and Debian 10+.
+The stand-alone executable is `rustbx` (source in [`rust/`](../rust)); the PyInstaller `tiger` binary is no
+longer built. [`rustbx.yml`](../.github/workflows/rustbx.yml) builds Linux (AlmaLinux 8 container, glibc 2.28),
+macOS (arm64) and Windows (x64, ONNX Runtime linked statically) zips and smoke-tests tBET, on every change under
+`rust/` (workflow artifacts) and when called by [`compile10.yml`](../.github/workflows/compile10.yml).
 
-To release: push the tag (`git tag v0.3.0 && git push origin v0.3.0`); Compile10 then creates a draft release for
-that tag with the three zips. Paste the release notes, publish it, and move the `release` branch to the tag (the
-README installs from `archive/release.zip`). A manual run (**Actions → Compile10 → Run workflow**) creates a draft
-tagged `v<run number>` instead.
+To release: push the tag (`git tag v0.3.0 && git push origin v0.3.0`); Compile10 builds rustbx and creates a draft
+release for that tag with the three zips. Paste the release notes, publish it, and move the `release` branch to the
+tag (the README installs from `archive/release.zip`). A manual run (**Actions → Compile10 → Run workflow**) creates
+a draft tagged `v<run number>` instead.
 
 [`ci.yml`](../.github/workflows/ci.yml) runs the hermetic unit tests on every push and pull request.
 

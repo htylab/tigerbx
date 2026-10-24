@@ -1,5 +1,7 @@
 name: Compile10
 
+# Release executables: rustbx (Linux, macOS, Windows) from rustbx.yml, attached to a draft release.
+
 on:
   push:
     tags: ['v*']       # pushing a release tag builds it and creates a draft release for that tag
@@ -15,92 +17,7 @@ permissions:
 
 jobs:
 # ============================================================
-# 1. Build ── 針對三大 OS 編譯，產生並上傳 zip
-# ============================================================
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-          - os: macos-latest
-          # Linux: build inside AlmaLinux 8 (glibc 2.28, the manylinux_2_28 base) so the binary runs on
-          # RHEL/Rocky 8+, Ubuntu 20.04+ and Debian 10+; a build on ubuntu-latest needs glibc >= 2.38.
-          # (manylinux images' Pythons have no shared libpython, which PyInstaller needs.)
-          - os: ubuntu-latest
-            container: almalinux:8
-    runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container || '' }}
-
-    steps:
-    - name: Install system packages (Linux container)
-      if: ${{ matrix.container }}
-      run: |
-        dnf -y install python3.11 python3.11-pip binutils zip git
-        echo "PY=python3.11" >> "$GITHUB_ENV"
-        ldd --version | head -1
-
-    - name: Checkout source
-      uses: actions/checkout@v4
-
-    - name: Derive short commit SHA
-      shell: bash
-      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-
-    # ── 這一步只在 macOS Runner 執行 ──────────────────────
-    - name: Disable macOS wheel compatibility check
-      if: runner.os == 'macOS'
-      run: echo "SYSTEM_VERSION_COMPAT=0" >> "$GITHUB_ENV"
-
-    - name: Set up Python 3.10
-      if: ${{ !matrix.container }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-
-    - name: Install build dependencies
-      shell: bash
-      run: |
-        PY=${PY:-python}
-        $PY -m pip install --upgrade pip
-        $PY -m pip install ".[cpu]"
-        $PY -m pip install pyinstaller
-
-    - name: PyInstaller
-      shell: bash
-      run: |
-        ${PY:-python} -m PyInstaller -c -p . \
-          --additional-hooks-dir=./pyinstaller_hooks \
-          --icon=./tigerbx/exe/ico.ico \
-          -F ./tigerbx_cli/tiger.py
-
-    - name: Smoke test
-      shell: bash
-      run: |
-        BIN=dist/tiger; [[ "$RUNNER_OS" == "Windows" ]] && BIN=dist/tiger.exe
-        "$BIN" --help
-        "$BIN" embed --help
-
-    - name: Package binary into zip
-      shell: bash
-      run: |
-        mkdir out
-        ZIP_NAME="tigerbx-${{ runner.os }}-${SHORT_SHA}.zip"
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          powershell -Command "Compress-Archive -Path dist/tiger.exe -DestinationPath out/${ZIP_NAME}"
-        else
-          zip -j "out/${ZIP_NAME}" dist/tiger
-        fi
-        echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
-
-    - name: Upload zip artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.ZIP_NAME }}
-        path: out/${{ env.ZIP_NAME }}
-
-# ============================================================
-# 1b. rustbx ── Rust 執行檔（rustbx.yml），zip 一起進 Release
+# 1. rustbx ── Rust 執行檔（rustbx.yml），三大 OS 的 zip
 # ============================================================
   rustbx:
     uses: ./.github/workflows/rustbx.yml
@@ -109,7 +26,7 @@ jobs:
 # 2. Release ── 收集 zip 直接發布
 # ============================================================
   release:
-    needs: [build, rustbx]
+    needs: rustbx
     if: ${{ github.event_name == 'push' || inputs.make_release }}
     runs-on: ubuntu-latest
 
