@@ -1,8 +1,8 @@
 name: rustbx
 
 # Builds the rustbx executable (rust/) for Linux, macOS and Windows. Linux / macOS: packaged with the official
-# ONNX Runtime library (loaded at run time). Windows: ONNX Runtime and the C runtime linked statically, a single
-# rustbx.exe. Runs on changes under rust/, by hand, and from Compile10 (release tags), whose release job
+# ONNX Runtime library (loaded at run time). Windows: ONNX Runtime linked statically, a single rustbx.exe
+# (needs the VC++ 2015-2022 runtime, like the official ONNX Runtime DLL). Runs on changes under rust/, by hand, and from Compile10 (release tags), whose release job
 # attaches the zips to the draft release.
 on:
   push:
@@ -63,8 +63,8 @@ jobs:
       working-directory: rust
       run: |
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          # static ONNX Runtime (pyke prebuilt) + static MSVC runtime: no DLLs, no VC++ redistributable
-          RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --locked --no-default-features --features static-ort
+          # static ONNX Runtime (pyke's prebuilt, built with the DLL C runtime /MD, so no +crt-static)
+          cargo build --release --locked --no-default-features --features static-ort
         else
           cargo build --release --locked
         fi
@@ -76,15 +76,15 @@ jobs:
         ORT=onnxruntime-${{ matrix.ort }}-${ORT_VERSION}
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           cp rust/target/release/rustbx.exe pkg/
-          # imported DLLs must all be Windows system DLLs (no onnxruntime / vcruntime / msvcp)
+          # no onnxruntime DLL may be imported (the C runtime DLLs are: VC++ redistributable)
           python -m pip install -q pefile
           python - <<'PY'
         import pefile
         pe = pefile.PE('pkg/rustbx.exe')
         dlls = sorted(e.dll.decode().lower() for e in pe.DIRECTORY_ENTRY_IMPORT)
         print('imports:', ' '.join(dlls))
-        bad = [d for d in dlls if d.startswith(('onnxruntime', 'vcruntime', 'msvcp', 'ucrtbase', 'api-ms-win-crt'))]
-        assert not bad, f'non-system DLLs: {bad}'
+        bad = [d for d in dlls if d.startswith('onnxruntime')]
+        assert not bad, f'ONNX Runtime DLL imported: {bad}'
         PY
         else
           curl -fsSL https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/$ORT.tgz | tar xz -C ort
