@@ -36,6 +36,7 @@ setup(
      extras_require={
          'cpu': ['onnxruntime>=1.18.0'],
          'cu12': ['onnxruntime-gpu>=1.18.0,<1.27'],   # 1.27+ is built for CUDA 13
+         'cu13': ['onnxruntime-gpu>=1.27'],           # CUDA 13 (NVIDIA driver >= 580)
          'dev': ['pytest', 'pandas'],
      },
 

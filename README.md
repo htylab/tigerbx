@@ -28,6 +28,9 @@ pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/arc
 
 # GPU runtime (CUDA 12)
 pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/release.zip"
+
+# GPU runtime (CUDA 13, NVIDIA driver >= 580)
+pip install --no-cache-dir "tigerbx[cu13] @ https://github.com/htylab/tigerbx/archive/release.zip"
 ```
 
 ```python
@@ -42,6 +45,7 @@ tigerbx.run('bmad', 'T1w.nii.gz', 'output_dir')
 ```bash
 pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
 pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
+pip install --no-cache-dir "tigerbx[cu13] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
 ```
 
 > **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):
