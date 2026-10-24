@@ -5,7 +5,9 @@ PyTorch exports ``nn.GroupNorm`` as ``Reshape(0, G, -1) -> InstanceNormalization
 CPU InstanceNormalization kernel is slow (about 30% of a TigerBx U-Net forward pass), so each of these is
 replaced by ReduceMean / Sub / Mul / Add, which are multi-threaded and vectorised, and the per-channel affine
 is folded into a single multiply-add. The variance stays two-pass (mean of squared deviations), as in
-InstanceNormalization; the one-pass E[x^2] - E[x]^2 loses too much precision in float32.
+InstanceNormalization; the one-pass E[x^2] - E[x]^2 loses too much precision in float32. The means are taken in
+stages (last spatial axis, then the next, then the rest): a flat CPU reduction over millions of voxels is off by
+~1e-4 relative, which made CPU and GPU results differ (tBET ~0.1% of brain voxels); staged, they agree.
 
 ``--labels`` also adds a second output ``labels`` (uint8): the argmax of the logits over channels, or for a
 single-channel (sigmoid) model such as tBET, logit >= 0 (probability >= 0.5). TigerBx asks models for that
@@ -78,18 +80,28 @@ class _Builder:
         return self.node('ReduceMean', [x], self.t(out), axes=list(axes), keepdims=1)
 
 
-def _normalise(b, x, axes, eps):
-    """Return (d, inv_sd): d = x - mean, inv_sd = 1 / sqrt(var + eps), statistics over ``axes``."""
-    m = b.reduce_mean(x, axes, 'mean')
+def _staged_mean(b, x, stages, out):
+    """Mean over the axes of all ``stages`` (lists of axes), one stage after the other, the innermost first. The
+    result is the same mean (every stage averages blocks of equal size), but ONNX Runtime's CPU ReduceMean adds
+    up a flat reduction sequentially in float32, so over a few million voxels the mean is off by ~sqrt(N) eps
+    (GroupNorm outputs ~1e-4 relative); short stages keep it at float32 precision, as the GPU's tree reduction."""
+    for i, axes in enumerate(stages):
+        x = b.reduce_mean(x, axes, out if i == len(stages) - 1 else f'{out}_s{i}')
+    return x
+
+
+def _normalise(b, x, stages, eps):
+    """Return (d, inv_sd): d = x - mean, inv_sd = 1 / sqrt(var + eps), statistics over the axes of ``stages``."""
+    m = _staged_mean(b, x, stages, 'mean')
     d = b.node('Sub', [x, m], b.t('d'))
     d2 = b.node('Mul', [d, d], b.t('d2'))
-    var = b.reduce_mean(d2, axes, 'var')
+    var = _staged_mean(b, d2, stages, 'var')
     ve = b.node('Add', [var, b.const('eps', np.float32(eps))], b.t('ve'))
     sd = b.node('Sqrt', [ve], b.t('sd'))
     return d, b.node('Reciprocal', [sd], b.t('inv_sd'))
 
 
-def _fuse_groupnorm(graph, opset, node, prod, cons, val, k):
+def _fuse_groupnorm(graph, opset, node, prod, cons, val, k, ranks):
     """GroupNorm pattern around ``node`` -> (nodes to remove, new nodes, new inits), or None."""
     r0 = prod.get(node.input[0])
     if r0 is None or r0.op_type != 'Reshape' or r0.input[1] not in val:
@@ -106,6 +118,7 @@ def _fuse_groupnorm(graph, opset, node, prod, cons, val, k):
     if shp is None or shp.op_type != 'Shape' or shp.input[0] != r0.input[0]:
         return None
     x = r0.input[0]
+    rank = ranks.get(x)
     s_g = val.get(node.input[1])
     b_g = val.get(node.input[2])
     if s_g is None or b_g is None or s_g.size != groups:
@@ -116,6 +129,8 @@ def _fuse_groupnorm(graph, opset, node, prod, cons, val, k):
     after = cons.get(out, [])
     if len(after) == 1 and after[0].op_type == 'Mul' and after[0].input[1] in val:
         mul = after[0]
+        if rank is None and val[mul.input[1]].ndim >= 2:
+            rank = val[mul.input[1]].ndim + 1          # PyTorch GroupNorm weight [C, 1, 1(, 1)]: input rank 4 or 5
         w = val[mul.input[1]].reshape(-1)
         remove.append(mul)
         out = mul.output[0]
@@ -139,12 +154,24 @@ def _fuse_groupnorm(graph, opset, node, prod, cons, val, k):
     scale_c = (w * np.repeat(s_g.reshape(-1), per)).astype(np.float32).reshape(1, ch, 1, 1, 1)
     bias_c = (w * np.repeat(b_g.reshape(-1), per) + b).astype(np.float32).reshape(1, ch, 1, 1, 1)
     bld = _Builder(f'_gn{k}_', opset)
-    xr = r0.output[0]
-    d, inv = _normalise(bld, xr, [2], _eps(node))
-    inv_x = bld.node('Expand', [inv, bld.const('gshape', np.array([1, groups, per], np.int64))], bld.t('inv_x'))
-    inv_c = bld.node('Reshape', [inv_x, bld.const('cshape', np.array([1, ch, 1, 1, 1], np.int64))], bld.t('inv_c'))
+    if rank == 5:
+        # [1, G, per, X, Y, Z]: statistics over Z, then Y, then (per, X)
+        xs = bld.node('Shape', [x], bld.t('xshape'))
+        sp = bld.node('Slice', [xs, bld.const('s0', np.array([2], np.int64)), bld.const('s1', np.array([5], np.int64))],
+                      bld.t('spatial'))
+        s6 = bld.node('Concat', [bld.const('gper', np.array([1, groups, per], np.int64)), sp], bld.t('shape6'), axis=0)
+        xr = bld.node('Reshape', [x, s6], bld.t('x6'))
+        d, inv = _normalise(bld, xr, [[5], [4], [2, 3]], _eps(node))
+        inv_c = bld.node('Reshape', [bld.node('Expand', [inv, bld.const('gshape', np.array([1, groups, per, 1, 1, 1],
+                                                                                            np.int64))], bld.t('inv_x')),
+                                     bld.const('cshape', np.array([1, ch, 1, 1, 1], np.int64))], bld.t('inv_c'))
+    else:
+        xr = r0.output[0]
+        d, inv = _normalise(bld, xr, [[2]], _eps(node))
+        inv_x = bld.node('Expand', [inv, bld.const('gshape', np.array([1, groups, per], np.int64))], bld.t('inv_x'))
+        inv_c = bld.node('Reshape', [inv_x, bld.const('cshape', np.array([1, ch, 1, 1, 1], np.int64))], bld.t('inv_c'))
+        xs = bld.node('Shape', [x], bld.t('xshape'))
     kk = bld.node('Mul', [inv_c, bld.const('scale', scale_c)], bld.t('k'))
-    xs = bld.node('Shape', [x], bld.t('xshape'))
     d5 = bld.node('Reshape', [d, xs], bld.t('d5'))
     y = bld.node('Mul', [d5, kk], bld.t('y'))
     bld.node('Add', [y, bld.const('bias', bias_c)], out)
@@ -160,7 +187,9 @@ def _fuse_instancenorm(graph, opset, node, rank, val, k):
     ch = s.size
     shape = [1, ch] + [1] * (rank - 2)
     bld = _Builder(f'_in{k}_', opset)
-    d, inv = _normalise(bld, node.input[0], list(range(2, rank)), _eps(node))
+    # statistics over the last spatial axis, then the next, then the rest (see _staged_mean)
+    stages = [[rank - 1], [rank - 2]] + ([list(range(2, rank - 2))] if rank > 4 else [])
+    d, inv = _normalise(bld, node.input[0], stages, _eps(node))
     kk = bld.node('Mul', [inv, bld.const('scale', s.astype(np.float32).reshape(shape))], bld.t('k'))
     y = bld.node('Mul', [d, kk], bld.t('y'))
     bld.node('Add', [y, bld.const('bias', bias.astype(np.float32).reshape(shape))], node.output[0])
@@ -197,18 +226,16 @@ def optimize_model(model):
     for n in nodes:
         for i in n.input:
             cons.setdefault(i, []).append(n)
-    ranks = None
+    ranks = _ranks(model)
 
     remove, insert, inits = set(), {}, []
     stats = {'groupnorm': 0, 'instancenorm': 0, 'skipped': 0}
     for k, n in enumerate(nodes):
         if n.op_type != 'InstanceNormalization' or id(n) in remove:
             continue
-        res = _fuse_groupnorm(graph, opset, n, prod, cons, val, k)
+        res = _fuse_groupnorm(graph, opset, n, prod, cons, val, k, ranks)
         kind = 'groupnorm'
         if res is None:
-            if ranks is None:
-                ranks = _ranks(model)
             res = _fuse_instancenorm(graph, opset, n, ranks.get(n.input[0]), val, k)
             kind = 'instancenorm'
         if res is None:
@@ -419,7 +446,7 @@ def main(argv=None):
     _set_metadata(model, {
         'tigerbx_optimized_from': os.path.basename(args.input),
         'tigerbx_optimize': ' '.join(filter(None, [
-            f"groupnorm={stats['groupnorm']} instancenorm={stats['instancenorm']}",
+            f"groupnorm={stats['groupnorm']} instancenorm={stats['instancenorm']} stats=staged",
             'labels' if args.labels else '', f'heads={args.heads}' if args.heads else ''])),
     })
     onnx.save(model, args.output)
