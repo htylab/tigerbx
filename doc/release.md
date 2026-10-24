@@ -2,6 +2,10 @@
 
 ## Latest releases
 
+- [`v0.3.1`](release/releasenote031.md)
+  - Stand-alone `tigerbx` executable (Rust; Linux, macOS, Windows) replaces the PyInstaller `tiger` binary
+  - `tiger` command removed: use the Python API or the `tigerbx` executable
+  - DGM12 default `mprage_dgm12_v002_opt` (same results); `tigerbx.val(task='aseg_ibsr18')`
 - [`v0.3.0`](release/releasenote030.md)
   - New default registration `AD`: numreg affine + VFA (reg60 Dice 0.852 vs 0.797)
   - numreg replaces ANTs for affine and rigid; antspyx and optuna are no longer needed
