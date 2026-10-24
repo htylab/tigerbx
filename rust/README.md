@@ -24,7 +24,9 @@ within 6.4e-4 relative and the voxel values within 5e-4. T1 only: when the peaks
 (T2, PD, ...) `_norm` falls back to img / p99 of the brain with a warning, and the batch goes on.
 `--norm-minmax` keeps the min-max `_norm` of `tigerbx.reg('AD')`.
 
-Work in progress: the executable is not part of a release yet.
+Prebuilt executables: the `rustbx` GitHub workflow builds Linux (glibc 2.28+, x64), macOS (arm64) and Windows
+(x64) zips with the ONNX Runtime library next to the executable, as workflow artifacts on every change under `rust/`
+and attached to the draft release of each `v*` tag (Compile10).
 
 ## Build
 

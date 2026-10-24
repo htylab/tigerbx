@@ -100,10 +100,16 @@ jobs:
         path: out/${{ env.ZIP_NAME }}
 
 # ============================================================
+# 1b. rustbx ── Rust 執行檔（rustbx.yml），zip 一起進 Release
+# ============================================================
+  rustbx:
+    uses: ./.github/workflows/rustbx.yml
+
+# ============================================================
 # 2. Release ── 收集 zip 直接發布
 # ============================================================
   release:
-    needs: build
+    needs: [build, rustbx]
     if: ${{ github.event_name == 'push' || inputs.make_release }}
     runs-on: ubuntu-latest
 
@@ -123,5 +129,5 @@ jobs:
         tag: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', github.run_number) }}
         name: ${{ github.event_name == 'push' && github.ref_name || format('Release {0}', github.run_number) }}
         draft: true
-        artifacts: release/tigerbx-*.zip
+        artifacts: release/*.zip
         token: ${{ secrets.GITHUB_TOKEN }}
