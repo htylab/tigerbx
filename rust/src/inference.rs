@@ -3,6 +3,13 @@ use ndarray::{Array3, ArrayView3};
 use ort::session::Session;
 use ort::session::run_options::OutputSelector;
 use ort::value::TensorRef;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set once a session runs on the GPU (CUDA: arena shrinkage then also covers gpu:0).
+static ON_GPU: AtomicBool = AtomicBool::new(false);
+static ON_CUDA: AtomicBool = AtomicBool::new(false);
+/// The CPU-fallback warning is printed once.
+static WARNED: AtomicBool = AtomicBool::new(false);
 
 /// Optional uint8 mask output of an optimised TigerBx model.
 const LABELS_OUTPUT: &str = "labels";
@@ -14,11 +21,8 @@ pub fn default_threads() -> usize {
     ((n as f64 * 0.7) as usize).max(1)
 }
 
-/// Create an ONNX inference session from model bytes.
-///
-/// This should be called once and the session reused for all files.
-pub fn create_session(model_bytes: &[u8], threads: usize) -> Result<Session> {
-    let session = Session::builder()
+fn builder(threads: usize) -> Result<ort::session::builder::SessionBuilder> {
+    Ok(Session::builder()
         .context("Failed to create session builder")?
         .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
         .context("Failed to set optimization level")?
@@ -28,11 +32,77 @@ pub fn create_session(model_bytes: &[u8], threads: usize) -> Result<Session> {
         .context("Failed to set inter-op threads")?
         // Every input has a different shape, so a memory pattern planned for one input is never reused.
         .with_memory_pattern(false)
-        .context("Failed to disable memory pattern")?
-        .commit_from_memory(model_bytes)
-        .context("Failed to load ONNX model from memory")?;
+        .context("Failed to disable memory pattern")?)
+}
 
-    Ok(session)
+/// CUDA execution provider for inputs whose shape changes with every subject: allocate exactly what each run needs,
+/// pick cuDNN convolution algorithms heuristically (an exhaustive search reruns for every new shape) and do not let
+/// cuDNN take its maximum workspace (allocated outside the arena).
+fn cuda() -> ort::ep::ExecutionProviderDispatch {
+    ort::ep::CUDA::default()
+        .with_arena_extend_strategy(ort::ep::ArenaExtendStrategy::SameAsRequested)
+        .with_conv_algorithm_search(ort::ep::cuda::ConvAlgorithmSearch::Heuristic)
+        .with_conv_max_workspace(false)
+        .with_tf32(std::env::var_os("TIGERBX_TF32").is_some())
+        .build()
+        .error_on_failure()
+}
+
+/// GPU execution provider: DirectML on Windows (any DirectX 12 GPU, in the static build), CUDA elsewhere.
+fn gpu_ep() -> (ort::ep::ExecutionProviderDispatch, bool) {
+    if cfg!(windows) {
+        (ort::ep::DirectML::default().build().error_on_failure(), false)
+    } else {
+        (cuda(), true)
+    }
+}
+
+/// Create an ONNX inference session from model bytes, on the GPU (CUDA, or DirectML on Windows) when `gpu` is set and
+/// the ONNX Runtime in use can, else on the CPU with a warning (printed once).
+///
+/// This should be called once and the session reused for all files.
+pub fn create_session(model_bytes: &[u8], threads: usize, gpu: bool) -> Result<Session> {
+    if gpu {
+        let (ep, is_cuda) = gpu_ep();
+        match builder(threads)?.with_execution_providers([ep]) {
+            Ok(b) => {
+                // GPU: drop the labels branch (CUDA ArgMax needs ~10x the logits as workspace); argmax runs on the CPU
+                let pruned = crate::onnx_prune::output_names(model_bytes)
+                    .filter(|names| names.len() > 1 && names.iter().any(|n| n == LABELS_OUTPUT))
+                    .and_then(|names| crate::onnx_prune::keep_outputs(model_bytes, &names[..1]));
+                let bytes = pruned.as_deref().unwrap_or(model_bytes);
+                let session = b.commit_from_memory(bytes).context("Failed to load ONNX model from memory")?;
+                ON_GPU.store(true, Ordering::Relaxed);
+                ON_CUDA.store(is_cuda, Ordering::Relaxed);
+                return Ok(session);
+            }
+            Err(e) => {
+                if !WARNED.swap(true, Ordering::Relaxed) {
+                    if is_cuda {
+                        eprintln!("Warning: -g given but the CUDA execution provider is not available ({e}); running on CPU.");
+                        eprintln!("         Needs the GPU build of ONNX Runtime with CUDA 12 + cuDNN 9 libraries on the library path.");
+                    } else {
+                        eprintln!("Warning: -g given but DirectML is not available ({e}); running on CPU.");
+                    }
+                }
+            }
+        }
+    }
+    builder(threads)?.commit_from_memory(model_bytes).context("Failed to load ONNX model from memory")
+}
+
+/// True when at least one session runs on the GPU.
+pub fn on_gpu() -> bool {
+    ON_GPU.load(Ordering::Relaxed)
+}
+
+/// Run options that release the memory arena after each run (inputs differ in size; otherwise the arena keeps the
+/// buffers of every size seen and memory grows over a batch, > 100 GB on mixed-resolution data).
+pub fn run_options() -> Result<ort::session::RunOptions> {
+    let mut opts = ort::session::RunOptions::new().context("Failed to create run options")?;
+    let devices = if ON_CUDA.load(Ordering::Relaxed) { "cpu:0;gpu:0" } else { "cpu:0" };
+    opts.add_config_entry("memory.enable_memory_arena_shrinkage", devices).context("Failed to enable arena shrinkage")?;
+    Ok(opts)
 }
 
 /// Run inference on a pre-built session and return a label per voxel.
@@ -50,15 +120,8 @@ pub fn run_onnx(session: &mut Session, input: ArrayView3<f32>) -> Result<Array3<
 
     let input_name = session.inputs()[0].name().to_string();
 
-    // Inputs differ in size, so release the arena after each run; otherwise it keeps the buffers
-    // of every size seen and memory grows over a batch (> 100 GB on mixed-resolution data).
-    const SHRINK: (&str, &str) = ("memory.enable_memory_arena_shrinkage", "cpu:0");
-
     if session.outputs().iter().any(|o| o.name() == LABELS_OUTPUT) {
-        let mut opts = ort::session::RunOptions::new()
-            .context("Failed to create run options")?
-            .with_outputs(OutputSelector::no_default().with(LABELS_OUTPUT));
-        opts.add_config_entry(SHRINK.0, SHRINK.1).context("Failed to enable arena shrinkage")?;
+        let opts = run_options()?.with_outputs(OutputSelector::no_default().with(LABELS_OUTPUT));
         let outputs = session
             .run_with_options(ort::inputs![input_name.as_str() => input_tensor], &opts)
             .context("ONNX inference failed")?;
@@ -69,12 +132,12 @@ pub fn run_onnx(session: &mut Session, input: ArrayView3<f32>) -> Result<Array3<
         return Array3::from_shape_vec((h, w, d), labels.to_vec()).context("Unexpected output size");
     }
 
-    let mut opts = ort::session::RunOptions::new().context("Failed to create run options")?;
-    opts.add_config_entry(SHRINK.0, SHRINK.1).context("Failed to enable arena shrinkage")?;
+    let logits_name = session.outputs()[0].name().to_string();
+    let opts = run_options()?.with_outputs(OutputSelector::no_default().with(logits_name.as_str()));
     let outputs = session
         .run_with_options(ort::inputs![input_name.as_str() => input_tensor], &opts)
         .context("ONNX inference failed")?;
-    let (shape, logits) = outputs[0]
+    let (shape, logits) = outputs[logits_name.as_str()]
         .try_extract_tensor::<f32>()
         .context("Failed to extract output tensor")?;
     let channels = shape[1] as usize;

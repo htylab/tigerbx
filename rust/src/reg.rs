@@ -145,8 +145,7 @@ fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> 
         "moving" => TensorRef::from_array_view((shape, mv.as_slice()))?,
         "fixed" => TensorRef::from_array_view((shape, fx.as_slice()))?,
     ];
-    let mut opts = ort::session::RunOptions::new()?.with_outputs(OutputSelector::no_default().with("grid"));
-    opts.add_config_entry("memory.enable_memory_arena_shrinkage", "cpu:0")?;
+    let opts = crate::inference::run_options()?.with_outputs(OutputSelector::no_default().with("grid"));
     let outputs = session.run_with_options(inputs, &opts).context("VFA inference failed")?;
     let (_, grid) = outputs["grid"].try_extract_tensor::<f32>().context("Failed to extract the VFA grid")?;
     Ok(grid.to_vec())

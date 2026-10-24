@@ -2,6 +2,7 @@ mod bx;
 mod inference;
 mod nifti_io;
 mod numreg;
+mod onnx_prune;
 mod postprocess;
 mod reg;
 mod resample;
@@ -97,6 +98,11 @@ struct Args {
     /// VFA registration ONNX model file (default: embedded mprage_reg_v004_vfa)
     #[arg(long)]
     vfa_model: Option<PathBuf>,
+
+    /// Run the models on the GPU: CUDA on Linux (GPU build of ONNX Runtime + CUDA 12 / cuDNN 9 libraries), DirectML
+    /// on Windows (any DirectX 12 GPU); falls back to the CPU with a warning
+    #[arg(short = 'g', long)]
+    gpu: bool,
 
     /// ONNX Runtime intra-op threads (default: 70% of available CPUs)
     #[arg(short, long)]
@@ -198,20 +204,20 @@ fn main() -> Result<()> {
 
     // Build the ONNX sessions once, reuse them for all files
     let threads = args.threads.unwrap_or_else(inference::default_threads);
-    let mut bet_session = inference::create_session(&model_bytes(&args.bet_model, EMBEDDED_BET, "tBET")?, threads)?;
+    let mut bet_session = inference::create_session(&model_bytes(&args.bet_model, EMBEDDED_BET, "tBET")?, threads, args.gpu)?;
     let mut aseg_session = if outputs.aseg {
-        Some(inference::create_session(&model_bytes(&args.aseg_model, EMBEDDED_ASEG, "ASEG")?, threads)?)
+        Some(inference::create_session(&model_bytes(&args.aseg_model, EMBEDDED_ASEG, "ASEG")?, threads, args.gpu)?)
     } else {
         None
     };
     // DGM12 also runs for -a: the ASEG deep-GM structures come from it
     let mut dgm_session = if outputs.dgm || outputs.aseg {
-        Some(inference::create_session(&model_bytes(&args.dgm_model, EMBEDDED_DGM, "DGM12")?, threads)?)
+        Some(inference::create_session(&model_bytes(&args.dgm_model, EMBEDDED_DGM, "DGM12")?, threads, args.gpu)?)
     } else {
         None
     };
     let mut vfa_session = if outputs.norm {
-        Some(inference::create_session(&model_bytes(&args.vfa_model, EMBEDDED_VFA, "VFA")?, threads)?)
+        Some(inference::create_session(&model_bytes(&args.vfa_model, EMBEDDED_VFA, "VFA")?, threads, args.gpu)?)
     } else {
         None
     };
@@ -221,7 +227,7 @@ fn main() -> Result<()> {
     } else {
         None
     };
-    println!("Models loaded ({} threads).\n", threads);
+    println!("Models loaded ({}).\n", if inference::on_gpu() { "GPU".to_string() } else { format!("CPU, {threads} threads") });
 
     println!("Found {} file(s) to process\n", files.len());
 

@@ -58,7 +58,18 @@ tigerbx data/*.nii.gz -o out/ -m        # single outputs: -b _tbet, -m _tbetmask
 tigerbx data/ -o out/ -a -A -t 8        # ASEG + _affine only, 8 intra-op threads (default: 70% of the available CPUs)
 tigerbx data/ -o out/ --norm --norm-minmax  # _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
 tigerbx T1w.nii.gz --aseg-model other_aseg43.onnx   # other models (--bet-/--aseg-/--dgm-/--vfa-model)
+tigerbx data/ -o out/ --seg -g         # GPU (see below)
 ```
+
+GPU (`-g`): Linux uses CUDA. The Linux zip carries the GPU build of ONNX Runtime 1.24.4 (same CPU results as the
+CPU build); the CUDA 12 and cuDNN 9 libraries must be on the library path (a CUDA 12 toolkit, or e.g.
+`pip install nvidia-cudnn-cu12 nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-curand-cu12 nvidia-cuda-runtime-cu12` plus
+`LD_LIBRARY_PATH` to their `lib` folders). Windows uses DirectML (any DirectX 12 GPU, nothing to install). macOS and
+any setup where the GPU provider cannot load print a warning and run on the CPU. On the GPU the models' `labels`
+output is dropped (CUDA ArgMax needs ~10x the logits as workspace) and the argmax runs on the CPU; cuDNN uses
+heuristic algorithm selection without its maximum workspace, and the GPU arena is released after every run.
+`--seg -g` on IBSR18: ~6 s per subject, GPU peak ~8 GB; CPU and GPU agree (IBSR_01: tBET mask identical, 4 `_aseg`
+voxels differ) since the optimised models compute GroupNorm statistics in stages (see `tigerbx.dev.onnx_optimize`).
 
 Earlier outputs (`_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_affine`, `_norm`) in an input folder are skipped; a failing input is reported and the
 batch continues.

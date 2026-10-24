@@ -1,7 +1,7 @@
 name: exe
 
 # Builds the stand-alone tigerbx executable (rust/) for Linux, macOS and Windows. Linux / macOS: packaged with the official
-# ONNX Runtime library (loaded at run time). Windows: ONNX Runtime linked statically, a single tigerbx.exe
+# ONNX Runtime library (loaded at run time; Linux: the GPU build, for -g with CUDA). Windows: ONNX Runtime linked statically, a single tigerbx.exe
 # (needs the VC++ 2015-2022 runtime, like the official ONNX Runtime DLL). Runs on changes under rust/, by hand, and from Compile10 (release tags), whose release job
 # attaches the zips to the draft release.
 on:
@@ -29,7 +29,7 @@ jobs:
           # Debian 10+; the official ONNX Runtime library has the same requirement.
           - os: ubuntu-latest
             container: almalinux:8
-            ort: linux-x64
+            ort: linux-x64-gpu      # GPU build: same CPU results; -g uses CUDA when CUDA 12 + cuDNN 9 are present
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container || '' }}
 
@@ -93,6 +93,7 @@ jobs:
             cp -L ort/$ORT/lib/libonnxruntime.dylib pkg/
           else
             cp -L ort/$ORT/lib/libonnxruntime.so.${ORT_VERSION} pkg/
+            cp ort/$ORT/lib/libonnxruntime_providers_shared.so ort/$ORT/lib/libonnxruntime_providers_cuda.so pkg/
             echo "newest glibc symbol: $(objdump -T pkg/tigerbx | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
           fi
         fi
@@ -107,6 +108,9 @@ jobs:
         "$BIN" --help
         "$BIN" tigerbx/template/mni_template.nii.gz -o smoke
         ls smoke/mni_template_tbet.nii.gz
+        # -g: GPU if the runner has one, else a warning and the CPU (must not fail)
+        "$BIN" tigerbx/template/mni_template.nii.gz -o smoke_g -g
+        ls smoke_g/mni_template_tbet.nii.gz
 
     - name: Zip
       shell: bash
