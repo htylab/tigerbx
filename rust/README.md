@@ -16,6 +16,14 @@ It cannot be bit-identical to numreg (another random generator for the 1.5 mm sa
 on 20 reg60 subjects the template-space Dice of carried labels is 0.7217 vs 0.7218 (affine) and 0.8451 vs 0.8452
 (affine + VFA), image correlation >= 0.9993.
 
+`_norm` intensities: gnorm by default, a port of `tigerbx.core.tissuenorm.tissue_norm` (prior mode: GMM with the
+template tissue priors + bias field; background 0, CSF 1/3, GM 2/3, WM 1). The brain is the tBET mask carried
+through the same affine + VFA warp (oblique inputs leave cubic-resampling ringing of ~1e-40 to 1e-3 outside the
+brain, so `img > 0` is not the brain). On 20 reg60 subjects the peaks match the Python `tissue_norm` (same mask)
+within 6.4e-4 relative and the voxel values within 5e-4. T1 only: when the peaks are not ordered CSF < GM < WM
+(T2, PD, ...) `_norm` falls back to img / p99 of the brain with a warning, and the batch goes on.
+`--norm-minmax` keeps the min-max `_norm` of `tigerbx.reg('AD')`.
+
 Work in progress: the executable is not part of a release yet.
 
 ## Build
@@ -40,6 +48,7 @@ rustbx T1w.nii.gz -m -d -A             # also available: _tbetmask, _dgm, _affin
 rustbx data/*.nii.gz -o out/ -m        # brain mask only (glob, several files or a directory, non-recursive)
 rustbx data/ -o out/ -b -a -t 8        # brain + ASEG, 8 intra-op threads (default: 70% of the available CPUs)
 rustbx data/ -o out/ -A -n             # template registration only: _affine (numreg) and _norm (+ VFA)
+rustbx data/ -o out/ -n --norm-minmax  # _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
 rustbx T1w.nii.gz --aseg-model other_aseg43.onnx   # other models (--bet-/--aseg-/--dgm-/--vfa-model)
 ```
 

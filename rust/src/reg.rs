@@ -35,6 +35,16 @@ pub fn load_template(gz_bytes: &[u8]) -> Result<Template> {
     Ok(Template { vol, header })
 }
 
+/// Load a gzipped uint8 label image on the template grid (the template aseg), reordered as the template.
+pub fn load_labels(gz_bytes: &[u8]) -> Result<Array3<u8>> {
+    let obj = nifti::InMemNiftiObject::from_reader(flate2::read::GzDecoder::new(gz_bytes))
+        .context("Failed to read the embedded template aseg")?;
+    let affine = resample::best_affine(obj.header());
+    let data = obj.into_volume().into_ndarray::<f64>().context("Failed to convert the template aseg")?.into_dimensionality::<Ix3>()?;
+    let vol = resample::reorder(Volume { data, affine, kind: Kind::Unsigned(255.0) });
+    Ok(vol.data.mapv(|v| v as u8))
+}
+
 /// Header for an image on `affine` (diagonal, positive): sform and qform both set to it.
 pub fn set_affine(h: &mut NiftiHeader, a: &Mat4) {
     h.srow_x = [a[0][0] as f32, a[0][1] as f32, a[0][2] as f32, a[0][3] as f32];
@@ -76,10 +86,19 @@ pub struct RegResult {
     pub matrix: Mat4,
     /// VFA voxel sampling grid [3, X, Y, Z] on the template grid (when VFA ran)
     pub grid: Option<Vec<f32>>,
+    /// the tBET mask carried through the same affine + VFA warp (> 0.5), when a mask was given and VFA ran
+    pub norm_mask: Option<Array3<bool>>,
 }
 
-/// `brain` = tBET brain (input x mask) on the input grid, `header` = its header.
-pub fn run_reg(brain: &Array3<f64>, header: &NiftiHeader, template: &Template, vfa: Option<&mut Session>) -> Result<RegResult> {
+/// `brain` = tBET brain (input x mask) on the input grid, `header` = its header; `mask` = the tBET mask, warped
+/// along when given (the brain mask of _norm: oblique inputs leave cubic-resampling ringing outside the brain).
+pub fn run_reg(
+    brain: &Array3<f64>,
+    mask: Option<&Array3<u8>>,
+    header: &NiftiHeader,
+    template: &Template,
+    vfa: Option<&mut Session>,
+) -> Result<RegResult> {
     // TigerBx reg: bet = (input x mask).astype(float32), reorder_img(continuous)
     let moving = resample::reorder(Volume {
         data: brain.mapv(|v| v as f32 as f64),
@@ -96,16 +115,28 @@ pub fn run_reg(brain: &Array3<f64>, header: &NiftiHeader, template: &Template, v
     let (norm, grid) = match vfa {
         None => (None, None),
         Some(session) => {
-            let (moved, grid) = run_vfa(session, &affined, &min_max_norm(&t.data))?;
-            (Some(moved), Some(grid))
+            let grid = run_vfa(session, &affined, &min_max_norm(&t.data))?;
+            let mv: Vec<f32> = affined.iter().map(|&v| v as f32).collect();
+            (Some(warp(&mv, t.data.dim(), &grid)), Some(grid))
         }
     };
-    Ok(RegResult { affine: affined.mapv(|x| x as f32), norm, matrix: m, grid })
+    let norm_mask = match (mask, grid.as_ref()) {
+        (Some(mask), Some(grid)) => {
+            let mv = resample::reorder(Volume {
+                data: mask.mapv(|v| if v > 0 { 1.0 } else { 0.0 }),
+                affine: resample::best_affine(header),
+                kind: Kind::Float32,
+            });
+            let am: Vec<f32> = linear_transform(&mv.data, &v, t.data.dim()).iter().map(|&x| x as f32).collect();
+            Some(warp(&am, t.data.dim(), grid).mapv(|x| x > 0.5))
+        }
+        _ => None,
+    };
+    Ok(RegResult { affine: affined.mapv(|x| x as f32), norm, matrix: m, grid, norm_mask })
 }
 
-/// VFA step 'D': the model maps (moving, fixed) to a voxel sampling grid [3, X, Y, Z]; the moving image is
-/// sampled there trilinearly with zeros outside (scipy map_coordinates order 1, mode 'grid-constant').
-fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> Result<(Array3<f32>, Vec<f32>)> {
+/// VFA step 'D': the model maps (moving, fixed) to a voxel sampling grid [3, X, Y, Z].
+fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> Result<Vec<f32>> {
     let (x, y, z) = moving.dim();
     let mv: Vec<f32> = moving.iter().map(|&v| v as f32).collect();
     let fx: Vec<f32> = fixed.iter().map(|&v| v as f32).collect();
@@ -118,8 +149,14 @@ fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> 
     opts.add_config_entry("memory.enable_memory_arena_shrinkage", "cpu:0")?;
     let outputs = session.run_with_options(inputs, &opts).context("VFA inference failed")?;
     let (_, grid) = outputs["grid"].try_extract_tensor::<f32>().context("Failed to extract the VFA grid")?;
+    Ok(grid.to_vec())
+}
+
+/// Sample `vol` (C order, `dim`) at the VFA grid trilinearly with zeros outside (scipy map_coordinates order 1,
+/// mode 'grid-constant').
+fn warp(vol: &[f32], dim: (usize, usize, usize), grid: &[f32]) -> Array3<f32> {
+    let (x, y, z) = dim;
     let n = x * y * z;
-    let vol: Vec<f32> = mv;
     let dims = [x, y, z];
     let at = |i: isize, j: isize, k: isize| -> f32 {
         if i < 0 || j < 0 || k < 0 || i >= x as isize || j >= y as isize || k >= z as isize {
@@ -152,5 +189,5 @@ fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> 
             *o = s as f32;
         }
     });
-    Ok((out, grid.to_vec()))
+    out
 }

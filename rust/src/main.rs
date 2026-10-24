@@ -5,6 +5,7 @@ mod numreg;
 mod postprocess;
 mod reg;
 mod resample;
+mod tissuenorm;
 
 use anyhow::{bail, Result};
 use clap::Parser;
@@ -17,6 +18,8 @@ static EMBEDDED_DGM: &[u8] = include_bytes!("../models/mprage_dgm12_v002_opt.onn
 static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v004_vfa.onnx");
 /// TigerBx's bundled registration template (same file as the Python package)
 static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
+/// Its aseg: tissue priors of the gnorm intensity normalisation of _norm
+static EMBEDDED_TEMPLATE_ASEG: &[u8] = include_bytes!("../../tigerbx/template/mni_template_aseg.nii.gz");
 
 /// Postfixes rustbx / TigerBx write; inputs ending in one of them are earlier outputs, not new images.
 const OUTPUT_POSTFIXES: [&str; 6] = ["tbet", "tbetmask", "aseg", "dgm", "affine", "norm"];
@@ -58,9 +61,14 @@ struct Args {
     #[arg(short = 'A', long)]
     affine: bool,
 
-    /// Save the tBET brain normalised to the template (_norm; numreg affine + VFA, as tigerbx.reg('AD') / VBM)
+    /// Save the tBET brain normalised to the template (_norm; numreg affine + VFA, as tigerbx.reg('AD') / VBM),
+    /// intensity-normalised with gnorm (tigerbx tissue_norm: CSF 1/3, GM 2/3, WM 1; T1 only, else img / p99)
     #[arg(short = 'n', long)]
     norm: bool,
+
+    /// Keep _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
+    #[arg(long)]
+    norm_minmax: bool,
 
     /// tBET ONNX model file (default: embedded mprage_bet_v005_opt)
     #[arg(long)]
@@ -182,6 +190,11 @@ fn main() -> Result<()> {
         None
     };
     let template = if outputs.affine || outputs.norm { Some(reg::load_template(EMBEDDED_TEMPLATE)?) } else { None };
+    let prior = if outputs.norm && !args.norm_minmax {
+        Some(tissuenorm::template_prior(&reg::load_labels(EMBEDDED_TEMPLATE_ASEG)?))
+    } else {
+        None
+    };
     println!("Models loaded ({} threads).\n", threads);
 
     println!("Found {} file(s) to process\n", files.len());
@@ -196,7 +209,7 @@ fn main() -> Result<()> {
             dgm: dgm_session.as_mut(),
             vfa: vfa_session.as_mut(),
         };
-        if let Err(e) = process_file(input, args.output.as_deref(), outputs, sessions, template.as_ref()) {
+        if let Err(e) = process_file(input, args.output.as_deref(), outputs, sessions, template.as_ref(), prior.as_ref()) {
             eprintln!("  ERROR: {:#}", e);
             failed += 1;
         }
@@ -225,6 +238,7 @@ fn process_file(
     outputs: Outputs,
     sessions: Sessions,
     template: Option<&reg::Template>,
+    prior: Option<&ndarray::Array4<f64>>,
 ) -> Result<()> {
     let start = std::time::Instant::now();
 
@@ -254,7 +268,8 @@ fn process_file(
 
     if let Some(t) = template {
         let brain = res.brain.view().into_dimensionality::<ndarray::Ix3>()?.to_owned();
-        let r = reg::run_reg(&brain, &header, t, sessions.vfa)?;
+        let mask = res.mask.view().into_dimensionality::<ndarray::Ix3>()?.to_owned();
+        let r = reg::run_reg(&brain, prior.map(|_| &mask), &header, t, sessions.vfa)?;
         if outputs.affine {
             let p = output_path(input, output_dir, "affine");
             nifti_io::write_nifti_f32(&p, &t.header, &r.affine.into_dyn())?;
@@ -266,12 +281,20 @@ fn process_file(
             let stem = stem.to_string_lossy().replace("_reg.nii.gz", "");
             let m: Vec<String> = r.matrix.iter().flatten().map(|v| format!("{v:.17e}")).collect();
             std::fs::write(format!("{stem}_M.txt"), m.join(" "))?;
+            if let Some(m) = r.norm_mask.as_ref() {
+                std::fs::write(format!("{stem}_normmask.u8"), m.iter().map(|&b| b as u8).collect::<Vec<u8>>())?;
+            }
             if let Some(g) = r.grid.as_ref() {
                 let bytes: Vec<u8> = g.iter().flat_map(|v| v.to_le_bytes()).collect();
                 std::fs::write(format!("{stem}_grid.f32"), bytes)?;
             }
         }
-        if let Some(norm) = r.norm {
+        if let Some(mut norm) = r.norm {
+            if let Some(prior) = prior {
+                let (y, pk) = tissuenorm::tissue_norm(&norm, r.norm_mask.as_ref(), prior);
+                println!("  gnorm peaks CSF {:.4} GM {:.4} WM {:.4}", pk[0], pk[1], pk[2]);
+                norm = y;
+            }
             let p = output_path(input, output_dir, "norm");
             nifti_io::write_nifti_f32(&p, &t.header, &norm.into_dyn())?;
             println!("  -> {}", p.display());
