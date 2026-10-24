@@ -43,12 +43,14 @@ official ONNX Runtime release (e.g. `libonnxruntime.so.1.24.x`), which runs on o
 ## Usage
 
 ```bash
-rustbx T1w.nii.gz                      # no option = -b -a -n: _tbet, _aseg, _norm next to the input
-rustbx T1w.nii.gz -m -d -A             # also available: _tbetmask, _dgm, _affine
-rustbx data/*.nii.gz -o out/ -m        # brain mask only (glob, several files or a directory, non-recursive)
-rustbx data/ -o out/ -b -a -t 8        # brain + ASEG, 8 intra-op threads (default: 70% of the available CPUs)
-rustbx data/ -o out/ -A -n             # template registration only: _affine (numreg) and _norm (+ VFA)
-rustbx data/ -o out/ -n --norm-minmax  # _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
+rustbx T1w.nii.gz                      # no option: _tbet next to the input
+rustbx T1w.nii.gz --seg                # pipeline tBET + ASEG: _tbet, _aseg
+rustbx T1w.nii.gz --norm               # pipeline tBET + template normalisation: _tbet, _norm (gnorm)
+rustbx T1w.nii.gz --all                # --seg + --norm: _tbet, _aseg, _norm
+rustbx data/ -o out/ --seg -m          # output options add to a pipeline: + _tbetmask
+rustbx data/*.nii.gz -o out/ -m        # single outputs: -b _tbet, -m _tbetmask, -a _aseg, -d _dgm, -A _affine, -n _norm
+rustbx data/ -o out/ -a -A -t 8        # ASEG + _affine only, 8 intra-op threads (default: 70% of the available CPUs)
+rustbx data/ -o out/ --norm --norm-minmax  # _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
 rustbx T1w.nii.gz --aseg-model other_aseg43.onnx   # other models (--bet-/--aseg-/--dgm-/--vfa-model)
 ```
 

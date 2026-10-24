@@ -27,11 +27,11 @@ const OUTPUT_POSTFIXES: [&str; 6] = ["tbet", "tbetmask", "aseg", "dgm", "affine"
 /// rustbx — TigerBx brain extraction, ASEG and template registration as a native executable
 ///
 /// Supports glob patterns, directories, and multiple files:
-///   rustbx T1w.nii.gz                    (default outputs: _tbet, _aseg, _norm)
-///   rustbx data/*.nii.gz -o output_dir -m
-///   rustbx data/T1w_dir -o results/ -b -a
+///   rustbx T1w.nii.gz                    (no option: _tbet)
+///   rustbx data/*.nii.gz -o output_dir --seg
+///   rustbx data/T1w_dir -o results/ -a -A
 #[derive(Parser, Debug)]
-#[command(version, about = "TigerBx tBET, ASEG and template registration using ONNX Runtime (no option: -b -a -n)")]
+#[command(version, verbatim_doc_comment, about = "TigerBx tBET, ASEG and template registration using ONNX Runtime (no option: _tbet)")]
 struct Args {
     /// Input NIfTI files, glob patterns, or directories
     inputs: Vec<String>,
@@ -39,6 +39,18 @@ struct Args {
     /// Output directory (default: same directory as input)
     #[arg(short, long)]
     output: Option<PathBuf>,
+
+    /// Pipeline tBET + ASEG: _tbet, _aseg (as tigerbx.run('ba')); output options add to it
+    #[arg(long)]
+    seg: bool,
+
+    /// Pipeline tBET + template normalisation: _tbet, _norm (gnorm); output options add to it
+    #[arg(long)]
+    norm: bool,
+
+    /// Pipelines seg + norm: _tbet, _aseg, _norm
+    #[arg(long)]
+    all: bool,
 
     /// Save the brain-extracted image (_tbet)
     #[arg(short = 'b', long)]
@@ -63,8 +75,8 @@ struct Args {
 
     /// Save the tBET brain normalised to the template (_norm; numreg affine + VFA, as tigerbx.reg('AD') / VBM),
     /// intensity-normalised with gnorm (tigerbx tissue_norm: CSF 1/3, GM 2/3, WM 1; T1 only, else img / p99)
-    #[arg(short = 'n', long)]
-    norm: bool,
+    #[arg(short = 'n')]
+    norm_out: bool,
 
     /// Keep _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
     #[arg(long)]
@@ -152,12 +164,19 @@ fn main() -> Result<()> {
         bail!("No input files specified. Usage: rustbx <input.nii.gz> [-o output_dir]");
     }
 
-    // No output option: all of them
-    let outputs = if args.bet || args.betmask || args.aseg || args.dgm || args.affine || args.norm {
-        Outputs { bet: args.bet, betmask: args.betmask, aseg: args.aseg, dgm: args.dgm, affine: args.affine, norm: args.norm }
-    } else {
-        Outputs { bet: true, betmask: false, aseg: true, dgm: false, affine: false, norm: true }
+    // Output options, plus the pipelines'; nothing given: _tbet
+    let (seg, norm) = (args.seg || args.all, args.norm || args.all);
+    let mut outputs = Outputs {
+        bet: args.bet || seg || norm,
+        betmask: args.betmask,
+        aseg: args.aseg || seg,
+        dgm: args.dgm,
+        affine: args.affine,
+        norm: args.norm_out || norm,
     };
+    if !(outputs.bet || outputs.betmask || outputs.aseg || outputs.dgm || outputs.affine || outputs.norm) {
+        outputs.bet = true;
+    }
 
     // Expand inputs (globs, directories, literal files)
     let files = expand_inputs(&args.inputs)?;
