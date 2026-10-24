@@ -302,7 +302,7 @@ def run_args(args):
         'bet':  'mprage_bet_v005_opt.onnx',
         'aseg': 'mprage_aseg43_v0011_opt.onnx',
         'ct':   'mprage_mix_ct.onnx',
-        'dgm':  'mprage_dgm12_v002_mix6.onnx',
+        'dgm':  'mprage_dgm12_v002_opt.onnx',
         'cgw':  'mprage_cgw_v001_r111.onnx',
     }
 
