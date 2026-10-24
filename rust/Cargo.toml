@@ -1,6 +1,6 @@
 [package]
 name = "tigerbx"
-version = "0.3.1"   # keep equal to tigerbx.__version__
+version = "0.3.2"   # keep equal to tigerbx.__version__
 edition = "2021"
 description = "Brain extraction tool using ONNX Runtime"
 

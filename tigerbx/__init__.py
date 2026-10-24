@@ -8,4 +8,4 @@ from tigerbx.pipeline_api import pipeline
 from tigerbx.pipelines.vbm import vbm
 from tigerbx.embed import embed
 from tigerbx.eval import eval
-__version__ = '0.3.1'
+__version__ = '0.3.2'

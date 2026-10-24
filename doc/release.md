@@ -2,6 +2,10 @@
 
 ## Latest releases
 
+- [`v0.3.2`](release/releasenote032.md)
+  - GPU (`-g`) for the `tigerbx` executable: CUDA on Linux, DirectML on Windows
+  - Much lower GPU memory; CPU and GPU now give the same results
+  - `tigerbx[cu13]` install extra
 - [`v0.3.1`](release/releasenote031.md)
   - Stand-alone `tigerbx` executable (Rust; Linux, macOS, Windows) replaces the PyInstaller `tiger` binary
   - `tiger` command removed: use the Python API or the `tigerbx` executable
