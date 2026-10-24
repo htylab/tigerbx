@@ -8,7 +8,7 @@ DeepVBM is implemented as a separate high-level pipeline in
 `tigerbx.pipelines.vbm`. See [Pipeline usage](pipelines.md) for
 `tigerbx.pipeline('vbm', ...)` and `tigerbx.vbm(...)`.
 Stand-alone executable for numreg affine + VFA template normalisation (tissue-normalised `_norm`):
-`rustbx data/ -o out/ --norm`, see [rust/README.md](../rust/README.md).
+`tigerbx data/ -o out/ --norm`, see [rust/README.md](../rust/README.md).
 
 The registration pipeline was developed by **Pei-Mao Sun**.
 

@@ -58,4 +58,4 @@ print(tigerbx.__version__)  # expected >= 0.2.3
 ```
 
 TigerBx is used through the Python API. For tBET / ASEG / template normalisation without Python, the stand-alone
-`rustbx` executable (`rustbx data/ -o out/ --seg`, see `rust/README.md` in the repo) is an alternative.
+`tigerbx` executable (`tigerbx data/ -o out/ --seg`, see `rust/README.md` in the repo) is an alternative.

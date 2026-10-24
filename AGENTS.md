@@ -4,7 +4,7 @@
 
 TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registration) with:
 - Python API: `tigerbx.*`
-- Stand-alone executable: `rustbx` (`rust/`)
+- Stand-alone executable: `tigerbx` (`rust/`)
 
 Current baseline:
 - Version: `0.3.0`
@@ -16,7 +16,7 @@ Current baseline:
 - `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `embed`, `gdm`, `eval`, `validate`)
 - `tigerbx/pipelines/vbm.py`: VBM pipeline (separate from `reg`)
 - `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers
-- `rust/`: `rustbx`, the stand-alone executable (tBET, ASEG, template normalisation; see `rust/README.md`)
+- `rust/`: the stand-alone `tigerbx` executable (tBET, ASEG, template normalisation; see `rust/README.md`)
 - `tests/run_and_compare.py`: primary integration/regression runner
 - `doc/`: user-facing docs
 - `temp/`: temporary local work files (gitignored)
@@ -42,7 +42,7 @@ Current baseline:
 ### API Pattern
 
 - Public API functions build args/namespace and call `run_args(args)`.
-- There is no Python CLI (`tiger` was removed); the stand-alone executable is `rustbx` (`rust/`).
+- There is no Python CLI (`tiger` was removed); the stand-alone executable is `tigerbx` (`rust/`).
 
 ### `reg` / `vbm` Contracts
 

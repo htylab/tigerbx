@@ -563,20 +563,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustbx"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "clap",
- "flate2",
- "glob",
- "ndarray 0.16.1",
- "nifti",
- "ort",
- "rayon",
-]
-
-[[package]]
 name = "rustls"
 version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -661,6 +647,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tigerbx"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "flate2",
+ "glob",
+ "ndarray 0.16.1",
+ "nifti",
+ "ort",
+ "rayon",
 ]
 
 [[package]]

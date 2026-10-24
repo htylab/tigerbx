@@ -1,6 +1,6 @@
 [package]
-name = "rustbx"
-version = "0.0.1"
+name = "tigerbx"
+version = "0.3.0"   # keep equal to tigerbx.__version__
 edition = "2021"
 description = "Brain extraction tool using ONNX Runtime"
 
@@ -18,6 +18,6 @@ flate2 = "1"
 # ONNX Runtime loaded at run time (Linux, macOS: the library ships next to the executable)
 default = ["dynamic-ort"]
 dynamic-ort = ["ort/load-dynamic"]
-# ONNX Runtime linked statically from pyke's prebuilt binaries (Windows: a single rustbx.exe);
+# ONNX Runtime linked statically from pyke's prebuilt binaries (Windows: a single tigerbx.exe);
 # build with --no-default-features --features static-ort
 static-ort = ["ort/download-binaries", "ort/tls-rustls"]

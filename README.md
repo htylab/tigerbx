@@ -6,7 +6,7 @@
 **TigerBx** is a deep learning toolkit for brain extraction and tissue segmentation. It provides:
 
 * Pretrained models for structural brain segmentation.
-* A stand-alone executable (rustbx: tBET, ASEG, template normalisation) for Windows, macOS, and Linux.
+* A stand-alone `tigerbx` executable (tBET, ASEG, template normalisation) for Windows, macOS, and Linux.
 * Python APIs for advanced users and scripting.
 * Designed strictly for **research purposes only**—not for clinical or commercial use.
 
@@ -235,19 +235,19 @@ After that the assistant knows when and how to use the TigerBx API.
 
 ---
 
-## Installation (stand-alone executable: rustbx)
+## Installation (stand-alone executable)
 
-`rustbx` is a native executable (no Python) for tBET, ASEG and template normalisation with the same models.
+The `tigerbx` executable is native (no Python), for tBET, ASEG and template normalisation with the same models.
 Download the zip for Linux (x64, glibc 2.28+), macOS (arm64) or Windows (x64) from
 [https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases) and unpack it; keep the
-files together (Linux / macOS: the ONNX Runtime library next to `rustbx`).
+files together (Linux / macOS: the ONNX Runtime library next to `tigerbx`).
 
 ```bash
-rustbx T1w.nii.gz                 # _tbet
-rustbx data/ -o out/ --seg        # _tbet, _aseg
-rustbx data/ -o out/ --norm       # _tbet, _norm (template space, tissue-normalised)
-rustbx data/ -o out/ --all        # _tbet, _aseg, _norm
-rustbx --help
+tigerbx T1w.nii.gz                 # _tbet
+tigerbx data/ -o out/ --seg        # _tbet, _aseg
+tigerbx data/ -o out/ --norm       # _tbet, _norm (template space, tissue-normalised)
+tigerbx data/ -o out/ --all        # _tbet, _aseg, _norm
+tigerbx --help
 ```
 
 The other modules (`hlc`, `reg` options, `vbm`, `embed`, `gdm`, GPU) are in the Python package (Python API

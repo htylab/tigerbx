@@ -82,7 +82,7 @@ tigerbx/
 │   ├── gdmi.py          # EPI distortion correction
 │   ├── eval.py          # Public metric facade
 │   └── validate.py      # Validation helpers and benchmarks
-├── rust/                # rustbx stand-alone executable (see rust/README.md)
+├── rust/                # stand-alone tigerbx executable (Rust; see rust/README.md)
 ├── doc/                 # User / developer documentation
 └── tests/               # Test and regression helpers
 ```
@@ -211,12 +211,12 @@ uv run pytest tests/ -v   # current version
 
 ## 9. Building the Standalone Executable (CI)
 
-The stand-alone executable is `rustbx` (source in [`rust/`](../rust)); the PyInstaller binary is no
-longer built. [`rustbx.yml`](../.github/workflows/rustbx.yml) builds Linux (AlmaLinux 8 container, glibc 2.28),
+The stand-alone executable is `tigerbx` (Rust, source in [`rust/`](../rust)); the PyInstaller binary is no
+longer built. [`exe.yml`](../.github/workflows/exe.yml) builds Linux (AlmaLinux 8 container, glibc 2.28),
 macOS (arm64) and Windows (x64, ONNX Runtime linked statically) zips and smoke-tests tBET, on every change under
 `rust/` (workflow artifacts) and when called by [`compile10.yml`](../.github/workflows/compile10.yml).
 
-To release: push the tag (`git tag v0.3.0 && git push origin v0.3.0`); Compile10 builds rustbx and creates a draft
+To release: set the version in `tigerbx/__init__.py` and `rust/Cargo.toml` (they must match), push the tag (`git tag v0.3.0 && git push origin v0.3.0`); Compile10 builds the executable and creates a draft
 release for that tag with the three zips. Paste the release notes, publish it, and move the `release` branch to the
 tag (the README installs from `archive/release.zip`). A manual run (**Actions → Compile10 → Run workflow**) creates
 a draft tagged `v<run number>` instead.

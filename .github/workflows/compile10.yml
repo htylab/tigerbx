@@ -1,6 +1,6 @@
 name: Compile10
 
-# Release executables: rustbx (Linux, macOS, Windows) from rustbx.yml, attached to a draft release.
+# Release executables: tigerbx (Linux, macOS, Windows) from exe.yml, attached to a draft release.
 
 on:
   push:
@@ -17,16 +17,16 @@ permissions:
 
 jobs:
 # ============================================================
-# 1. rustbx ── Rust 執行檔（rustbx.yml），三大 OS 的 zip
+# 1. exe ── tigerbx 執行檔（exe.yml，Rust），三大 OS 的 zip
 # ============================================================
-  rustbx:
-    uses: ./.github/workflows/rustbx.yml
+  exe:
+    uses: ./.github/workflows/exe.yml
 
 # ============================================================
 # 2. Release ── 收集 zip 直接發布
 # ============================================================
   release:
-    needs: rustbx
+    needs: exe
     if: ${{ github.event_name == 'push' || inputs.make_release }}
     runs-on: ubuntu-latest
 

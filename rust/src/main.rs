@@ -21,15 +21,15 @@ static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_tem
 /// Its aseg: tissue priors of the gnorm intensity normalisation of _norm
 static EMBEDDED_TEMPLATE_ASEG: &[u8] = include_bytes!("../../tigerbx/template/mni_template_aseg.nii.gz");
 
-/// Postfixes rustbx / TigerBx write; inputs ending in one of them are earlier outputs, not new images.
+/// Postfixes TigerBx writes; inputs ending in one of them are earlier outputs, not new images.
 const OUTPUT_POSTFIXES: [&str; 6] = ["tbet", "tbetmask", "aseg", "dgm", "affine", "norm"];
 
-/// rustbx — TigerBx brain extraction, ASEG and template registration as a native executable
+/// tigerbx — TigerBx brain extraction, ASEG and template registration as a native executable
 ///
 /// Supports glob patterns, directories, and multiple files:
-///   rustbx T1w.nii.gz                    (no option: _tbet)
-///   rustbx data/*.nii.gz -o output_dir --seg
-///   rustbx data/T1w_dir -o results/ -a -A
+///   tigerbx T1w.nii.gz                    (no option: _tbet)
+///   tigerbx data/*.nii.gz -o output_dir --seg
+///   tigerbx data/T1w_dir -o results/ -a -A
 #[derive(Parser, Debug)]
 #[command(version, verbatim_doc_comment, about = "TigerBx tBET, ASEG and template registration using ONNX Runtime (no option: _tbet)")]
 struct Args {
@@ -168,7 +168,7 @@ fn main() -> Result<()> {
     init_onnxruntime()?;
 
     if args.inputs.is_empty() {
-        bail!("No input files specified. Usage: rustbx <input.nii.gz> [-o output_dir]");
+        bail!("No input files specified. Usage: tigerbx <input.nii.gz> [-o output_dir]");
     }
 
     // Output options, plus the pipelines'; nothing given: _tbet
@@ -301,7 +301,7 @@ fn process_file(
             nifti_io::write_nifti_f32(&p, &t.header, &r.affine.into_dyn())?;
             println!("  -> {}", p.display());
         }
-        if let Some(dir) = std::env::var_os("RUSTBX_DUMP_REG") {
+        if let Some(dir) = std::env::var_os("TIGERBX_DUMP_REG") {
             // validation aid: the registration (template -> input world matrix, VFA grid) for applying it to labels
             let stem = output_path(input, Some(Path::new(&dir)), "reg");
             let stem = stem.to_string_lossy().replace("_reg.nii.gz", "");
@@ -379,7 +379,7 @@ fn scan_directory(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-/// Check if a path looks like an input NIfTI file (not an earlier rustbx / TigerBx output).
+/// Check if a path looks like an input NIfTI file (not an earlier TigerBx output).
 fn is_nifti(path: &Path) -> bool {
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let Some(stem) = name.strip_suffix(".nii.gz").or_else(|| name.strip_suffix(".nii")) else {

@@ -1,13 +1,13 @@
-name: rustbx
+name: exe
 
-# Builds the rustbx executable (rust/) for Linux, macOS and Windows. Linux / macOS: packaged with the official
-# ONNX Runtime library (loaded at run time). Windows: ONNX Runtime linked statically, a single rustbx.exe
+# Builds the stand-alone tigerbx executable (rust/) for Linux, macOS and Windows. Linux / macOS: packaged with the official
+# ONNX Runtime library (loaded at run time). Windows: ONNX Runtime linked statically, a single tigerbx.exe
 # (needs the VC++ 2015-2022 runtime, like the official ONNX Runtime DLL). Runs on changes under rust/, by hand, and from Compile10 (release tags), whose release job
 # attaches the zips to the draft release.
 on:
   push:
-    branches: ['**']   # not tags: Compile10 builds rustbx for release tags
-    paths: ['rust/**', '.github/workflows/rustbx.yml']
+    branches: ['**']   # not tags: Compile10 builds it for release tags
+    paths: ['rust/**', '.github/workflows/exe.yml']
   workflow_dispatch:
   workflow_call:
 
@@ -75,12 +75,12 @@ jobs:
         mkdir -p pkg out ort
         ORT=onnxruntime-${{ matrix.ort }}-${ORT_VERSION}
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          cp rust/target/release/rustbx.exe pkg/
+          cp rust/target/release/tigerbx.exe pkg/
           # no onnxruntime DLL may be imported (the C runtime DLLs are: VC++ redistributable)
           python -m pip install -q pefile
           python - <<'PY'
         import pefile
-        pe = pefile.PE('pkg/rustbx.exe')
+        pe = pefile.PE('pkg/tigerbx.exe')
         dlls = sorted(e.dll.decode().lower() for e in pe.DIRECTORY_ENTRY_IMPORT)
         print('imports:', ' '.join(dlls))
         bad = [d for d in dlls if d.startswith('onnxruntime')]
@@ -88,22 +88,22 @@ jobs:
         PY
         else
           curl -fsSL https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/$ORT.tgz | tar xz -C ort
-          cp rust/target/release/rustbx pkg/
+          cp rust/target/release/tigerbx pkg/
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             cp -L ort/$ORT/lib/libonnxruntime.dylib pkg/
           else
             cp -L ort/$ORT/lib/libonnxruntime.so.${ORT_VERSION} pkg/
-            echo "newest glibc symbol: $(objdump -T pkg/rustbx | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
+            echo "newest glibc symbol: $(objdump -T pkg/tigerbx | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
           fi
         fi
-        cp rust/README.md pkg/README-rustbx.md
+        cp rust/README.md pkg/README-tigerbx.md
         cp LICENSE pkg/ 2>/dev/null || true
         ls -l pkg
 
     - name: Smoke test (tBET on the bundled template)
       shell: bash
       run: |
-        BIN=pkg/rustbx; [[ "$RUNNER_OS" == "Windows" ]] && BIN=pkg/rustbx.exe
+        BIN=pkg/tigerbx; [[ "$RUNNER_OS" == "Windows" ]] && BIN=pkg/tigerbx.exe
         "$BIN" --help
         "$BIN" tigerbx/template/mni_template.nii.gz -o smoke
         ls smoke/mni_template_tbet.nii.gz
@@ -111,7 +111,7 @@ jobs:
     - name: Zip
       shell: bash
       run: |
-        ZIP_NAME="rustbx-${{ runner.os }}-${SHORT_SHA}.zip"
+        ZIP_NAME="tigerbx-${{ runner.os }}-${SHORT_SHA}.zip"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           powershell -Command "Compress-Archive -Path pkg/* -DestinationPath out/${ZIP_NAME}"
         else

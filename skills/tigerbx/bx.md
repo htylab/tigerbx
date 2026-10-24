@@ -34,5 +34,5 @@ Do not pass `GPU=True`; add `g` to `flags`. Pass an output folder (default write
 
 Saved suffixes: `_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_ct`, and `_cgw_pve0/1/2`. Read [labels.md](labels.md) only for label lookup.
 
-Stand-alone executable (no Python): `rustbx data/ -o out/ --seg` gives `_tbet` + `_aseg` (`-m` adds `_tbetmask`,
+Stand-alone executable (no Python): `tigerbx data/ -o out/ --seg` gives `_tbet` + `_aseg` (`-m` adds `_tbetmask`,
 `-d` `_dgm`); see `rust/README.md`.

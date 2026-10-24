@@ -1,7 +1,7 @@
 # TigerBx: `bx` Module
 
 Brain extraction and tissue segmentation via `tigerbx.run()`.
-Stand-alone executable for tBET / ASEG / template normalisation: `rustbx data/ -o out/ --seg`, see
+Stand-alone executable for tBET / ASEG / template normalisation: `tigerbx data/ -o out/ --seg`, see
 [rust/README.md](../rust/README.md).
 
 ---

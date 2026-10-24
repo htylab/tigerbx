@@ -1,4 +1,4 @@
-# rustbx
+# tigerbx executable
 
 TigerBx tBET, ASEG (`tigerbx.run('bma')`) and template registration (`tigerbx.reg('AD')`, the VBM `_norm`) as a
 native executable (Rust + ONNX Runtime), with the same models and preprocessing. Segmentation: resample to 1 mm when a voxel size is outside 0.9–1.1 mm, reorder to a diagonal affine
@@ -24,8 +24,8 @@ within 6.4e-4 relative and the voxel values within 5e-4. T1 only: when the peaks
 (T2, PD, ...) `_norm` falls back to img / p99 of the brain with a warning, and the batch goes on.
 `--norm-minmax` keeps the min-max `_norm` of `tigerbx.reg('AD')`.
 
-Prebuilt executables: the `rustbx` GitHub workflow builds Linux (glibc 2.28+, x64) and macOS (arm64) zips with the
-ONNX Runtime library next to the executable, and Windows (x64) as a single `rustbx.exe` (ONNX Runtime 1.23.2 from
+Prebuilt executables: the `exe` GitHub workflow builds Linux (glibc 2.28+, x64) and macOS (arm64) zips with the
+ONNX Runtime library next to the executable, and Windows (x64) as a single `tigerbx.exe` (ONNX Runtime 1.23.2 from
 pyke linked statically; needs the VC++ 2015-2022 runtime and Windows 10 1903+ for DirectML.dll, both usually
 present), as workflow artifacts on every change under `rust/` and attached to the draft release of each `v*` tag
 (Compile10). ONNX Runtime 1.23.2 and 1.24.4 give identical outputs (6 IBSR18 subjects, all outputs, 0 voxels differ).
@@ -49,21 +49,21 @@ official ONNX Runtime release (e.g. `libonnxruntime.so.1.24.x`), which runs on o
 ## Usage
 
 ```bash
-rustbx T1w.nii.gz                      # no option: _tbet next to the input
-rustbx T1w.nii.gz --seg                # pipeline tBET + ASEG: _tbet, _aseg
-rustbx T1w.nii.gz --norm               # pipeline tBET + template normalisation: _tbet, _norm (gnorm)
-rustbx T1w.nii.gz --all                # --seg + --norm: _tbet, _aseg, _norm
-rustbx data/ -o out/ --seg -m          # output options add to a pipeline: + _tbetmask
-rustbx data/*.nii.gz -o out/ -m        # single outputs: -b _tbet, -m _tbetmask, -a _aseg, -d _dgm, -A _affine, -n _norm
-rustbx data/ -o out/ -a -A -t 8        # ASEG + _affine only, 8 intra-op threads (default: 70% of the available CPUs)
-rustbx data/ -o out/ --norm --norm-minmax  # _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
-rustbx T1w.nii.gz --aseg-model other_aseg43.onnx   # other models (--bet-/--aseg-/--dgm-/--vfa-model)
+tigerbx T1w.nii.gz                      # no option: _tbet next to the input
+tigerbx T1w.nii.gz --seg                # pipeline tBET + ASEG: _tbet, _aseg
+tigerbx T1w.nii.gz --norm               # pipeline tBET + template normalisation: _tbet, _norm (gnorm)
+tigerbx T1w.nii.gz --all                # --seg + --norm: _tbet, _aseg, _norm
+tigerbx data/ -o out/ --seg -m          # output options add to a pipeline: + _tbetmask
+tigerbx data/*.nii.gz -o out/ -m        # single outputs: -b _tbet, -m _tbetmask, -a _aseg, -d _dgm, -A _affine, -n _norm
+tigerbx data/ -o out/ -a -A -t 8        # ASEG + _affine only, 8 intra-op threads (default: 70% of the available CPUs)
+tigerbx data/ -o out/ --norm --norm-minmax  # _norm min-max scaled as tigerbx.reg('AD') instead of gnorm
+tigerbx T1w.nii.gz --aseg-model other_aseg43.onnx   # other models (--bet-/--aseg-/--dgm-/--vfa-model)
 ```
 
 Earlier outputs (`_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_affine`, `_norm`) in an input folder are skipped; a failing input is reported and the
 batch continues.
 
-`RUSTBX_DUMP_REG=<dir>` also writes `<stem>_M.txt` (4x4 world matrix template -> input) and `<stem>_grid.f32`
+`TIGERBX_DUMP_REG=<dir>` also writes `<stem>_M.txt` (4x4 world matrix template -> input) and `<stem>_grid.f32`
 (VFA voxel sampling grid, float32 [3, 160, 224, 192]) for validation.
 
-Originally developed as a separate repository (htylab/rustbx); see the TigerBx license.
+Originally developed as a separate repository (htylab/rustbx, the former name of this executable); see the TigerBx license.
