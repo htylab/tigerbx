@@ -22,7 +22,7 @@ Work in progress: the executable is not part of a release yet.
 
 ```bash
 mkdir -p models
-for m in mprage_bet_v005_opt mprage_aseg43_v0011_opt mprage_dgm12_v002_mix6 mprage_reg_v004_vfa; do
+for m in mprage_bet_v005_opt mprage_aseg43_v0011_opt mprage_dgm12_v002_opt mprage_reg_v004_vfa; do
   curl -L -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
 done
 cargo build --release
@@ -35,7 +35,8 @@ official ONNX Runtime release (e.g. `libonnxruntime.so.1.24.x`), which runs on o
 ## Usage
 
 ```bash
-rustbx T1w.nii.gz                      # no option = all: _tbet, _tbetmask, _aseg, _dgm, _affine, _norm next to the input
+rustbx T1w.nii.gz                      # no option = -b -a -n: _tbet, _aseg, _norm next to the input
+rustbx T1w.nii.gz -m -d -A             # also available: _tbetmask, _dgm, _affine
 rustbx data/*.nii.gz -o out/ -m        # brain mask only (glob, several files or a directory, non-recursive)
 rustbx data/ -o out/ -b -a -t 8        # brain + ASEG, 8 intra-op threads (default: 70% of the available CPUs)
 rustbx data/ -o out/ -A -n             # template registration only: _affine (numreg) and _norm (+ VFA)

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 /// Embedded models (compiled into the binary): TigerBx's defaults, from the modelhub release
 static EMBEDDED_BET: &[u8] = include_bytes!("../models/mprage_bet_v005_opt.onnx");
 static EMBEDDED_ASEG: &[u8] = include_bytes!("../models/mprage_aseg43_v0011_opt.onnx");
-static EMBEDDED_DGM: &[u8] = include_bytes!("../models/mprage_dgm12_v002_mix6.onnx");
+static EMBEDDED_DGM: &[u8] = include_bytes!("../models/mprage_dgm12_v002_opt.onnx");
 static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v004_vfa.onnx");
 /// TigerBx's bundled registration template (same file as the Python package)
 static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
@@ -24,11 +24,11 @@ const OUTPUT_POSTFIXES: [&str; 6] = ["tbet", "tbetmask", "aseg", "dgm", "affine"
 /// rustbx — TigerBx brain extraction, ASEG and template registration as a native executable
 ///
 /// Supports glob patterns, directories, and multiple files:
-///   rustbx T1w.nii.gz                    (all outputs: _tbet, _tbetmask, _aseg, _dgm, _affine, _norm)
+///   rustbx T1w.nii.gz                    (default outputs: _tbet, _aseg, _norm)
 ///   rustbx data/*.nii.gz -o output_dir -m
 ///   rustbx data/T1w_dir -o results/ -b -a
 #[derive(Parser, Debug)]
-#[command(version, about = "TigerBx tBET, ASEG and template registration using ONNX Runtime (no option: all outputs)")]
+#[command(version, about = "TigerBx tBET, ASEG and template registration using ONNX Runtime (no option: -b -a -n)")]
 struct Args {
     /// Input NIfTI files, glob patterns, or directories
     inputs: Vec<String>,
@@ -70,7 +70,7 @@ struct Args {
     #[arg(long)]
     aseg_model: Option<PathBuf>,
 
-    /// DGM12 ONNX model file (default: embedded mprage_dgm12_v002_mix6)
+    /// DGM12 ONNX model file (default: embedded mprage_dgm12_v002_opt)
     #[arg(long)]
     dgm_model: Option<PathBuf>,
 
@@ -148,7 +148,7 @@ fn main() -> Result<()> {
     let outputs = if args.bet || args.betmask || args.aseg || args.dgm || args.affine || args.norm {
         Outputs { bet: args.bet, betmask: args.betmask, aseg: args.aseg, dgm: args.dgm, affine: args.affine, norm: args.norm }
     } else {
-        Outputs { bet: true, betmask: true, aseg: true, dgm: true, affine: true, norm: true }
+        Outputs { bet: true, betmask: false, aseg: true, dgm: false, affine: false, norm: true }
     };
 
     // Expand inputs (globs, directories, literal files)
