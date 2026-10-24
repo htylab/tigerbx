@@ -137,19 +137,6 @@ fn model_bytes(path: &Option<PathBuf>, embedded: &'static [u8], name: &str) -> R
     })
 }
 
-/// ONNX Runtime's own log: fatal messages only (failures still come back as errors and are reported per input);
-/// TIGERBX_ORT_LOG=1 also shows its errors. Its other errors are handled internally, e.g. cuDNN >= 9.2x logs "No
-/// execution plans support the graph" for strict-FP32 convolutions (TF32 off) and falls back to another algorithm.
-fn ort_logger() -> ort::logging::LoggerFunction {
-    let verbose = std::env::var_os("TIGERBX_ORT_LOG").is_some();
-    std::sync::Arc::new(move |level: ort::logging::LogLevel, _category: &str, _id: &str, location: &str, message: &str| {
-        use ort::logging::LogLevel;
-        if matches!(level, LogLevel::Fatal) || (verbose && matches!(level, LogLevel::Error)) {
-            eprintln!("onnxruntime: {message} ({location})");
-        }
-    })
-}
-
 /// ONNX Runtime is loaded at run time: ORT_DYLIB_PATH if set, else a library next to the executable, else the
 /// system search path.
 #[cfg(feature = "dynamic-ort")]
@@ -171,17 +158,15 @@ fn init_onnxruntime() -> Result<()> {
             names.into_iter().find(|p| p.is_file())
         })
     };
-    match lib {
-        Some(lib) => ort::init_from(&lib)?.with_logger(ort_logger()).commit(),
-        None => ort::init().with_logger(ort_logger()).commit(),
-    };
+    if let Some(lib) = lib {
+        ort::init_from(&lib)?.commit();
+    }
     Ok(())
 }
 
 /// ONNX Runtime is linked into the executable (static-ort).
 #[cfg(not(feature = "dynamic-ort"))]
 fn init_onnxruntime() -> Result<()> {
-    ort::init().with_logger(ort_logger()).commit();
     Ok(())
 }
 

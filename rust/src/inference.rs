@@ -43,7 +43,9 @@ fn cuda() -> ort::ep::ExecutionProviderDispatch {
         .with_arena_extend_strategy(ort::ep::ArenaExtendStrategy::SameAsRequested)
         .with_conv_algorithm_search(ort::ep::cuda::ConvAlgorithmSearch::Heuristic)
         .with_conv_max_workspace(false)
-        .with_tf32(std::env::var_os("TIGERBX_TF32").is_some())
+        // TF32 (default on): convolutions 1.5-3x faster, ~100 ASEG voxels per subject differ from the CPU;
+        // TIGERBX_TF32=0 turns it off
+        .with_tf32(std::env::var("TIGERBX_TF32").map_or(true, |v| v != "0"))
         .build()
         .error_on_failure()
 }
@@ -66,9 +68,10 @@ pub fn create_session(model_bytes: &[u8], threads: usize, gpu: bool) -> Result<S
         let (ep, is_cuda) = gpu_ep();
         match builder(threads)?.with_execution_providers([ep]) {
             Ok(b) => {
-                // GPU: drop the labels branch (CUDA ArgMax needs ~10x the logits as workspace); argmax runs on the CPU
+                // GPU: keep only the logits (CUDA ArgMax of the labels output needs ~10x the logits as workspace);
+                // the argmax runs on the CPU
                 let pruned = crate::onnx_prune::output_names(model_bytes)
-                    .filter(|names| names.len() > 1 && names.iter().any(|n| n == LABELS_OUTPUT))
+                    .filter(|names| names.len() > 1)
                     .and_then(|names| crate::onnx_prune::keep_outputs(model_bytes, &names[..1]));
                 let bytes = pruned.as_deref().unwrap_or(model_bytes);
                 let session = b.commit_from_memory(bytes).context("Failed to load ONNX model from memory")?;

@@ -65,14 +65,15 @@ GPU (`-g`): Linux uses CUDA. The Linux zip carries the GPU build of ONNX Runtime
 CPU build); the CUDA 12 and cuDNN 9 libraries must be on the library path (a CUDA 12 toolkit, or e.g.
 `pip install nvidia-cudnn-cu12 nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-curand-cu12 nvidia-cuda-runtime-cu12` plus
 `LD_LIBRARY_PATH` to their `lib` folders). Windows uses DirectML (any DirectX 12 GPU, nothing to install). macOS and
-any setup where the GPU provider cannot load print a warning and run on the CPU. On the GPU the models' `labels`
-output is dropped (CUDA ArgMax needs ~10x the logits as workspace) and the argmax runs on the CPU; cuDNN uses
+any setup where the GPU provider cannot load print a warning and run on the CPU. On the GPU only the models' logits
+output is kept (CUDA ArgMax of `labels` needs ~10x the logits as workspace) and the argmax runs on the CPU; cuDNN uses
 heuristic algorithm selection without its maximum workspace, and the GPU arena is released after every run.
-TF32 stays off (CPU and GPU agree; with TF32 ~100 `_aseg` voxels differ). Newer cuDNN (9.2x) then logs "No execution
-plans support the graph" and falls back to another algorithm; ONNX Runtime's log is limited to fatal messages
-(`TIGERBX_ORT_LOG=1` shows its errors), failures are still reported per input.
-`--seg -g` on IBSR18: ~6 s per subject, GPU peak ~8 GB; CPU and GPU agree (IBSR_01: tBET mask identical, 4 `_aseg`
-voxels differ) since the optimised models compute GroupNorm statistics in stages (see `tigerbx.dev.onnx_optimize`).
+TF32 is on (convolutions 1.5-3x faster on Ampere and newer NVIDIA GPUs; ~100 `_aseg` voxels per subject then differ
+from the CPU); `TIGERBX_TF32=0` turns it off, and the GPU then matches the CPU. With TF32 off, newer cuDNN (9.2x) logs
+"No execution plans support the graph" and falls back to another algorithm (results are fine).
+`--seg -g` on IBSR18: ~6 s per subject; a GPU peak of ~16 GB per process was measured on an H200. With
+`TIGERBX_TF32=0` CPU and GPU agree (IBSR_01: tBET mask identical, 4 `_aseg` voxels differ), since the optimised
+models compute GroupNorm statistics in stages (see `tigerbx.dev.onnx_optimize`).
 
 Earlier outputs (`_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_affine`, `_norm`) in an input folder are skipped; a failing input is reported and the
 batch continues.
