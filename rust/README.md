@@ -25,9 +25,10 @@ within 6.4e-4 relative and the voxel values within 5e-4. T1 only: when the peaks
 `--norm-minmax` keeps the min-max `_norm` of `tigerbx.reg('AD')`.
 
 Prebuilt executables: the `rustbx` GitHub workflow builds Linux (glibc 2.28+, x64) and macOS (arm64) zips with the
-ONNX Runtime library next to the executable, and Windows (x64) as a single `rustbx.exe` (ONNX Runtime and the C
-runtime linked statically: no DLL, no VC++ redistributable), as workflow artifacts on every change under `rust/`
-and attached to the draft release of each `v*` tag (Compile10).
+ONNX Runtime library next to the executable, and Windows (x64) as a single `rustbx.exe` (ONNX Runtime 1.23.2 from
+pyke linked statically; needs the VC++ 2015-2022 runtime and Windows 10 1903+ for DirectML.dll, both usually
+present), as workflow artifacts on every change under `rust/` and attached to the draft release of each `v*` tag
+(Compile10). ONNX Runtime 1.23.2 and 1.24.4 give identical outputs (6 IBSR18 subjects, all outputs, 0 voxels differ).
 
 ## Build
 
@@ -37,8 +38,7 @@ for m in mprage_bet_v005_opt mprage_aseg43_v0011_opt mprage_dgm12_v002_opt mprag
   curl -L -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
 done
 cargo build --release
-# Windows, single executable (pyke's static ONNX Runtime build, statically linked C runtime):
-#   set RUSTFLAGS=-C target-feature=+crt-static
+# Windows, single executable (pyke's static ONNX Runtime build; it uses the DLL C runtime, so no +crt-static):
 #   cargo build --release --no-default-features --features static-ort
 ```
 
