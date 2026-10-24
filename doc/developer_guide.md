@@ -34,7 +34,7 @@ uv venv
 uv pip install -e ".[dev,cpu]"
 ```
 
-After this, any change to a `.py` file under `tigerbx/` or `tigerbx_cli/` takes effect immediately — no reinstall needed.
+After this, any change to a `.py` file under `tigerbx/` takes effect immediately — no reinstall needed.
 
 To use GPU (CUDA 12) instead:
 
@@ -49,9 +49,6 @@ uv pip install -e ".[dev,cu12]"
 ## 3. Verify the Installation
 
 ```bash
-# CLI smoke test
-uv run tiger bx --help
-
 # Python API smoke test
 uv run python -c "import tigerbx; print(tigerbx.__version__)"
 
@@ -85,7 +82,7 @@ tigerbx/
 │   ├── gdmi.py          # EPI distortion correction
 │   ├── eval.py          # Public metric facade
 │   └── validate.py      # Validation helpers and benchmarks
-├── tigerbx_cli/         # CLI parsers and dispatch
+├── rust/                # rustbx stand-alone executable (see rust/README.md)
 ├── doc/                 # User / developer documentation
 └── tests/               # Test and regression helpers
 ```
@@ -121,8 +118,8 @@ uv run pytest tests/test_bx.py -v
 # Run the full suite
 uv run pytest tests/ -v
 
-# Quick CLI check
-uv run tiger bx T1w.nii.gz -bm -o /tmp/test_out
+# Quick API check
+uv run python -c "import tigerbx; tigerbx.run('bm', 'T1w.nii.gz', '/tmp/test_out')"
 ```
 
 ### 5.3 Commit
@@ -214,7 +211,7 @@ uv run pytest tests/ -v   # current version
 
 ## 9. Building the Standalone Executable (CI)
 
-The stand-alone executable is `rustbx` (source in [`rust/`](../rust)); the PyInstaller `tiger` binary is no
+The stand-alone executable is `rustbx` (source in [`rust/`](../rust)); the PyInstaller binary is no
 longer built. [`rustbx.yml`](../.github/workflows/rustbx.yml) builds Linux (AlmaLinux 8 container, glibc 2.28),
 macOS (arm64) and Windows (x64, ONNX Runtime linked statically) zips and smoke-tests tBET, on every change under
 `rust/` (workflow artifacts) and when called by [`compile10.yml`](../.github/workflows/compile10.yml).

@@ -1,6 +1,8 @@
 # TigerBx: `bx` Module
 
-Brain extraction and tissue segmentation via `tigerbx.run()` or the `tiger bx` CLI.
+Brain extraction and tissue segmentation via `tigerbx.run()`.
+Stand-alone executable for tBET / ASEG / template normalisation: `rustbx data/ -o out/ --seg`, see
+[rust/README.md](../rust/README.md).
 
 ---
 
@@ -35,38 +37,19 @@ If no segmentation flag is provided, brain extraction (`b`) runs by default.
 
 ---
 
-## CLI Usage
-
-```
-tiger bx <input> [input ...] [-o OUTPUT] [flags ...]
-```
-
----
-
 ## Flags
 
-| API flag | CLI flag | Output suffix        | Description |
-|----------|----------|----------------------|-------------|
-| `b`      | `-b`     | `_tbet`              | Brain-extracted image |
-| `m`      | `-m`     | `_tbetmask`          | Binary brain mask |
-| `a`      | `-a`     | `_aseg`              | ASEG segmentation (43 regions + 99 Unlabeled-Intracranial; TIV = all non-zero voxels) |
-| `c`      | `-c`     | `_ct`                | Cortical thickness map |
-| `C`      | `-C`     | `_cgw_pve0/1/2`      | CSF / GM / WM probability maps (3 files, FSL-style PVE) |
-| `d`      | `-d`     | `_dgm`               | Deep gray matter mask (12 structures) |
-| `g`      | `-g`     | —                    | Use GPU for inference |
-| `z`      | `-z`     | —                    | Force `.nii.gz` output format |
-| `p`      | `-p`     | —                    | Enable patch-based inference |
-
-Additional CLI-only options:
-
-| CLI option              | Default | Description |
-|-------------------------|---------|-------------|
-| `--verbose N`           | `1`     | Verbosity: `0` = tqdm only, `1` = progress messages (default), `2` = debug |
-| `--chunk-size N`        | `50`    | Files per session-cache batch |
-| `--continue`            | off     | Skip files whose outputs already exist |
-| `--model MODEL`         | —       | Specify a custom ONNX model path or dict string |
-| `--clean_onnx`          | —       | Delete all downloaded ONNX model files |
-
+| Flag | Output suffix        | Description |
+|------|----------------------|-------------|
+| `b`  | `_tbet`              | Brain-extracted image |
+| `m`  | `_tbetmask`          | Binary brain mask |
+| `a`  | `_aseg`              | ASEG segmentation (43 regions + 99 Unlabeled-Intracranial; TIV = all non-zero voxels) |
+| `c`  | `_ct`                | Cortical thickness map |
+| `C`  | `_cgw_pve0/1/2`      | CSF / GM / WM probability maps (3 files, FSL-style PVE) |
+| `d`  | `_dgm`               | Deep gray matter mask (12 structures) |
+| `g`  | —                    | Use GPU for inference |
+| `z`  | —                    | Force `.nii.gz` output format |
+| `p`  | —                    | Enable patch-based inference |
 
 The flags `q` (tBET QC score), `S` (SynthSeg-style ASEG) and `W` (white-matter hypointensity) have been removed; an
 argstring containing one of them raises a `ValueError`. For image quality use `tigerbx.core.qa.image_quality`.
@@ -74,8 +57,6 @@ argstring containing one of them raises a `ValueError`. For image quality use `t
 ---
 
 ## Examples
-
-### Python API
 
 ```python
 import tigerbx
@@ -101,45 +82,14 @@ tigerbx.run('bmad', '/data/T1w_dir', '/data/output', continue_=True)
 # In-memory outputs only (no files written)
 tigerbx.run('mC', 'T1w.nii.gz', save_outputs=False)
 
+# Patch-based inference for high-resolution inputs
+tigerbx.run('bmp', 'T1w.nii.gz', 'output_dir')
+
 # Verbose progress messages
 tigerbx.run('bm', 'T1w.nii.gz', 'output_dir', verbose=1)
 
 # Delete downloaded ONNX model files
 tigerbx.run('clean_onnx')
-```
-
-### CLI
-
-```bash
-# Brain mask + brain image + ASEG + deep gray matter (recommended)
-tiger bx T1w.nii.gz -bmad -o output_dir
-
-# Brain extraction and brain mask only
-tiger bx T1w.nii.gz -bm -o output_dir
-
-# Full pipeline — all output types
-tiger bx T1w.nii.gz -bmacdC -o output_dir
-
-# Process a whole directory with GPU
-tiger bx /data/T1w_dir -bmadg -o /data/output
-
-# Large batch: 100 files per session-cache chunk
-tiger bx /data/T1w_dir -bmad -o /data/output --chunk-size 100
-
-# Resume a previously interrupted run
-tiger bx /data/T1w_dir -bmad -o /data/output --continue
-
-# Patch-based inference for high-resolution inputs
-tiger bx T1w.nii.gz -bmp -o output_dir
-
-# Quiet output (tqdm bars only)
-tiger bx /data/T1w_dir -bm -o /data/output --verbose 0
-
-# Debug output (disable tqdm, print per-file details)
-tiger bx T1w.nii.gz -bm -o output_dir --verbose 2
-
-# Delete downloaded ONNX model files
-tiger bx --clean_onnx
 ```
 
 ---
@@ -150,12 +100,12 @@ For an input named `sub-001_T1w.nii.gz`, outputs are:
 
 | Flag | Output file |
 |------|-------------|
-| `-b` | `sub-001_T1w_tbet.nii.gz` |
-| `-m` | `sub-001_T1w_tbetmask.nii.gz` |
-| `-a` | `sub-001_T1w_aseg.nii.gz` |
-| `-c` | `sub-001_T1w_ct.nii.gz` |
-| `-C` | `sub-001_T1w_cgw_pve0.nii.gz`, `_pve1.nii.gz`, `_pve2.nii.gz` (CSF / GM / WM) |
-| `-d` | `sub-001_T1w_dgm.nii.gz` |
+| `b`  | `sub-001_T1w_tbet.nii.gz` |
+| `m`  | `sub-001_T1w_tbetmask.nii.gz` |
+| `a`  | `sub-001_T1w_aseg.nii.gz` |
+| `c`  | `sub-001_T1w_ct.nii.gz` |
+| `C`  | `sub-001_T1w_cgw_pve0.nii.gz`, `_pve1.nii.gz`, `_pve2.nii.gz` (CSF / GM / WM) |
+| `d`  | `sub-001_T1w_dgm.nii.gz` |
 
 ---
 

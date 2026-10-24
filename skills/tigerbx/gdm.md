@@ -19,9 +19,3 @@ Return contract:
 - Single input: nibabel dict with `gdmi` (corrected image) and optional `gdm` (displacement map).
 - Batch: list of saved-path dicts with the same keys.
 - Saved suffixes: `_gdmi.nii.gz` and optional `_gdm.nii.gz`.
-
-CLI:
-
-```bash
-tiger gdm dti.nii.gz -b0 dti.bval -m -o out/
-```

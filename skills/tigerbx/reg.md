@@ -51,10 +51,3 @@ Outputs (flat, in the output folder): `_SmoothedGM` (modulated GM, FWHM 7.065 mm
 `_ModulatedGM` with `save_modulated=True`, and `vbm_summary.csv` (status, `qc_flags`, TIV, GM/WM/CSF ml, image quality,
 `homog_z`). `fwhm=` and `save_modulated=` are keyword-only. A failing input gets `<stem>_vbmfail.log` and is
 skipped in a batch.
-
-CLI:
-
-```bash
-tiger reg AD T1w.nii.gz -o out/ --save_displacement
-tiger vbm T1w.nii.gz -o out/ --reg-plan AD
-```

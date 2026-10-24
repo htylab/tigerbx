@@ -1,6 +1,6 @@
 ---
 name: tigerbx
-description: "Use TigerBx 0.3.0+ for research-use neuroimaging workflows: T1w brain extraction and segmentation, HLC parcellation, registration, VBM, EPI/DTI distortion correction, VFA brain embeddings, and image metrics. Trigger when choosing or calling tigerbx Python APIs/CLI, interpreting outputs or labels, or building TigerBx batch pipelines."
+description: "Use TigerBx 0.3.0+ for research-use neuroimaging workflows: T1w brain extraction and segmentation, HLC parcellation, registration, VBM, EPI/DTI distortion correction, VFA brain embeddings, and image metrics. Trigger when choosing or calling tigerbx Python APIs, interpreting outputs or labels, or building TigerBx batch pipelines."
 ---
 
 # TigerBx
@@ -57,4 +57,5 @@ import tigerbx
 print(tigerbx.__version__)  # expected >= 0.2.3
 ```
 
-Prefer the Python API for composed workflows and the `tiger` CLI for one-off shell runs.
+TigerBx is used through the Python API. For tBET / ASEG / template normalisation without Python, the stand-alone
+`rustbx` executable (`rustbx data/ -o out/ --seg`, see `rust/README.md` in the repo) is an alternative.

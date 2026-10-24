@@ -6,7 +6,7 @@ Label numbering follows FreeSurfer conventions except where noted.
 
 ## DeepGM — Deep Gray Matter (12 structures)
 
-Output: `_dgm.nii.gz` from `tiger bx -d`
+Output: `_dgm.nii.gz` from `tigerbx.run('d', ...)`
 
 | Label | Structure | Label | Structure |
 |-------|-----------|-------|-----------|
@@ -21,7 +21,7 @@ Output: `_dgm.nii.gz` from `tiger bx -d`
 
 ## ASEG — 43-region tissue segmentation
 
-Output: `_aseg.nii.gz` from `tiger bx -a`
+Output: `_aseg.nii.gz` from `tigerbx.run('a', ...)`
 
 | Label | Structure | Label | Structure |
 |-------|-----------|-------|-----------|
@@ -57,7 +57,7 @@ TIV = all non-zero `_aseg` voxels; brain volume = sum without 99 (`tigerbx.embed
 
 ## HLC — Hierarchical Label Consolidation
 
-Output: `_hlc.nii.gz` from `tiger hlc`
+Output: `_hlc.nii.gz` from `tigerbx.hlc(...)`
 
 The HLC pipeline processes 171 FreeSurfer-style labels and consolidates them into
 56 hierarchical regions. The 171 raw labels are listed below.

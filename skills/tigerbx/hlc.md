@@ -23,10 +23,4 @@ all_outputs = tigerbx.hlc('T1w.nii.gz', 'out/', save='all')
 
 Use `GPU=True` here (unlike `tigerbx.run`, where GPU is flag `g`). HLC GPU inference may require substantial VRAM; fall back to CPU or `patch=True` when appropriate.
 
-CLI:
-
-```bash
-tiger hlc T1w.nii.gz --save all -o out/
-```
-
 Read [labels.md](labels.md) only when interpreting HLC label values.

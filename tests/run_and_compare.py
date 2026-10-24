@@ -24,20 +24,11 @@ Examples:
 import sys
 import os
 import argparse
-import subprocess
 import numpy as np
 import nibabel as nib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE = os.path.join(ROOT, 'tigerbx', 'template', 'mni_template.nii.gz')
-SCRIPTS_DIR = os.path.dirname(sys.executable)
-if sys.platform == 'win32':
-    _tiger_candidate = os.path.join(SCRIPTS_DIR, 'tiger.exe')
-    if not os.path.isfile(_tiger_candidate):
-        _tiger_candidate = os.path.join(SCRIPTS_DIR, 'Scripts', 'tiger.exe')
-    TIGER_BIN = _tiger_candidate
-else:
-    TIGER_BIN = os.path.join(SCRIPTS_DIR, 'tiger')
 
 ALL_MODULES = ['bx', 'hlc', 'reg']
 
@@ -67,44 +58,24 @@ def run_api(label, fn):
         FAIL.append(f'API  {label}')
 
 
-def run_cli(label, cmd):
-    section(f'[CLI] {label}')
-    try:
-        subprocess.run(cmd, check=True)
-        PASS.append(f'CLI  {label}')
-    except Exception as e:
-        print(f'  ERROR: {e}')
-        FAIL.append(f'CLI  {label}')
-
-
 # ── per-module inference ──────────────────────────────────────────────────────
 
 def run_bx(output_dir, tigerbx):
     # b=bet  m=betmask  a=aseg  c=ct  C=cgw  d=dgm
     api_dir = make_dir(output_dir, 'bx', 'api')
-    cli_dir = make_dir(output_dir, 'bx', 'cli')
     run_api('bx — all outputs', lambda: tigerbx.run('bmacdC', TEMPLATE, api_dir))
-    run_cli('bx — all outputs', [
-        TIGER_BIN, 'bx',
-        '-b', '-m', '-a', '-c', '-C', '-d',
-        TEMPLATE, '-o', cli_dir,
-    ])
 
 
 def run_hlc(output_dir, tigerbx):
     # save=all -> m=betmask  b=bet  h=hlc  t=ct  c=csf  g=gm  w=wm
     api_dir = make_dir(output_dir, 'hlc', 'api')
-    cli_dir = make_dir(output_dir, 'hlc', 'cli')
     run_api('hlc — save=all', lambda: tigerbx.hlc(TEMPLATE, api_dir, save='all'))
-    run_cli('hlc — save all', [TIGER_BIN, 'hlc', '--save', 'all', TEMPLATE, '-o', cli_dir])
 
 
 def run_reg(output_dir, tigerbx):
     # A=affine (C2FViT)  r=VMnet dense registration
     api_dir = make_dir(output_dir, 'reg', 'api')
-    cli_dir = make_dir(output_dir, 'reg', 'cli')
     run_api('reg — affine + VMnet', lambda: tigerbx.reg('AV', TEMPLATE, api_dir))
-    run_cli('reg — AV', [TIGER_BIN, 'reg', 'AV', TEMPLATE, '-o', cli_dir])
 
 
 def compare_nifti(path_old, path_new):
@@ -250,7 +221,6 @@ examples:
 
         print(f"\ntigerbx version : {tigerbx.__version__}")
         print(f"python          : {sys.executable}")
-        print(f"tiger bin       : {TIGER_BIN}")
         print(f"output dir      : {new_dir}")
         print(f"modules         : {modules}")
 
@@ -261,10 +231,9 @@ examples:
         print('FILE SUMMARY')
         print('='*55)
         for module in modules:
-            for mode in ['api', 'cli']:
-                d = os.path.join(new_dir, module, mode)
-                files = sorted(os.listdir(d)) if os.path.isdir(d) else []
-                print(f"  {module}/{mode:3s}: {files}")
+            d = os.path.join(new_dir, module, 'api')
+            files = sorted(os.listdir(d)) if os.path.isdir(d) else []
+            print(f"  {module}: {files}")
 
         print(f"\n{'='*55}")
         print(f"PASS ({len(PASS)}): {PASS}")
@@ -275,33 +244,21 @@ examples:
 
     # ── 2. Comparison ─────────────────────────────────────────────────────────
     if not args.run_only:
-        wrap_ok = True
         regress_ok = True
-
-        section("NEW: API vs CLI  (refactoring correctness)")
-        for module in modules:
-            ok = compare_pair(
-                os.path.join(new_dir, module, 'api'),
-                os.path.join(new_dir, module, 'cli'),
-                f"new  {module}  api vs cli",
-            )
-            wrap_ok = wrap_ok and ok
 
         section("OLD vs NEW  (regression check)")
         for module in modules:
-            for mode in ['api', 'cli']:
-                ok = compare_pair(
-                    os.path.join(old_dir, module, mode),
-                    os.path.join(new_dir, module, mode),
-                    f"old vs new  {module}/{mode}",
-                )
-                regress_ok = regress_ok and ok
+            ok = compare_pair(
+                os.path.join(old_dir, module, 'api'),
+                os.path.join(new_dir, module, 'api'),
+                f"old vs new  {module}",
+            )
+            regress_ok = regress_ok and ok
 
         print(f"\n{'='*55}")
-        print(f"[API vs CLI]   {'PASS -- CLI wrapper is correct' if wrap_ok else 'FAIL -- CLI wrapper differs from API'}")
         print(f"[Old vs New]   {'PASS -- no regressions' if regress_ok else 'FAIL -- see differences above'}")
 
-        if not wrap_ok or not regress_ok:
+        if not regress_ok:
             exit_code = 1
 
     sys.exit(exit_code)

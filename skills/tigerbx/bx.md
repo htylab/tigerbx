@@ -26,7 +26,7 @@ import tigerbx
 
 brain = tigerbx.run('b', 'T1w.nii.gz', 'out/')['tbet']
 seg = tigerbx.run('bmad', 'T1w.nii.gz', 'out/')
-gpu_all = tigerbx.run('bmacCdSWg', 'T1w.nii.gz', 'out/')
+gpu_all = tigerbx.run('bmacCdg', 'T1w.nii.gz', 'out/')
 batch_paths = tigerbx.run('bma', '/data/T1w/', 'out/', continue_=True)
 ```
 
@@ -34,9 +34,5 @@ Do not pass `GPU=True`; add `g` to `flags`. Pass an output folder (default write
 
 Saved suffixes: `_tbet`, `_tbetmask`, `_aseg`, `_dgm`, `_ct`, and `_cgw_pve0/1/2`. Read [labels.md](labels.md) only for label lookup.
 
-CLI:
-
-```bash
-tiger bx T1w.nii.gz -bmad -o out/
-tiger bx /data/T1w/ -bmag --continue -o out/
-```
+Stand-alone executable (no Python): `rustbx data/ -o out/ --seg` gives `_tbet` + `_aseg` (`-m` adds `_tbetmask`,
+`-d` `_dgm`); see `rust/README.md`.

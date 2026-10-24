@@ -1,14 +1,13 @@
 # TigerBx: `pipelines`
 
-High-level multi-stage workflows are exposed through `tigerbx.pipeline()` and
-dedicated CLI subcommands. Pipelines compose lower-level modules into a more
-opinionated workflow.
+High-level multi-stage workflows are exposed through `tigerbx.pipeline()`.
+Pipelines compose lower-level modules into a more opinionated workflow.
 
 Currently available pipelines:
 
-| Pipeline | Dispatcher | Convenience alias | CLI |
-|----------|------------|-------------------|-----|
-| `vbm`    | `tigerbx.pipeline('vbm', ...)` | `tigerbx.vbm(...)` | `tiger vbm ...` |
+| Pipeline | Dispatcher | Convenience alias |
+|----------|------------|-------------------|
+| `vbm`    | `tigerbx.pipeline('vbm', ...)` | `tigerbx.vbm(...)` |
 
 The VBM pipeline was developed by **Pei-Mao Sun**.
 
@@ -76,32 +75,7 @@ Use `vbm_summary.csv` (below) to match results to inputs and to find failed ones
 
 ---
 
-## CLI Usage
-
-```
-tiger vbm <input> [input ...] [-o OUTPUT] [options]
-```
-
-## CLI options
-
-| CLI flag                      | Python parameter    | Description |
-|-------------------------------|---------------------|-------------|
-| `--model MODEL`               | `model`             | Registration model override |
-| `-g` / `--gpu`                | `gpu`               | Use GPU |
-| `-z` / `--gz`                 | `gz`                | Force `.nii.gz` output |
-| `--reg-plan PLAN`             | `reg_plan`          | Registration plan used inside DeepVBM (default: `AD`) |
-| `-T TEMPLATE`                 | `template`          | Custom template NIfTI file (default: bundled MNI-space template) |
-| `--save_displacement`         | `save_displacement` | Save the displacement field |
-| `--affine_type {numreg,C2FViT}` | `affine_type`     | Affine method (default: `numreg`) |
-| `--fwhm MM`                   | `fwhm`              | GM smoothing FWHM in mm (default: `7.065`) |
-| `--save_modulated`            | `save_modulated`    | Also save the unsmoothed modulated GM map |
-| `--verbose N`                 | `verbose`           | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
-
----
-
 ## Examples
-
-### Python API
 
 ```python
 import tigerbx
@@ -121,22 +95,6 @@ tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir',
                  save_displacement=True)
 ```
 
-### CLI
-
-```bash
-# Run DeepVBM on a directory
-tiger vbm /data/T1w_dir -o /data/output
-
-# Customize the registration plan used internally
-tiger vbm /data/T1w_dir -o /data/output --reg-plan AV
-
-# Use C2FViT for the affine stage inside the pipeline
-tiger vbm /data/T1w_dir -o /data/output --affine_type C2FViT
-
-# Save the displacement field from the registration stage
-tiger vbm /data/T1w_dir -o /data/output --save_displacement
-```
-
 ---
 
 ## Outputs
@@ -151,7 +109,7 @@ For example, inputs `sub-001_T1w.nii.gz` and `sub-002_T1w.nii.gz` produce:
 output_dir/
   sub-001_T1w_SmoothedGM.nii.gz     # modulated, smoothed GM in template space (the VBM input)
   sub-001_T1w_norm.nii.gz           # T1 after the whole registration plan (for checking the alignment)
-  sub-001_T1w_ModulatedGM.nii.gz    # only with save_modulated=True / --save_modulated
+  sub-001_T1w_ModulatedGM.nii.gz    # only with save_modulated=True
   sub-002_T1w_...
   sub-003_T1w_vbmfail.log           # only if sub-003 failed
   vbm_summary.csv

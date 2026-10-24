@@ -4,7 +4,7 @@
 
 TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registration) with:
 - Python API: `tigerbx.*`
-- CLI: `tiger`
+- Stand-alone executable: `rustbx` (`rust/`)
 
 Current baseline:
 - Version: `0.3.0`
@@ -16,7 +16,7 @@ Current baseline:
 - `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `embed`, `gdm`, `eval`, `validate`)
 - `tigerbx/pipelines/vbm.py`: VBM pipeline (separate from `reg`)
 - `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers
-- `tigerbx_cli/`: CLI parsers + dispatch (`tiger`)
+- `rust/`: `rustbx`, the stand-alone executable (tBET, ASEG, template normalisation; see `rust/README.md`)
 - `tests/run_and_compare.py`: primary integration/regression runner
 - `doc/`: user-facing docs
 - `temp/`: temporary local work files (gitignored)
@@ -39,16 +39,16 @@ Current baseline:
 - Do not add type hints to new or existing functions unless explicitly requested.
 - Do not mass-add docstrings to existing private helpers.
 
-### API / CLI Pattern
+### API Pattern
 
 - Public API functions build args/namespace and call `run_args(args)`.
-- CLI modules parse argparse and call the same `run_args(args)`.
+- There is no Python CLI (`tiger` was removed); the stand-alone executable is `rustbx` (`rust/`).
 
 ### `reg` / `vbm` Contracts
 
 - `reg` uses uppercase plan strings (positional): `R/A/V/D` (default `AD`)
   - `R` rigid, `A` affine, `D` VFA, `V` VMnet
-- `VBM` is a separate pipeline/CLI (`tiger vbm`), not a `reg` mode.
+- `VBM` is a separate pipeline (`tigerbx.vbm`), not a `reg` mode.
 
 ### Output Path Contract (important)
 
@@ -70,12 +70,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,cpu]"   # or [dev,cu12]
 
 # Syntax/compile check
-python -m compileall -q tigerbx tigerbx_cli tests
-
-# CLI help smoke checks
-tiger bx --help
-tiger reg --help
-tiger vbm --help
+python -m compileall -q tigerbx tests
 
 # Integration/regression runner
 python tests/run_and_compare.py all --run-only
@@ -83,7 +78,7 @@ python tests/run_and_compare.py all --run-only
 
 ## Docs / Change Policy
 
-- If you change CLI flags, plans, or output naming, update `README.md` and relevant files in `doc/`.
+- If you change API arguments, plans, or output naming, update `README.md` and relevant files in `doc/`.
 - Keep diffs focused; avoid repo-wide formatting/style churn.
 - Use research-use wording only (no clinical/diagnostic claims).
 

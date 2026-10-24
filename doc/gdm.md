@@ -27,26 +27,7 @@ the corresponding saved file paths.
 
 ---
 
-## CLI Usage
-
-```
-tiger gdm <input> [input ...] [-o OUTPUT] [-b0 B0_INDEX] [-m] [-n] [-g] [--verbose N]
-```
-
-| CLI flag      | Description |
-|---------------|-------------|
-| `-o OUTPUT`   | Output directory |
-| `-b0 B0_INDEX`| b0 volume index or `.bval` file path (default: `0`) |
-| `-m`          | Save the predicted displacement map |
-| `-n`          | Skip resampling to 1.7 x 1.7 x 1.7 mm³ |
-| `-g`          | Use GPU |
-| `--verbose N` | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
-
----
-
 ## Examples
-
-### Python API
 
 ```python
 import tigerbx
@@ -65,25 +46,6 @@ tigerbx.gdm('dti.nii.gz', 'output_dir', dmap=True)
 
 # Process an entire directory with GPU
 tigerbx.gdm('/data/EPI_dir', '/data/output', GPU=True)
-```
-
-### CLI
-
-```bash
-# Correct a single DTI file
-tiger gdm dti.nii.gz -o output_dir
-
-# Specify b0 index
-tiger gdm dti.nii.gz -b0 1 -o output_dir
-
-# Use a .bval file to locate b0 automatically
-tiger gdm dti.nii.gz -b0 dti.bval -o output_dir
-
-# Save the displacement map with GPU
-tiger gdm dti.nii.gz -m -g -o output_dir
-
-# Process an entire directory
-tiger gdm /data/EPI_dir -o /data/output
 ```
 
 ---

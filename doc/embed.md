@@ -27,11 +27,11 @@ tigerbx.embed(input=None, output=None, model=None, gpu=False, verbose=0)
 **Returns:** for a single input, the embedding `dict` (below); for several inputs, a list of `_embed.npz` paths of the
 successful inputs.
 
-## CLI
+## Examples
 
-```bash
-tiger embed /data/T1w_dir -o /data/embed_out
-tiger embed sub-001_T1w.nii.gz -o out --gpu
+```python
+tigerbx.embed('/data/T1w_dir', '/data/embed_out')
+tigerbx.embed('sub-001_T1w.nii.gz', 'out', gpu=True)
 ```
 
 ---

@@ -71,12 +71,6 @@ tigerbx.run('bm', '/data/T1w_dir')
 tigerbx.run('bmadg', '/data/T1w_dir', '/data/output')
 ```
 
-```bash
-tiger bx T1w.nii.gz -bmad -o output_dir
-tiger bx T1w.nii.gz -bmacdC -o output_dir
-tiger bx /data/T1w_dir -bmadg -o /data/output
-```
-
 See [bx usage](doc/bx.md) for a complete flag reference and output file naming.
 
 ---
@@ -98,12 +92,6 @@ tigerbx.hlc('T1w.nii.gz', 'output_dir', save='all')
 
 # Cortical thickness + tissue probability maps with GPU
 tigerbx.hlc('T1w.nii.gz', 'output_dir', save='tcgw', GPU=True)
-```
-
-```bash
-tiger hlc T1w.nii.gz -o output_dir
-tiger hlc T1w.nii.gz --save all -o output_dir
-tiger hlc T1w.nii.gz --save tcgw -g -o output_dir
 ```
 
 See [HLC usage](doc/hlc.md) for a complete description.
@@ -139,12 +127,6 @@ tigerbx.transform(r'C:\moving.nii.gz', r'C:\warp.npz', r'C:\output_dir',
                   interpolation='nearest')
 ```
 
-```bash
-tiger reg A T1w.nii.gz -o output_dir
-tiger reg AD T1w.nii.gz -o output_dir
-tiger reg AD T1w.nii.gz -o output_dir --save_displacement
-```
-
 See [registration usage](doc/reg.md) for detailed usage.
 
 ---
@@ -152,8 +134,8 @@ See [registration usage](doc/reg.md) for detailed usage.
 ### `pipelines` — High-Level Workflows
 
 Use `tigerbx.pipeline(name, ...)` for opinionated multi-stage workflows.
-Currently, TigerBx exposes the `vbm` pipeline through the dispatcher, a Python
-alias, and a dedicated CLI subcommand.
+Currently, TigerBx exposes the `vbm` pipeline through the dispatcher and a Python
+alias.
 
 ```python
 import tigerbx
@@ -167,11 +149,6 @@ tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')
 # Customize the registration stage used inside the pipeline
 tigerbx.pipeline('vbm', r'C:\T1w_dir', r'C:\output_dir',
                  reg_plan='AV', affine_type='C2FViT')
-```
-
-```bash
-tiger vbm /data/T1w_dir -o /data/output
-tiger vbm /data/T1w_dir -o /data/output --reg-plan AV --affine_type C2FViT
 ```
 
 Each input gives `_SmoothedGM` (modulated, smoothed GM in template space) and `_norm`; `vbm_summary.csv` lists
@@ -200,13 +177,6 @@ tigerbx.gdm('dti.nii.gz', 'output_dir', b0_index='dti.bval')
 tigerbx.gdm('dti.nii.gz', 'output_dir', dmap=True, GPU=True)
 ```
 
-```bash
-tiger gdm dti.nii.gz -o output_dir
-tiger gdm dti.nii.gz -b0 1 -o output_dir
-tiger gdm dti.nii.gz -b0 dti.bval -o output_dir
-tiger gdm dti.nii.gz -m -g -o output_dir
-```
-
 See [GDM usage](doc/gdm.md) for a complete description.
 
 ---
@@ -219,10 +189,6 @@ Regional features for downstream models: the mean VFA encoder feature in each of
 ```python
 import tigerbx
 tigerbx.embed(r'C:\T1w_dir', r'C:\output_dir')
-```
-
-```bash
-tiger embed /data/T1w_dir -o /data/embed_out
 ```
 
 See [embed usage](doc/embed.md) for the file layout, how to use the features and validation.
@@ -265,7 +231,7 @@ TigerBx ships a skill for AI coding assistants. Just ask Claude Code or Codex:
 Install the tigerbx skill from https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
 ```
 
-After that the assistant knows when and how to use the TigerBx API and CLI.
+After that the assistant knows when and how to use the TigerBx API.
 
 ---
 
@@ -284,7 +250,7 @@ rustbx data/ -o out/ --all        # _tbet, _aseg, _norm
 rustbx --help
 ```
 
-The other modules (`hlc`, `reg` options, `vbm`, `embed`, `gdm`, GPU) are in the Python package (`tiger` CLI
+The other modules (`hlc`, `reg` options, `vbm`, `embed`, `gdm`, GPU) are in the Python package (Python API
 above). See [rust/README.md](rust/README.md) for details.
 
 ---

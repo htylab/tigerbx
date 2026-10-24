@@ -25,21 +25,6 @@ tigerbx.hlc(input=None, output=None, model=None, save='h', GPU=False, gz=True, p
 
 ---
 
-## CLI Usage
-
-```
-tiger hlc <input> [input ...] [-o OUTPUT] [--save LETTERS] [-g] [-z] [-p] [--verbose N]
-```
-
-Additional CLI-only options:
-
-| CLI flag        | Description |
-|-----------------|-------------|
-| `--model MODEL` | Specify a custom ONNX model |
-| `--verbose N`   | Verbosity: `0` = tqdm only, `1` = progress (default), `2` = debug |
-
----
-
 ## `save` Options
 
 | Letter | Output suffix  | Description |
@@ -56,8 +41,6 @@ Additional CLI-only options:
 ---
 
 ## Examples
-
-### Python API
 
 ```python
 import tigerbx
@@ -79,25 +62,6 @@ tigerbx.hlc('/data/T1w_dir', '/data/output', save='all')
 
 # Patch-based inference
 tigerbx.hlc('/data/T1w_dir', '/data/output', save='all', patch=True)
-```
-
-### CLI
-
-```bash
-# Default: HLC parcellation only
-tiger hlc T1w.nii.gz -o output_dir
-
-# All outputs (brain mask, bet, hlc, cortical thickness, CSF/GM/WM)
-tiger hlc T1w.nii.gz --save all -o output_dir
-
-# HLC + cortical thickness + tissue probability maps with GPU
-tiger hlc T1w.nii.gz --save htcgw -g -o output_dir
-
-# Process a whole directory with patch-based inference
-tiger hlc /data/T1w_dir --save all -p -o /data/output
-
-# Force .nii.gz output (already the default; use -z to ensure it when gz=False elsewhere)
-tiger hlc T1w.nii.gz --save mh -z -o output_dir
 ```
 
 ---
