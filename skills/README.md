@@ -5,7 +5,7 @@ This directory contains skills for AI coding assistants that support the
 
 Once installed, your AI assistant will automatically know when and how to use
 TigerBx for brain MRI analysis tasks — brain extraction, segmentation,
-registration, EPI distortion correction, and hippocampus embedding.
+template normalisation, VBM, registration, EPI distortion correction and brain embeddings.
 
 ---
 
@@ -40,4 +40,4 @@ $skill-installer https://github.com/htylab/tigerbx/tree/main/skills/tigerbx
 
 | Skill | Description |
 |-------|-------------|
-| `tigerbx` | Brain MRI analysis: extraction, segmentation, registration, EPI correction, hippocampus embedding, quantitative evaluation |
+| `tigerbx` | Brain MRI analysis: brain extraction, segmentation, normalisation, VBM, registration, EPI correction, embeddings, metrics |

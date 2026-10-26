@@ -105,10 +105,11 @@ For an input named `sub-001_T1w.nii.gz`, outputs are:
 |------|-------------|
 | `b`  | `sub-001_T1w_tbx.nii.gz` |
 | `m`  | `sub-001_T1w_tbxmask.nii.gz` |
-| `a`  | `sub-001_T1w_tseg.nii.gz` |
+| `a`  | `sub-001_T1w_aseg.nii.gz` |
+| `t`  | `sub-001_T1w_tseg.nii.gz` |
 | `c`  | `sub-001_T1w_ct.nii.gz` |
 | `d`  | `sub-001_T1w_dgm.nii.gz` |
 
 ---
 
-For label definitions used in TSEG and DeepGM outputs, see [Label definitions](seglabel.md).
+For label definitions used in ASEG / TSEG and DeepGM outputs, see [Label definitions](seglabel.md).
