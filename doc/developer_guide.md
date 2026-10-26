@@ -1,0 +1,236 @@
+# TigerBx Developer Guide
+
+This guide covers setting up a local development environment, making changes, and submitting contributions.
+
+---
+
+## 1. Prerequisites
+
+- [uv](https://docs.astral.sh/uv/) (replaces pip + venv; install once per machine)
+- Git
+- (Optional) CUDA 12 toolkit for GPU testing
+
+Install uv if you haven't already:
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+---
+
+## 2. Clone and Set Up
+
+```bash
+# Clone the repository
+git clone https://github.com/htylab/tigerbx.git
+cd tigerbx
+
+# Create a virtual environment and install in editable mode (CPU)
+uv venv
+uv pip install -e ".[dev,cpu]"
+```
+
+After this, any change to a `.py` file under `tigerbx/` takes effect immediately — no reinstall needed.
+
+To use GPU (CUDA 12) instead:
+
+```bash
+uv pip install -e ".[dev,cu12]"
+```
+
+> **Why uv?** uv resolves and installs dependencies ~10–100× faster than pip and manages the `.venv` automatically. You do not need to activate the venv manually — prefix commands with `uv run` or activate once with `source .venv/bin/activate` (macOS/Linux) / `.venv\Scripts\activate` (Windows).
+
+---
+
+## 3. Verify the Installation
+
+```bash
+# Python API smoke test
+uv run python -c "import tigerbx; print(tigerbx.__version__)"
+
+# Run the test suite
+uv run pytest tests/
+```
+
+---
+
+## 4. Project Structure
+
+```
+tigerbx/
+├── tigerbx/             # Core library
+│   ├── __init__.py      # Public API exports
+│   ├── bx.py            # Brain extraction pipeline
+│   ├── hlc.py           # HLC parcellation
+│   ├── reg.py           # Registration (plan-driven: R/A/V/D)
+│   ├── pipeline_api.py  # High-level pipeline dispatcher
+│   ├── pipelines/       # High-level pipelines
+│   │   └── vbm.py       # VBM pipeline (separate from reg)
+│   ├── embed.py         # VFA brain embedding (TSEG-region encoder features)
+│   ├── embed.py         # VFA brain embedding (TSEG-region encoder features)
+│   ├── core/            # Shared utilities (see doc/core/)
+│   │   ├── io.py        # NIfTI I/O, path templates, input resolution
+│   │   ├── onnx.py      # ONNX session management, inference
+│   │   ├── resample.py  # Image resampling (no nilearn dependency)
+│   │   ├── spatial.py   # Cropping, padding, bounding box ops
+│   │   ├── metrics.py   # Segmentation and reconstruction metrics
+│   │   └── deform.py    # Displacement fields, Jacobian, warping
+│   ├── gdmi.py          # EPI distortion correction
+│   ├── eval.py          # Public metric facade
+│   └── validate.py      # Validation helpers and benchmarks
+├── rust/                # stand-alone tigerbx executable (Rust; see rust/README.md)
+├── doc/                 # User / developer documentation
+└── tests/               # Test and regression helpers
+```
+
+---
+
+## 5. Daily Development Workflow
+
+### 5.1 Create a feature branch
+
+Always work on a branch, not directly on `main`:
+
+```bash
+git checkout main
+git pull origin main                   # sync with upstream
+git checkout -b feature/my-new-feature
+```
+
+Branch naming conventions:
+- `feature/` — new features
+- `fix/` — bug fixes
+- `docs/` — documentation only
+- `refactor/` — code cleanup without behaviour change
+
+### 5.2 Make changes and test
+
+Edit files, then verify:
+
+```bash
+# Run affected tests
+uv run pytest tests/test_bx.py -v
+
+# Run the full suite
+uv run pytest tests/ -v
+
+# Quick API check
+uv run python -c "import tigerbx; tigerbx.run('bm', 'T1w.nii.gz', '/tmp/test_out')"
+```
+
+### 5.3 Commit
+
+```bash
+# Stage specific files (avoid git add -A to prevent accidental inclusions)
+git add tigerbx/modules/bx.py tigerbx/lib_tool.py
+
+# Commit with a clear message
+git commit -m "fix: handle edge case when input voxel size is anisotropic"
+```
+
+Commit message prefixes:
+| Prefix | Use |
+|--------|-----|
+| `feat:` | new feature |
+| `fix:` | bug fix |
+| `docs:` | documentation change |
+| `refactor:` | code cleanup, no behaviour change |
+| `test:` | add or update tests |
+| `chore:` | build system, CI, dependency updates |
+
+### 5.4 Push and open a Pull Request
+
+```bash
+git push -u origin feature/my-new-feature
+```
+
+Then open a PR on GitHub:
+
+```bash
+# Using GitHub CLI
+gh pr create \
+  --title "fix: handle anisotropic voxel edge case in bx pipeline" \
+  --body "## Summary
+- Fixed crash when input voxel spacing is non-isotropic (e.g. 0.5×0.5×1.0 mm)
+- Added regression test
+
+## Test plan
+- [ ] pytest tests/test_bx.py passes
+- [ ] Manual test with anisotropic sample image"
+```
+
+Or open it from the GitHub web UI.
+
+---
+
+## 6. Bumping the Version
+
+Version is defined in two places:
+
+- [`tigerbx/__init__.py`](../tigerbx/__init__.py) — `__version__ = 'X.Y.Z'`
+- [`setup.py`](../setup.py) — `version='X.Y.Z'`
+
+Update both before tagging a release. TigerBx follows [Semantic Versioning](https://semver.org/):
+- `MAJOR.MINOR.PATCH`
+- Patch: bug fixes, no API change
+- Minor: new features, backwards-compatible
+- Major: breaking API changes
+
+---
+
+## 7. Adding a New Model
+
+1. Train and export the model to ONNX format (see [models.md](models.md) for the naming and I/O contract), then
+   optimise it with `python -m tigerbx.dev.onnx_optimize model.onnx model_opt.onnx --labels`.
+2. Upload the `.onnx` file to the model hub release on GitHub (`modelhub` tag).
+3. Register the model name in `bx.py` (or the relevant module) under `omodel`.
+4. The model is downloaded on first use via `lib_tool.get_model()`.
+
+---
+
+## 8. Running Tests Against Two Versions
+
+To regression-test a change against a known-good version:
+
+```bash
+# Create a separate venv for the baseline release
+uv venv .venv_old
+uv pip install --python .venv_old \
+    "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.0.tar.gz"
+
+# Run comparison script using each venv's Python
+uv run --python .venv_old python tests/run_and_compare.py --input T1w.nii.gz --tag old
+uv run pytest tests/ -v   # current version
+```
+
+---
+
+## 9. Building the Standalone Executable (CI)
+
+The stand-alone executable is `tigerbx` (Rust, source in [`rust/`](../rust)); the PyInstaller binary is no
+longer built. [`exe.yml`](../.github/workflows/exe.yml) builds Linux (AlmaLinux 8 container, glibc 2.28),
+macOS (arm64) and Windows (x64, ONNX Runtime linked statically) zips and smoke-tests tBX, on every change under
+`rust/` (workflow artifacts) and when called by [`compile10.yml`](../.github/workflows/compile10.yml).
+
+To release: set the version in `tigerbx/__init__.py` and `rust/Cargo.toml` (they must match), push the tag (`git tag v0.3.0 && git push origin v0.3.0`); Compile10 builds the executable and creates a draft
+release for that tag with the three zips. Paste the release notes, publish it, and move the `release` branch to the
+tag (the README installs from `archive/release.zip`). A manual run (**Actions → Compile10 → Run workflow**) creates
+a draft tagged `v<run number>` instead.
+
+[`ci.yml`](../.github/workflows/ci.yml) runs the hermetic unit tests on every push and pull request.
+
+---
+
+## 10. Coding Conventions
+
+- **No top-level heavy imports** — `onnxruntime` must be imported inside the functions that use them (lazy import), to keep startup time fast.
+- **Path handling** — use `os.path` functions (`join`, `basename`, `dirname`), never `pathlib`.
+- **NIfTI I/O** — use `nibabel` for reading/writing; avoid hard-coding voxel assumptions.
+- **Model inference** — always go through `core.onnx.create_session()` and `core.onnx.predict()`, never create `ort.InferenceSession` directly in feature modules.
+- **No pandas in core** — pandas is a dev-only dependency; use `csv` module for any file output in production code.
+- **Typing** — avoid adding type annotations by default; follow existing local patterns and only add them when a public API clearly benefits.
+- **Python >=3.10** — the `setup.py` requires `python_requires='>=3.10'`.

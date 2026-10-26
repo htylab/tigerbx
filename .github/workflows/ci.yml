@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e . --no-deps
+        pip install numpy scipy nibabel platformdirs filelock tqdm pytest pandas threadpoolctl onnx onnxruntime
+
+    - name: Run hermetic unit tests
+      run: >-
+        pytest -v tests/test_core_io.py tests/test_core_metrics.py tests/test_hlc_crop_restore.py
+        tests/test_pipeline_contracts.py tests/test_core_warp.py tests/test_numreg.py tests/test_qa.py
+        tests/test_tissuenorm.py tests/test_embed.py tests/test_vbm.py tests/test_onnx_optimize.py

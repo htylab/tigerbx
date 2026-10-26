@@ -1,0 +1,130 @@
+name: exe
+
+# Builds the stand-alone tigerbx executable (rust/) for Linux, macOS and Windows. Linux / macOS: packaged with the official
+# ONNX Runtime library (loaded at run time; Linux: the GPU build, for -g with CUDA). Windows: ONNX Runtime linked statically, a single tigerbx.exe
+# (needs the VC++ 2015-2022 runtime, like the official ONNX Runtime DLL). Runs on changes under rust/, by hand, and from Compile10 (release tags), whose release job
+# attaches the zips to the draft release.
+on:
+  push:
+    branches: ['**']   # not tags: Compile10 builds it for release tags
+    paths: ['rust/**', '.github/workflows/exe.yml']
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  ORT_VERSION: "1.24.4"
+  MODELS: "mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v004_vfa"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            ort: win-x64
+          - os: macos-latest
+            ort: osx-arm64
+          # Linux: build inside AlmaLinux 8 (glibc 2.28) so the binary runs on RHEL/Rocky 8+, Ubuntu 20.04+,
+          # Debian 10+; the official ONNX Runtime library has the same requirement.
+          - os: ubuntu-latest
+            container: almalinux:8
+            ort: linux-x64-gpu      # GPU build: same CPU results; -g uses CUDA when CUDA 12 + cuDNN 9 are present
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || '' }}
+
+    steps:
+    - name: Install system packages (Linux container)
+      if: ${{ matrix.container }}
+      run: |
+        dnf -y install gcc git zip binutils
+        curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Derive short commit SHA
+      shell: bash
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+    - name: Download the embedded models
+      shell: bash
+      working-directory: rust
+      run: |
+        mkdir -p models
+        for m in $MODELS; do
+          curl -fsSL -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
+        done
+        ls -l models
+
+    - name: Build
+      shell: bash
+      working-directory: rust
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          # static ONNX Runtime (pyke's prebuilt, built with the DLL C runtime /MD, so no +crt-static)
+          cargo build --release --locked --no-default-features --features static-ort
+        else
+          cargo build --release --locked
+        fi
+
+    - name: Package (with ONNX Runtime on Linux / macOS)
+      shell: bash
+      run: |
+        mkdir -p pkg out ort
+        ORT=onnxruntime-${{ matrix.ort }}-${ORT_VERSION}
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          cp rust/target/release/tigerbx.exe pkg/
+          # no onnxruntime DLL may be imported (the C runtime DLLs are: VC++ redistributable)
+          python -m pip install -q pefile
+          python - <<'PY'
+        import pefile
+        pe = pefile.PE('pkg/tigerbx.exe')
+        dlls = sorted(e.dll.decode().lower() for e in pe.DIRECTORY_ENTRY_IMPORT)
+        print('imports:', ' '.join(dlls))
+        bad = [d for d in dlls if d.startswith('onnxruntime')]
+        assert not bad, f'ONNX Runtime DLL imported: {bad}'
+        PY
+        else
+          curl -fsSL https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/$ORT.tgz | tar xz -C ort
+          cp rust/target/release/tigerbx pkg/
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            cp -L ort/$ORT/lib/libonnxruntime.dylib pkg/
+          else
+            cp -L ort/$ORT/lib/libonnxruntime.so.${ORT_VERSION} pkg/
+            cp ort/$ORT/lib/libonnxruntime_providers_shared.so ort/$ORT/lib/libonnxruntime_providers_cuda.so pkg/
+            echo "newest glibc symbol: $(objdump -T pkg/tigerbx | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
+          fi
+        fi
+        cp rust/README.md pkg/README-tigerbx.md
+        cp LICENSE pkg/ 2>/dev/null || true
+        ls -l pkg
+
+    - name: Smoke test (tBX on the bundled template)
+      shell: bash
+      run: |
+        BIN=pkg/tigerbx; [[ "$RUNNER_OS" == "Windows" ]] && BIN=pkg/tigerbx.exe
+        "$BIN" --help
+        "$BIN" tigerbx/template/mni_template.nii.gz -o smoke
+        ls smoke/mni_template_tbx.nii.gz
+        # -g: GPU if the runner has one, else a warning and the CPU (must not fail)
+        "$BIN" tigerbx/template/mni_template.nii.gz -o smoke_g -g
+        ls smoke_g/mni_template_tbx.nii.gz
+
+    - name: Zip
+      shell: bash
+      run: |
+        ZIP_NAME="tigerbx-${{ runner.os }}-${SHORT_SHA}.zip"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          powershell -Command "Compress-Archive -Path pkg/* -DestinationPath out/${ZIP_NAME}"
+        else
+          (cd pkg && zip -q ../out/${ZIP_NAME} *)
+        fi
+        echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+
+    - name: Upload zip artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ZIP_NAME }}
+        path: out/${{ env.ZIP_NAME }}
