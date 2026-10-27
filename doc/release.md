@@ -2,6 +2,10 @@
 
 ## Latest releases
 
+- [`v0.3.1`](release/releasenote031.md)
+  - Registration (`norm`, `reg('AD')`, executable `--norm`) uses the low-memory VFA model v005: same results, much
+    lower peak memory
+
 - [`v0.3.0`](release/releasenote030.md)
   - Pipelines as functions: `tigerbx.bx`, `seg`, `affine`, `norm`, `vbm`, `template`
   - Stand-alone `tigerbx` executable (Rust; Linux, macOS, Windows; GPU with `-g`) replaces the `tiger` binary

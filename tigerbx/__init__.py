@@ -8,4 +8,4 @@ from tigerbx.modules.reg import reg
 from tigerbx.pipelines import affine, bx, norm, seg, template, vbm
 from tigerbx.embed import embed
 from tigerbx.eval import eval
-__version__ = '0.3.0'
+__version__ = '0.3.1'

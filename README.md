@@ -47,9 +47,9 @@ tigerbx.template('/data/T1w_dir', 'tpl_dir')    # template, template_mask, templ
 ### Install a specific version
 
 ```bash
-pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.0.tar.gz"
-pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.0.tar.gz"
-pip install --no-cache-dir "tigerbx[cu13] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.0.tar.gz"
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
+pip install --no-cache-dir "tigerbx[cu13] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
 ```
 
 > **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):
