@@ -12,7 +12,7 @@ pipelines post-process as `tigerbx.seg()`: the 12 deep-GM structures of `_tseg` 
 few voxels on the edge of the field of view can differ (floating-point rounding of the 4x4 affine inverse).
 
 Registration: a Rust port of numreg (Mattes MI, symmetric cost, 6 / 3 / 1.5 mm pyramid, multi-start L-BFGS) gives
-`_affine` (tBX brain on the template grid, min-max normalised), then VFA (`mprage_reg_v004_vfa`) gives `_norm`.
+`_affine` (tBX brain on the template grid, min-max normalised), then VFA (`mprage_reg_v005_vfa`) gives `_norm`.
 As in Python, `_affine` and `_norm` (affine + VFA warp composed) are sampled once from the input grid with a cubic
 B-spline clipped to the input range, the VFA input trilinearly; with the same matrix and warp they match
 `tigerbx.core.numreg.resample` within 5e-6.
@@ -41,7 +41,7 @@ present), as workflow artifacts on every change under `rust/` and attached to th
 
 ```bash
 mkdir -p models
-for m in mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v004_vfa; do
+for m in mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v005_vfa; do
   curl -L -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
 done
 cargo build --release

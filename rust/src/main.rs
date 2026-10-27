@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 static EMBEDDED_TBX: &[u8] = include_bytes!("../models/mprage_tbx_v005_opt.onnx");
 static EMBEDDED_TSEG: &[u8] = include_bytes!("../models/mprage_tseg_v0011_opt.onnx");
 static EMBEDDED_DGM: &[u8] = include_bytes!("../models/mprage_dgm12_v002_opt.onnx");
-static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v004_vfa.onnx");
+static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v005_vfa.onnx");
 /// TigerBx's bundled registration template (same file as the Python package)
 static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
 /// Its tseg: tissue priors of the gnorm intensity normalisation of _norm
@@ -105,7 +105,7 @@ struct Args {
     #[arg(long)]
     dgm_model: Option<PathBuf>,
 
-    /// VFA registration ONNX model file (default: embedded mprage_reg_v004_vfa)
+    /// VFA registration ONNX model file (default: embedded mprage_reg_v005_vfa)
     #[arg(long)]
     vfa_model: Option<PathBuf>,
 

@@ -4,7 +4,7 @@
 (classification, regression, clustering): the mean VFA encoder feature inside each of the 37 TSEG structures, plus the
 structure volumes and TIV.
 
-The encoder is the one of the VFA registration model used by `tigerbx.reg('AD')` (`mprage_reg_v004_vfa.onnx`),
+The encoder is the one of the VFA registration model used by `tigerbx.reg('AD')` (`mprage_reg_v005_vfa.onnx`; same weights as v004),
 exported alone as `mprage_embed_v001_vfa.onnx` (6.8 MB). It is a registration encoder (no labels), so
 its features describe local anatomy and shape.
 

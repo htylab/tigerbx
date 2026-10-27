@@ -13,7 +13,9 @@ from tigerbx.core import numreg
 from tigerbx.core.onnx import predict
 from tigerbx.core.resample import reorder_img
 
-VFA_MODEL = 'mprage_reg_v004_vfa.onnx'
+# v005: v004's weights; the full-resolution feature matching computes the 27 neighbour similarities one shift at a
+# time instead of building the [27 x C] candidate tensor (much lower peak memory, same grid)
+VFA_MODEL = 'mprage_reg_v005_vfa.onnx'
 
 
 def template(path=None):
