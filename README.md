@@ -81,6 +81,16 @@ tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')              # voxel-based morphome
 
 See [pipeline usage](doc/pipelines.md) for the steps, options and outputs of each pipeline.
 
+### Inspect your data first
+
+`tigerbx.inspect` tells what each image is (contrast: T1w, T2w, FLAIR, b0, DWI or other), whether it is already
+skull-stripped, whether it is EPI, whether its header orientation is right, whether the head is cut by the field of
+view, and scores motion artifacts, in about 1 s per image on the CPU. See [inspect](doc/inspect.md).
+
+```python
+tigerbx.inspect(r'C:\data_dir', r'C:\output_dir')    # -> inspect_summary.csv
+```
+
 ### Stand-alone executable
 
 The `tigerbx` executable is native (no Python) and runs the `bx`, `seg`, `affine` and `norm` pipelines with the same
@@ -106,7 +116,7 @@ See [rust/README.md](rust/README.md) for the single-output options and details.
 
 ## Modules
 
-The modules (`tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.embed`, `tigerbx.gdm`, `tigerbx.eval`,
+The modules (`tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.embed`, `tigerbx.inspect`, `tigerbx.gdm`, `tigerbx.eval`,
 `tigerbx.val`) are the lower-level building blocks of the pipelines; each gives a model's own output. See the
 [documentation](doc/) for their options.
 

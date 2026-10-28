@@ -24,6 +24,7 @@ Prefer the pipelines; use the modules only for a model's raw output or custom wo
 | HLC parcellation | `tigerbx.hlc(input, output)` | — | `_hlc` |
 | Registration plans (`R` rigid, `A` affine, `V` VMnet, `D` VFA) | `tigerbx.reg('AD', input, output)` | — | `_affine`, `_VFA`, `_warp.npz` |
 | Regional embedding, volumes, TIV | `tigerbx.embed(input, output)` | — | `<stem>_embed.npz` |
+| What an image is (contrast, skull-stripped, EPI, orientation, truncation, motion score) | `tigerbx.inspect(input, output)` | — | `inspect_summary.csv` |
 | EPI / DTI distortion correction | `tigerbx.gdm(input, output)` | — | `_gdmi` (`dmap=True`: `_gdm`) |
 | Metrics (Dice, HD95, PSNR, SSIM, ...) | `tigerbx.eval(y_true, y_pred, metrics)` | — | dict |
 
@@ -60,5 +61,5 @@ Fetch only the page you need:
 - Labels (ASEG / TSEG, DGM, HLC, compatibility table): https://github.com/htylab/tigerbx/blob/main/doc/seglabel.md
 - Registration and `transform`: https://github.com/htylab/tigerbx/blob/main/doc/reg.md
 - Executable: https://github.com/htylab/tigerbx/blob/main/rust/README.md
-- Other modules: https://github.com/htylab/tigerbx/tree/main/doc (hlc.md, embed.md, gdm.md, eval.md, validation.md,
+- Other modules: https://github.com/htylab/tigerbx/tree/main/doc (inspect.md, hlc.md, embed.md, gdm.md, eval.md, validation.md,
   models.md)
