@@ -2,6 +2,10 @@
 
 Generative Displacement Mapping (GDM) corrects geometric distortions in EPI (echo-planar imaging) scans using a GAN-based displacement field predictor. It improves spatial alignment between diffusion-weighted and T1-weighted images without requiring field maps or reversed-phase-encode acquisitions [Kuo et al., 2025].
 
+
+With a reverse phase-encoding pair (AP / PA, LR / RL) use [duope](duope.md) instead: it measures the field from
+the two scans rather than predicting it from one.
+
 ---
 
 ## Python API

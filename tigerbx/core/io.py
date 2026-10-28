@@ -16,7 +16,7 @@ import numpy as np
 OUTPUT_POSTFIXES = ('tbx', 'tbxmask', 'tseg', 'dgm', 'wmh', 'syn', 'ct', 'cgw_pve0', 'cgw_pve1', 'cgw_pve2',
                     'pve_csf', 'pve_gm', 'pve_wm',
                     'hlc', 'CSF', 'GM', 'WM', 'reg', 'rigid', 'Af', 'Fuse', 'SmoothedGM', 'ModulatedGM', 'gdm', 'gdmi',
-                    'affine', 'VXM', 'VFA', 'norm')   # reg/Af/Fuse: names used before 0.3
+                    'affine', 'VXM', 'VFA', 'norm', 'duope', 'duope_disp', 'duope_field')   # reg/Af/Fuse: names used before 0.3
 
 
 def _stem(f):
@@ -107,6 +107,26 @@ def get_template(f, output_dir, gz=None, common_folder=None):
 def save_nib(data_nib, ftemplate, postfix):
     output_file = ftemplate.replace("@@@@", postfix)
     nib.save(data_nib, output_file)
+    return output_file
+
+
+def save_nib_volumes(header, affine, shape, volumes, ftemplate, postfix):
+    """save_nib of a float32 image given as an iterable of its 3D volumes (in order), written as they come: the
+    whole image is never in memory. header: the source header (dim_info, units, ... kept)."""
+    output_file = ftemplate.replace("@@@@", postfix)
+    img = nib.Nifti1Image(np.broadcast_to(np.float32(0), tuple(shape)), affine, header)   # header only, no data
+    img.update_header()
+    hdr = img.header
+    hdr.set_data_dtype('<f4')
+    hdr.set_slope_inter(1, 0)
+    if hdr.endianness != '<':
+        hdr = hdr.as_byteswapped('<')
+    hdr.set_data_offset(352)
+    with nib.openers.Opener(output_file, 'wb') as fh:
+        fh.write(hdr.binaryblock)
+        fh.write(b'\0' * 4)                                        # no extensions
+        for v in volumes:
+            fh.write(np.asarray(v, '<f4').tobytes(order='F'))
     return output_file
 
 

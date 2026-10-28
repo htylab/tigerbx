@@ -76,6 +76,7 @@ The pipelines are TigerBx's main functions, the same in Python and in the stand-
 | `vbm`      | `tigerbx.vbm(...)`      | —                            | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
 | `template` | `tigerbx.template(...)` | `tigerbx data/ -o tpl/ --template` | `template`, `template_mask`, `template_tseg` |
 | `inspect`  | `tigerbx.inspect(...)`  | `tigerbx in.nii.gz --inspect` | `inspect_summary.csv` |
+| `duope`    | `tigerbx.duope(fwd, rev, ...)` | —                     | `<input>_duope` (forward, reverse, series) |
 
 ```python
 import tigerbx
@@ -85,6 +86,10 @@ tigerbx.vbm(r'C:\T1w_dir', r'C:\output_dir')              # voxel-based morphome
 ```
 
 See [pipeline usage](doc/pipelines.md) for the steps, options and outputs of each pipeline.
+
+`tigerbx.duope` corrects EPI susceptibility distortion from a pair of scans with opposite phase encoding (AP / PA,
+LR / RL), as FSL topup does, in seconds on the CPU, and can unwarp a DWI or BOLD series with the field. See
+[duope](doc/duope.md).
 
 ### Inspect your data first
 
