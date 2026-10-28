@@ -120,3 +120,5 @@ batch continues.
 (VFA voxel sampling grid, float32 [3, 160, 224, 192]) for validation.
 
 Originally developed as a separate repository (htylab/rustbx, the former name of this executable); see the TigerBx license.
+The release zips also carry `THIRD_PARTY_LICENSES.txt`: the license and notice files of the Rust crates compiled into the
+executable and of ONNX Runtime (all MIT, Apache-2.0 or similar permissive licenses), written by `third_party_licenses.py`.

@@ -37,7 +37,7 @@ jobs:
     - name: Install system packages (Linux container)
       if: ${{ matrix.container }}
       run: |
-        dnf -y install gcc git zip binutils
+        dnf -y install gcc git zip binutils python3
         curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
@@ -108,7 +108,15 @@ jobs:
           fi
         fi
         cp rust/README.md pkg/README-tigerbx.md
-        cp LICENSE pkg/ 2>/dev/null || true
+        cp LICENSE pkg/
+        # third-party notices: the Rust crates compiled in and ONNX Runtime (Windows: pyke's static 1.23.2 build)
+        ORT_NOTICE=$ORT_VERSION; TARGET=$(rustc -vV | sed -n 's/^host: //p')
+        [[ "$RUNNER_OS" == "Windows" ]] && ORT_NOTICE=1.23.2
+        for f in LICENSE ThirdPartyNotices.txt; do
+          curl -fsSL -o ort/ORT-$f https://raw.githubusercontent.com/microsoft/onnxruntime/v${ORT_NOTICE}/$f
+        done
+        PY=python3; [[ "$RUNNER_OS" == "Windows" ]] && PY=python
+        (cd rust && $PY third_party_licenses.py "$TARGET" ../ort/ORT-LICENSE ../ort/ORT-ThirdPartyNotices.txt ../pkg/THIRD_PARTY_LICENSES.txt)
         ls -l pkg
 
     - name: Smoke test (tBX on the bundled template)
