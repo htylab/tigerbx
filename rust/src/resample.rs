@@ -225,7 +225,7 @@ fn prefilter_line(c: &mut [f64]) {
 }
 
 /// Spline coefficients of a volume: the prefilter applied along each axis.
-fn spline_coefficients(data: &Array3<f64>) -> Array3<f64> {
+pub(crate) fn spline_coefficients(data: &Array3<f64>) -> Array3<f64> {
     let mut c = data.clone();
     for ax in 0..3 {
         let mut lanes: Vec<_> = c.lanes_mut(Axis(ax)).into_iter().collect();
@@ -283,7 +283,7 @@ pub(crate) fn inside(c: &[f64; 3], dims: [usize; 3]) -> bool {
 
 /// Cubic B-spline value at input voxel coordinate `c` (inside the grid) from the coefficients `coef`.
 #[inline]
-fn cubic_at(coef: &Array3<f64>, dims: [usize; 3], c: &[f64; 3]) -> f64 {
+pub(crate) fn cubic_at(coef: &Array3<f64>, dims: [usize; 3], c: &[f64; 3]) -> f64 {
     let mut idx = [[0usize; 4]; 3];
     let mut w = [[0.0; 4]; 3];
     for a in 0..3 {

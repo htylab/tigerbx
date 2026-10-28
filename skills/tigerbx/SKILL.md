@@ -25,7 +25,7 @@ Prefer the pipelines; use the modules only for a model's raw output or custom wo
 | Registration plans (`R` rigid, `A` affine, `V` VMnet, `D` VFA) | `tigerbx.reg('AD', input, output)` | — | `_affine`, `_VFA`, `_warp.npz` |
 | Regional embedding, volumes, TIV | `tigerbx.embed(input, output)` | — | `<stem>_embed.npz` |
 | What an image is (contrast, skull-stripped, EPI, orientation, truncation, motion score) | `tigerbx.inspect(input, output)` | `--inspect` | `inspect_summary.csv` |
-| EPI distortion from a reverse phase-encoding pair (AP/PA, LR/RL; topup-like), optionally a DWI/BOLD series | `tigerbx.duope(forward, reverse, output, series=...)` | — | `<input>_duope` (forward, reverse, series); `save_field=True`: `_duope_field` (Hz) |
+| EPI distortion from a reverse phase-encoding pair (AP/PA, LR/RL; topup-like), optionally a DWI/BOLD series | `tigerbx.duope(forward, reverse, output, series=...)` | `--duope fwd rev --series ...` | `<input>_duope` (forward, reverse, series); `save_field=True`: `_duope_field` (Hz) |
 | EPI / DTI distortion correction | `tigerbx.gdm(input, output)` | — | `_gdmi` (`dmap=True`: `_gdm`) |
 | Metrics (Dice, HD95, PSNR, SSIM, ...) | `tigerbx.eval(y_true, y_pred, metrics)` | — | dict |
 

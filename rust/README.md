@@ -31,6 +31,16 @@ box filter, Gaussian, block average and trilinear sampling), model (`inspect_v00
 `inspect_summary.csv` columns; `--detail` as `detail=True`. NaN / Inf voxels are reported and set to 0 for
 everything else. The summary matches Python cell for cell (`tests/rust_python_parity.py`).
 
+DuoPE (`--duope`, runs on its own, no model): a port of `tigerbx.duope` (same model, steps, constants, sidecar
+handling, outputs and `duope_summary.csv` columns; `tigerbx/core/duope.py`). The inputs are forward / reverse pairs;
+`--series` (one pair), `--pe`, `--readout`, `--series-pe`, `--no-series-align`, `--joint auto|yes|no`, `--save-field`,
+`--save-disp` as the Python arguments. 4D inputs are read and written volume by volume (a 657-volume BOLD series:
+0.2 GB). Against Python on real pairs (AP / PA and LR / RL, 3D / 4D, joint motion, series on the same and on another
+grid) the displacement differs by 0.001-0.003 voxel on average (p99 <= 0.05), the corrected images by <= 0.15%
+(relative), with the same joint decisions and series motion (`tests/duope_parity.py`); not bit for bit (FFT library,
+floating-point order, numreg's line search). Its rigid registration is `numreg::register_with` (dof 6, NCC, given
+masks); `register` (the template affine) is unchanged, bit for bit.
+
 `_norm` / `--affine` `_affine` intensities (`--intensity`, as `tigerbx.norm(intensity=...)`): `raw` (default; the
 input's units, any contrast), `minmax` ([0, 1]) or `gnorm`, a port of `tigerbx.core.tissuenorm.tissue_norm` (prior
 mode: GMM with the template tissue priors + bias field; background 0, CSF 1/3, GM 2/3, WM 1). `-A` alone writes the
@@ -78,6 +88,8 @@ tigerbx T1w.nii.gz --all                # --seg + --norm: _tbx, _tseg, _norm, _w
 tigerbx data/ -o out/ --inspect        # pipeline inspect: inspect_summary.csv (--detail: every value)
 tigerbx data/ -o tpl/ --template       # pipeline template of the inputs (--iters 6, --stat median, --skull-stripped,
                                        #   --contrast t1, --labels auto)
+tigerbx --duope ap.nii.gz pa.nii.gz -o out/ --series bold.nii.gz   # pipeline duope: <input>_duope, duope_summary.csv
+tigerbx --duope ap.nii.gz pa.nii.gz --pe AP --readout 0.05 --save-field  # no JSON sidecars; + _duope_field (Hz)
 tigerbx data/ -o out/ --seg -m          # output options add to a pipeline: + _tbxmask
 tigerbx data/*.nii.gz -o out/ -m        # single outputs: -b _tbx, -m _tbxmask, -t _tseg, -d _dgm, -A _affine, -n _norm
 tigerbx data/ -o out/ -t -A -j 8        # TSEG + _affine only, 8 intra-op threads (default: 70% of the available CPUs)

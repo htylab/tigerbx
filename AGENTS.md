@@ -16,6 +16,7 @@ Current baseline:
 - `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `embed`, `gdm`, `eval`, `validate`)
 - `tigerbx/pipelines/vbm.py`: VBM pipeline (separate from `reg`)
 - `tigerbx/pipelines/duope.py` + `tigerbx/core/duope.py`: EPI distortion from a reverse phase-encoding pair
+  (executable: `rust/src/duope.rs`, `duope_pipe.rs`; `tests/duope_parity.py`)
 - `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers; `core/models.py` the default models and sha256
 - `rust/`: the stand-alone `tigerbx` executable (tBX, TSEG, template normalisation; see `rust/README.md`)
 - `tests/run_and_compare.py`: primary integration/regression runner

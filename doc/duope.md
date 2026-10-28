@@ -39,6 +39,10 @@ contradict the `dir-` label. For a reverse pair the corrected images are the sam
 field output changes. The summary CSV lists the anatomical direction used for the forward scan (`forward_direction`)
 so that it can be checked.
 
+The stand-alone executable runs the same pipeline (`tigerbx --duope FORWARD REVERSE [FORWARD REVERSE ...]`, options
+`--series`, `--pe`, `--readout`, `--series-pe`, `--no-series-align`, `--joint`, `--save-field`, `--save-disp`; see
+[rust/README.md](../rust/README.md)), with the same outputs and summary.
+
 ## Outputs
 
 By default only the corrected images, each named after its input:

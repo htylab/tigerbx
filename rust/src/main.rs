@@ -1,5 +1,7 @@
 mod bx;
 mod inference;
+mod duope;
+mod duope_pipe;
 mod inspect;
 mod nifti_io;
 mod npz;
@@ -27,7 +29,7 @@ static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_tem
 static EMBEDDED_TEMPLATE_TSEG: &[u8] = include_bytes!("../../tigerbx/template/mni_template_tseg.nii.gz");
 
 /// Postfixes TigerBx writes; inputs ending in one of them are earlier outputs, not new images.
-const OUTPUT_POSTFIXES: [&str; 6] = ["tbx", "tbxmask", "tseg", "dgm", "affine", "norm"];
+const OUTPUT_POSTFIXES: [&str; 9] = ["tbx", "tbxmask", "tseg", "dgm", "affine", "norm", "duope", "duope_field", "duope_disp"];
 
 /// tigerbx — TigerBx brain extraction, TSEG and template registration as a native executable
 ///
@@ -36,6 +38,7 @@ const OUTPUT_POSTFIXES: [&str; 6] = ["tbx", "tbxmask", "tseg", "dgm", "affine", 
 ///   tigerbx data/*.nii.gz -o output_dir --seg
 ///   tigerbx data/T1w_dir -o results/ -t -A
 ///   tigerbx data/ -o results/ --inspect     (inspect_summary.csv: what each image is)
+///   tigerbx --duope ap.nii.gz pa.nii.gz -o out/ --series bold.nii.gz   (EPI distortion correction)
 #[derive(Parser, Debug)]
 #[command(version, verbatim_doc_comment, about = "TigerBx tBX, TSEG and template registration using ONNX Runtime (no option: _tbx)")]
 struct Args {
@@ -147,6 +150,46 @@ struct Args {
     #[arg(long)]
     vfa_model: Option<PathBuf>,
 
+    /// Pipeline duope: EPI susceptibility distortion correction from reverse phase-encoding pairs (inputs: FORWARD
+    /// REVERSE [FORWARD REVERSE ...]): <input>_duope for both scans and each --series, duope_summary.csv (as
+    /// tigerbx.duope); runs on its own, no model
+    #[arg(long)]
+    duope: bool,
+
+    /// With --duope: a DWI / BOLD series (any grid) to correct with the field; repeatable, one pair only
+    #[arg(long)]
+    series: Vec<PathBuf>,
+
+    /// With --duope: the forward scan's phase-encoding direction without a JSON sidecar: i, i-, j, j-, k, k- or
+    /// AP, PA, LR, RL, IS, SI (from -> to, through the affine); the reverse scan is the opposite
+    #[arg(long)]
+    pe: Option<String>,
+
+    /// With --duope: the forward scan's total readout time (s) without a JSON sidecar
+    #[arg(long)]
+    readout: Option<f64>,
+
+    /// With --duope: a series' phase-encoding direction without a JSON sidecar (one for all, or one per --series;
+    /// default: the forward scan's)
+    #[arg(long)]
+    series_pe: Vec<String>,
+
+    /// With --duope: do not move the field to each series' head position (rigid registration of its b0 / mean)
+    #[arg(long)]
+    no_series_align: bool,
+
+    /// With --duope: field and motion jointly (auto: when the motion between the scans exceeds 1 mm / 1 degree)
+    #[arg(long, value_enum, default_value_t = JointMode::Auto)]
+    joint: JointMode,
+
+    /// With --duope: also write <forward>_duope_field, the field in Hz (needs the readout time)
+    #[arg(long)]
+    save_field: bool,
+
+    /// With --duope: also write <forward>_duope_disp, the forward scan's displacement in voxels
+    #[arg(long)]
+    save_disp: bool,
+
     /// Inspect ONNX model file (default: embedded inspect_v003)
     #[arg(long)]
     inspect_model: Option<PathBuf>,
@@ -164,6 +207,14 @@ struct Args {
     /// ONNX Runtime intra-op threads (default: 70% of available CPUs)
     #[arg(short = 'j', long)]
     threads: Option<usize>,
+}
+
+/// Joint field + motion estimation of the duope pipeline.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+enum JointMode {
+    Auto,
+    Yes,
+    No,
 }
 
 /// Voxel-wise statistic of the template pipeline.
@@ -260,6 +311,33 @@ fn init_onnxruntime() -> Result<Option<PathBuf>> {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    if args.duope {
+        let others = args.seg || args.norm || args.affine || args.all || args.tbx || args.tbxmask || args.tseg
+            || args.dgm || args.affine_out || args.norm_out || args.template || args.inspect || args.check;
+        if others {
+            bail!("--duope runs on its own; run the other pipelines / outputs separately");
+        }
+        let settings = duope_pipe::Settings {
+            output: args.output.clone(),
+            series: args.series.clone(),
+            pe: args.pe.clone(),
+            readout: args.readout,
+            series_pe: args.series_pe.clone(),
+            series_align: !args.no_series_align,
+            joint: match args.joint {
+                JointMode::Auto => None,
+                JointMode::Yes => Some(true),
+                JointMode::No => Some(false),
+            },
+            save_field: args.save_field,
+            save_disp: args.save_disp,
+        };
+        return duope_pipe::run(&args.inputs, &settings);
+    }
+    if !args.series.is_empty() || args.pe.is_some() || args.readout.is_some() || !args.series_pe.is_empty()
+        || args.no_series_align || args.save_field || args.save_disp || args.joint != JointMode::Auto {
+        bail!("--series / --pe / --readout / --series-pe / --no-series-align / --joint / --save-field / --save-disp go with --duope");
+    }
     let ort_lib = init_onnxruntime()?;
     if args.check {
         return run_check(&args, ort_lib.as_deref());

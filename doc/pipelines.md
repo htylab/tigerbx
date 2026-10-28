@@ -14,7 +14,7 @@ accurate is done in the pipelines.
 | `vbm`    | `tigerbx.vbm(...)`    | — | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
 | `template` | `tigerbx.template(...)` | `--template` | `template`, `template_mask`, `template_tseg`, `template_log.json` |
 | `inspect` | `tigerbx.inspect(...)` | `--inspect` | `inspect_summary.csv` (what each image is; [inspect](inspect.md)) |
-| `duope` | `tigerbx.duope(forward, reverse, ...)` | — | `<input>_duope` for forward, reverse and series, `duope_summary.csv` (EPI distortion from a reverse phase-encoding pair; [duope](duope.md)) |
+| `duope` | `tigerbx.duope(forward, reverse, ...)` | `--duope` | `<input>_duope` for forward, reverse and series, `duope_summary.csv` (EPI distortion from a reverse phase-encoding pair; [duope](duope.md)) |
 
 Common arguments: `input` (a NIfTI file, a directory, a glob pattern or a list), `output` (output directory;
 `None` writes next to each input), `gpu`, `gz` (`.nii.gz` outputs), `model` (model overrides), `verbose`. A single

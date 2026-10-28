@@ -1,5 +1,6 @@
 //! Affine registration, a port of TigerBx `tigerbx/core/numreg.py` (`register`, dof = 12):
 //! Mattes mutual information, symmetric (forward + inverse) cost, 6 / 3 / 1.5 mm pyramid, L-BFGS, multi-start.
+//! `register_with` takes numreg's other options (levels, starts, NCC, rigid dof = 6, given masks; duope).
 //!
 //! Transforms are 4x4 world (RAS, mm) matrices M mapping a FIXED world point to the MOVING point it pulls from:
 //! y_moving = M x_fixed. Results agree with numreg closely but not bit for bit: the 1.5 mm level draws its sample
@@ -21,6 +22,21 @@ const R_SCALE: f64 = 50.0;
 const N_STARTS: usize = 5;
 /// Start rotations about each axis (degrees) on top of the centre-of-mass start, numreg START_DEGREES.
 const START_DEGREES: [f64; 4] = [-45.0, -20.0, 20.0, 45.0];
+
+/// One pyramid level: (step mm, sample fraction, max L-BFGS iterations, band margin mm, band weight).
+pub type LevelSpec = (f64, f64, usize, f64, f64);
+
+/// numreg.register options other than the defaults of `register`.
+pub struct Options<'a> {
+    pub levels: &'a [LevelSpec],
+    pub n_starts: usize,
+    /// NCC instead of Mattes MI
+    pub ncc: bool,
+    /// dof = 6 (rotation + translation) instead of 12
+    pub rigid: bool,
+    pub moving_mask: Option<&'a Array3<bool>>,
+    pub fixed_mask: Option<&'a Array3<bool>>,
+}
 
 // ── small linear algebra ──────────────────────────────────────────────────────
 
@@ -161,8 +177,8 @@ struct Level {
 }
 
 /// numreg `_pyramid`: one level per step (finest first), each from the next finer one.
-fn pyramid(data: &Array3<f64>, mask: &Array3<bool>, aff: &Mat4) -> Vec<(f64, Level)> {
-    let mut steps: Vec<f64> = LEVELS.iter().map(|l| l.0).collect();
+fn pyramid(data: &Array3<f64>, mask: &Array3<bool>, aff: &Mat4, levels: &[LevelSpec]) -> Vec<(f64, Level)> {
+    let mut steps: Vec<f64> = levels.iter().map(|l| l.0).collect();
     steps.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let mut cur_d = data.clone();
     let mut cur_m = mask.mapv(|b| b as u8 as f64);
@@ -368,6 +384,44 @@ impl Mi {
     }
 }
 
+/// numreg `_NCC`: global normalised cross-correlation (maximised).
+struct Ncc {
+    w: Vec<f64>,
+    f: Vec<f64>,
+}
+
+impl Ncc {
+    fn new(f: &[f64], w: &[f64]) -> Ncc {
+        let mean: f64 = w.iter().zip(f).map(|(a, b)| a * b).sum();
+        let fc: Vec<f64> = f.iter().map(|v| v - mean).collect();
+        let sd = w.iter().zip(&fc).map(|(a, b)| a * b * b).sum::<f64>().sqrt() + 1e-8;
+        Ncc { w: w.to_vec(), f: fc.iter().map(|v| v / sd).collect() }
+    }
+
+    fn eval(&self, m: &[f64]) -> (f64, Vec<f64>) {
+        let (w, f) = (&self.w, &self.f);
+        let mean: f64 = w.iter().zip(m).map(|(a, b)| a * b).sum();
+        let mc: Vec<f64> = m.iter().map(|v| v - mean).collect();
+        let sm = w.iter().zip(&mc).map(|(a, b)| a * b * b).sum::<f64>().sqrt() + 1e-8;
+        let ncc = (0..m.len()).map(|i| w[i] * f[i] * mc[i]).sum::<f64>() / sm;
+        (ncc, (0..m.len()).map(|i| w[i] * (f[i] - ncc * mc[i] / sm) / sm).collect())
+    }
+}
+
+enum Metric {
+    Mi(Mi),
+    Ncc(Ncc),
+}
+
+impl Metric {
+    fn eval(&self, m: &[f64]) -> (f64, Vec<f64>) {
+        match self {
+            Metric::Mi(x) => x.eval(m),
+            Metric::Ncc(x) => x.eval(m),
+        }
+    }
+}
+
 // ── cost and optimiser ───────────────────────────────────────────────────────
 
 type P12 = [f64; 12];
@@ -400,7 +454,7 @@ fn m_to_params(m: &Mat4, c: &V3) -> P12 {
 struct Term<'a> {
     x: &'a [V3],
     vol: &'a Vol,
-    mi: &'a Mi,
+    mi: &'a Metric,
 }
 
 /// Points per parallel chunk of the sums; chunk partial sums are added in order (deterministic results).
@@ -472,16 +526,16 @@ fn cost(p: &P12, c: &V3, fwd: &Term, inv: Option<&Term>) -> (f64, P12) {
     (-0.5 * (val + vb), grad)
 }
 
-fn dot(a: &P12, b: &P12) -> f64 {
-    (0..12).map(|i| a[i] * b[i]).sum()
+fn dot<const N: usize>(a: &[f64; N], b: &[f64; N]) -> f64 {
+    (0..N).map(|i| a[i] * b[i]).sum()
 }
 
 /// L-BFGS (memory 10) with a strong-Wolfe line search (c1 = 1e-3, c2 = 0.9, <= 20 evaluations), stopping as
 /// scipy's L-BFGS-B without bounds: max |g| <= 1e-5, relative decrease <= 2.2e-9, or `maxiter` iterations.
-fn lbfgs<F: Fn(&P12) -> (f64, P12)>(f: &F, x0: P12, maxiter: usize) -> (f64, P12) {
+fn lbfgs<const N: usize, F: Fn(&[f64; N]) -> (f64, [f64; N])>(f: &F, x0: [f64; N], maxiter: usize) -> (f64, [f64; N]) {
     let mut x = x0;
     let (mut fx, mut g) = f(&x);
-    let mut hist: Vec<(P12, P12)> = Vec::new();
+    let mut hist: Vec<([f64; N], [f64; N])> = Vec::new();
     for it in 0..maxiter {
         if g.iter().fold(0.0f64, |a, v| a.max(v.abs())) <= 1e-5 {
             break;
@@ -492,7 +546,7 @@ fn lbfgs<F: Fn(&P12) -> (f64, P12)>(f: &F, x0: P12, maxiter: usize) -> (f64, P12
         for (k, (s, y)) in hist.iter().enumerate().rev() {
             let rho = 1.0 / dot(y, s);
             alpha[k] = rho * dot(s, &q);
-            for i in 0..12 {
+            for i in 0..N {
                 q[i] -= alpha[k] * y[i];
             }
         }
@@ -503,7 +557,7 @@ fn lbfgs<F: Fn(&P12) -> (f64, P12)>(f: &F, x0: P12, maxiter: usize) -> (f64, P12
         for (k, (s, y)) in hist.iter().enumerate() {
             let rho = 1.0 / dot(y, s);
             let beta = rho * dot(y, &q);
-            for i in 0..12 {
+            for i in 0..N {
                 q[i] += s[i] * (alpha[k] - beta);
             }
         }
@@ -516,8 +570,8 @@ fn lbfgs<F: Fn(&P12) -> (f64, P12)>(f: &F, x0: P12, maxiter: usize) -> (f64, P12
         }
         let a0 = if it == 0 { 1.0 / dot(&d, &d).sqrt() } else { 1.0 };
         let Some((xn, fnew, gn)) = line_search(f, &x, fx, &d, dphi0, a0) else { break };
-        let s: P12 = std::array::from_fn(|i| xn[i] - x[i]);
-        let y: P12 = std::array::from_fn(|i| gn[i] - g[i]);
+        let s: [f64; N] = std::array::from_fn(|i| xn[i] - x[i]);
+        let y: [f64; N] = std::array::from_fn(|i| gn[i] - g[i]);
         if dot(&s, &y) > f64::EPSILON * dot(&y, &y) {
             hist.push((s, y));
             if hist.len() > 10 {
@@ -535,12 +589,13 @@ fn lbfgs<F: Fn(&P12) -> (f64, P12)>(f: &F, x0: P12, maxiter: usize) -> (f64, P12
     (fx, x)
 }
 
-fn line_search<F: Fn(&P12) -> (f64, P12)>(f: &F, x: &P12, f0: f64, d: &P12, dphi0: f64, a0: f64) -> Option<(P12, f64, P12)> {
+#[allow(clippy::type_complexity)]
+fn line_search<const N: usize, F: Fn(&[f64; N]) -> (f64, [f64; N])>(f: &F, x: &[f64; N], f0: f64, d: &[f64; N], dphi0: f64, a0: f64) -> Option<([f64; N], f64, [f64; N])> {
     const C1: f64 = 1e-3;
     const C2: f64 = 0.9;
     const MAX_EVAL: usize = 20;
     let eval = |a: f64| {
-        let xa: P12 = std::array::from_fn(|i| x[i] + a * d[i]);
+        let xa: [f64; N] = std::array::from_fn(|i| x[i] + a * d[i]);
         let (fa, ga) = f(&xa);
         (xa, fa, ga)
     };
@@ -549,7 +604,7 @@ fn line_search<F: Fn(&P12) -> (f64, P12)>(f: &F, x: &P12, f0: f64, d: &P12, dphi
     let mut a = a0;
     let mut a_hi;
     let mut f_hi;
-    let mut best: Option<(P12, f64, P12)> = None;
+    let mut best: Option<([f64; N], f64, [f64; N])> = None;
     loop {
         let (xa, fa, ga) = eval(a);
         n += 1;
@@ -616,6 +671,42 @@ fn line_search<F: Fn(&P12) -> (f64, P12)>(f: &F, x: &P12, f0: f64, d: &P12, dphi
     best
 }
 
+/// scipy Rotation.from_rotvec(w).as_matrix() (Rodrigues).
+pub fn rotvec_to_matrix(w: &V3) -> [[f64; 3]; 3] {
+    let t = (w[0] * w[0] + w[1] * w[1] + w[2] * w[2]).sqrt();
+    let (a, b) = if t < 1e-6 { (1.0 - t * t / 6.0, 0.5 - t * t / 24.0) } else { (t.sin() / t, (1.0 - t.cos()) / (t * t)) };
+    let k = [[0.0, -w[2], w[1]], [w[2], 0.0, -w[0]], [-w[1], w[0], 0.0]];
+    std::array::from_fn(|i| {
+        std::array::from_fn(|j| (i == j) as u8 as f64 + a * k[i][j] + b * (0..3).map(|l| k[i][l] * k[l][j]).sum::<f64>())
+    })
+}
+
+/// scipy Rotation.from_matrix(r).as_rotvec() (through the quaternion, the scalar part kept >= 0).
+pub fn matrix_to_rotvec(r: &[[f64; 3]; 3]) -> V3 {
+    let tr = r[0][0] + r[1][1] + r[2][2];
+    let q = if tr > r[0][0].max(r[1][1]).max(r[2][2]) {
+        let s = (1.0 + tr).sqrt() * 2.0;
+        [(r[2][1] - r[1][2]) / s, (r[0][2] - r[2][0]) / s, (r[1][0] - r[0][1]) / s, 0.25 * s]
+    } else if r[0][0] >= r[1][1] && r[0][0] >= r[2][2] {
+        let s = (1.0 + r[0][0] - r[1][1] - r[2][2]).sqrt() * 2.0;
+        [0.25 * s, (r[0][1] + r[1][0]) / s, (r[0][2] + r[2][0]) / s, (r[2][1] - r[1][2]) / s]
+    } else if r[1][1] >= r[2][2] {
+        let s = (1.0 + r[1][1] - r[0][0] - r[2][2]).sqrt() * 2.0;
+        [(r[0][1] + r[1][0]) / s, 0.25 * s, (r[1][2] + r[2][1]) / s, (r[0][2] - r[2][0]) / s]
+    } else {
+        let s = (1.0 + r[2][2] - r[0][0] - r[1][1]).sqrt() * 2.0;
+        [(r[0][2] + r[2][0]) / s, (r[1][2] + r[2][1]) / s, 0.25 * s, (r[1][0] - r[0][1]) / s]
+    };
+    let sign = if q[3] < 0.0 { -1.0 } else { 1.0 };
+    let v = [q[0] * sign, q[1] * sign, q[2] * sign];
+    let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    if n < 1e-12 {
+        return [2.0 * v[0], 2.0 * v[1], 2.0 * v[2]];
+    }
+    let angle = 2.0 * n.atan2(q[3] * sign);
+    v.map(|x| x / n * angle)
+}
+
 fn rot(ax: usize, deg: f64) -> [[f64; 3]; 3] {
     let t = deg.to_radians();
     let (c, s) = (t.cos(), t.sin());
@@ -672,21 +763,48 @@ fn fixed_prep(fdata: &Array3<f64>, faff: &Mat4) -> std::sync::Arc<Fixed> {
     let fmin = fdata.iter().zip(fmask.iter()).filter(|(_, &m)| m).map(|(&v, _)| v).fold(f64::INFINITY, f64::min);
     let fd = ndarray::Zip::from(fdata).and(&fmask).map_collect(|&v, &m| if m { v - fmin } else { 0.0 });
     let (cf, vf) = com(&fmask, faff);
-    let f = std::sync::Arc::new(Fixed { key, cf, vf, pyr: pyramid(&fd, &fmask, faff) });
+    let f = std::sync::Arc::new(Fixed { key, cf, vf, pyr: pyramid(&fd, &fmask, faff, &LEVELS) });
     *cache = Some(f.clone());
     f
 }
 
 pub fn register(mdata: &Array3<f64>, maff: &Mat4, fdata: &Array3<f64>, faff: &Mat4) -> Mat4 {
-    let mut rng = Rng(0);
     let fx = fixed_prep(fdata, faff);
+    let opts = Options { levels: &LEVELS, n_starts: N_STARTS, ncc: false, rigid: false, moving_mask: None, fixed_mask: None };
+    register_core(mdata, maff, &fx, &opts)
+}
+
+/// numreg.register(moving, fixed, moving_mask, fixed_mask, levels, n_starts, metric, dof) for the options given;
+/// symmetric on every level, centre-of-mass start (no fixed-side cache).
+pub fn register_with(mdata: &Array3<f64>, maff: &Mat4, fdata: &Array3<f64>, faff: &Mat4, opts: &Options) -> Mat4 {
+    let fmask = match opts.fixed_mask {
+        Some(m) => m.clone(),
+        None => {
+            let fmin_all = fdata.iter().cloned().fold(f64::INFINITY, f64::min);
+            fdata.mapv(|v| v > fmin_all)
+        }
+    };
+    let fmin = fdata.iter().zip(fmask.iter()).filter(|(_, &m)| m).map(|(&v, _)| v).fold(f64::INFINITY, f64::min);
+    let fd = ndarray::Zip::from(fdata).and(&fmask).map_collect(|&v, &m| if m { v - fmin } else { 0.0 });
+    let (cf, vf) = com(&fmask, faff);
+    let fx = Fixed { key: (0, 0, [0; 16]), cf, vf, pyr: pyramid(&fd, &fmask, faff, opts.levels) };
+    register_core(mdata, maff, &fx, opts)
+}
+
+fn register_core(mdata: &Array3<f64>, maff: &Mat4, fx: &Fixed, opts: &Options) -> Mat4 {
+    let mut rng = Rng(0);
     let (cf, vf, fpyr) = (fx.cf, fx.vf, &fx.pyr);
 
     // moving: crop to the mask bounding box + 10 mm
     // brain = above 1e-3 of the 99th percentile (numreg): a spline-resampled skull-stripped image leaves ~1e-45
     // values outside the brain, which would make the mask the whole field of view
-    let thr = 1e-3 * percentile(mdata.iter().cloned().filter(|&v| v > 0.0).collect(), 99.0);
-    let mmask = mdata.mapv(|v| v > thr);
+    let mmask = match opts.moving_mask {
+        Some(m) => m.clone(),
+        None => {
+            let thr = 1e-3 * percentile(mdata.iter().cloned().filter(|&v| v > 0.0).collect(), 99.0);
+            mdata.mapv(|v| v > thr)
+        }
+    };
     let (mut lo, mut hi) = ([usize::MAX; 3], [0usize; 3]);
     for ((i, j, k), &m) in mmask.indexed_iter() {
         if m {
@@ -710,16 +828,20 @@ pub fn register(mdata: &Array3<f64>, maff: &Mat4, fdata: &Array3<f64>, faff: &Ma
     for i in 0..3 {
         maff_c[i][3] = (0..3).map(|j| maff[i][j] * lo[j] as f64).sum::<f64>() + maff[i][3];
     }
-    let mpyr = pyramid(&mdata_c, &mmask_c, &maff_c);
+    let mpyr = pyramid(&mdata_c, &mmask_c, &maff_c, opts.levels);
 
-    // initialisation: centre of mass + isotropic volume scaling, START_DEGREES rotations about each axis
+    // initialisation: centre of mass + isotropic volume scaling (none for rigid), START_DEGREES rotations about each
+    // axis when more than one start is kept
     let (cm, vm) = com(&mmask_c, &maff_c);
-    let s = (vm / vf).powf(1.0 / 3.0);
+    let s = if opts.rigid { 1.0 } else { (vm / vf).powf(1.0 / 3.0) };
     let c = cf;
     let base = [[s, 0.0, 0.0], [0.0, s, 0.0], [0.0, 0.0, s]];
     let mut inits = vec![base];
     for ax in 0..3 {
         for deg in START_DEGREES {
+            if opts.n_starts < 2 {
+                break;
+            }
             let r = rot(ax, deg);
             inits.push(std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| base[i][k] * r[k][j]).sum())));
         }
@@ -740,33 +862,85 @@ pub fn register(mdata: &Array3<f64>, maff: &Mat4, fdata: &Array3<f64>, faff: &Ma
         .collect();
 
     let positive = |a: &Array3<f64>| a.iter().cloned().filter(|&v| v > 0.0).collect::<Vec<f64>>();
-    let mut best = [0.0; 12];
-    for (li, &(step, frac, iters, margin, edge_w)) in LEVELS.iter().enumerate() {
+    let metric = |f: &[f64], w: &[f64], vals: &Array3<f64>| {
+        if opts.ncc { Metric::Ncc(Ncc::new(f, w)) } else { Metric::Mi(Mi::new(f, w, percentile(positive(vals), 99.5))) }
+    };
+    let mut best12 = [0.0; 12];
+    let mut best6 = [0.0; 6];
+    for (li, &(step, frac, iters, margin, edge_w)) in opts.levels.iter().enumerate() {
         let (fl, ml) = (level(fpyr, step), level(&mpyr, step));
         let (x, f, w) = samples(fl, margin, frac, &mut rng, edge_w);
         let vol = Vol::new(&ml.data, &ml.aff);
-        let mi = Mi::new(&f, &w, percentile(positive(&ml.data), 99.5));
+        let mi = metric(&f, &w, &ml.data);
         let fwd = Term { x: &x, vol: &vol, mi: &mi };
-        let back = SYM_LEVELS[li].then(|| {
+        let back = SYM_LEVELS.get(li).copied().unwrap_or(true).then(|| {
             let (yb, fb, wb) = samples(ml, margin, frac, &mut rng, edge_w);
             let fvol = Vol::new(&fl.data, &fl.aff);
-            let mib = Mi::new(&fb, &wb, percentile(positive(&fl.data), 99.5));
+            let mib = metric(&fb, &wb, &fl.data);
             (yb, fvol, mib)
         });
         let inv = back.as_ref().map(|(yb, fvol, mib)| Term { x: yb, vol: fvol, mi: mib });
         let fobj = |p: &P12| cost(p, &c, &fwd, inv.as_ref());
-        let starts: Vec<P12> = if li == 0 {
-            let mut cands: Vec<(f64, P12)> = m0s.par_iter().map(|m| lbfgs(&fobj, m_to_params(m, &c), 15)).collect();
-            cands.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            cands.into_iter().take(N_STARTS).map(|(_, p)| p).collect()
+        if opts.rigid {
+            let fq = |q: &[f64; 6]| rigid_cost(q, &fobj);
+            best6 = optimise(&fq, li, &m0s.iter().map(|m| rigid_enc(m, &c)).collect::<Vec<_>>(), best6, iters, opts.n_starts);
         } else {
-            vec![best]
-        };
-        let mut res: Vec<(f64, P12)> = starts.into_par_iter().map(|p0| lbfgs(&fobj, p0, iters)).collect();
-        res.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        best = res[0].1;
+            best12 = optimise(&fobj, li, &m0s.iter().map(|m| m_to_params(m, &c)).collect::<Vec<_>>(), best12, iters, opts.n_starts);
+        }
     }
-    params_to_m(&best, &c)
+    params_to_m(&if opts.rigid { rigid_dec(&best6) } else { best12 }, &c)
+}
+
+/// One level: on the first, 15 L-BFGS iterations from every start and the best `n_starts` go on; then `iters`.
+fn optimise<const N: usize, F: Fn(&[f64; N]) -> (f64, [f64; N]) + Sync>(f: &F, li: usize, inits: &[[f64; N]], best: [f64; N], iters: usize, n_starts: usize) -> [f64; N] {
+    let starts: Vec<[f64; N]> = if li == 0 {
+        let mut cands: Vec<(f64, [f64; N])> = inits.par_iter().map(|p| lbfgs(f, *p, 15)).collect();
+        cands.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        cands.into_iter().take(n_starts.max(1)).map(|(_, p)| p).collect()
+    } else {
+        vec![best]
+    };
+    let mut res: Vec<(f64, [f64; N])> = starts.into_par_iter().map(|p0| lbfgs(f, p0, iters)).collect();
+    res.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    res[0].1
+}
+
+// numreg `_rigid_param_maps`: q = (rotation vector * R_SCALE, translation) on top of the affine parameters
+fn rigid_rot(q: &[f64; 6], e: V3) -> [[f64; 3]; 3] {
+    rotvec_to_matrix(&[0, 1, 2].map(|i| (q[i] + e[i]) / R_SCALE))
+}
+
+fn rigid_enc(m: &Mat4, c: &V3) -> [f64; 6] {
+    let a = [[m[0][0], m[0][1], m[0][2]], [m[1][0], m[1][1], m[1][2]], [m[2][0], m[2][1], m[2][2]]];
+    let w = matrix_to_rotvec(&a);
+    let t: V3 = std::array::from_fn(|i| m[i][3] - c[i] + (0..3).map(|j| a[i][j] * c[j]).sum::<f64>());
+    [w[0] * R_SCALE, w[1] * R_SCALE, w[2] * R_SCALE, t[0], t[1], t[2]]
+}
+
+fn rigid_dec(q: &[f64; 6]) -> P12 {
+    let r = rigid_rot(q, [0.0; 3]);
+    let mut p = [0.0; 12];
+    for i in 0..3 {
+        for j in 0..3 {
+            p[3 * i + j] = (r[i][j] - (i == j) as u8 as f64) * R_SCALE;
+        }
+        p[9 + i] = q[3 + i];
+    }
+    p
+}
+
+fn rigid_cost<F: Fn(&P12) -> (f64, P12)>(q: &[f64; 6], f: &F) -> (f64, [f64; 6]) {
+    let (val, g) = f(&rigid_dec(q));
+    let mut gq = [0.0; 6];
+    gq[3..].copy_from_slice(&g[9..]);
+    for i in 0..3 {
+        // dA / dq_i by central differences (3 x 3 only)
+        let mut e = [0.0; 3];
+        e[i] = 1e-4;
+        let (hi, lo) = (rigid_rot(q, e), rigid_rot(q, e.map(|v| -v)));
+        gq[i] = (0..9).map(|k| g[k] * R_SCALE * (hi[k / 3][k % 3] - lo[k / 3][k % 3]) / 2e-4).sum();
+    }
+    (val, gq)
 }
 
 #[cfg(test)]
