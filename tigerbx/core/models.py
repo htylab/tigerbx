@@ -16,7 +16,8 @@ VFA = 'mprage_reg_v005_vfa.onnx'
 VMNET = 'mprage_reg_v003_train.onnx'          # reg plan V
 AFFINE_NET = 'mprage_affine_v002_train.onnx'  # affine_type 'C2FViT'
 EMBED = 'mprage_embed_v001_vfa.onnx'
-GDM = 'vdm_unet3d_v002.onnx'
+# _opt: v002 with staged GroupNorm statistics (onnx_optimize): faster, and the CPU gives the GPU's result
+GDM = 'vdm_unet3d_v002_opt.onnx'
 INSPECT = 'inspect_v003.onnx'
 
 SHA256 = {
@@ -32,4 +33,5 @@ SHA256 = {
     'mprage_tbx_v005_opt.onnx': '1fdb8ef2c36d1e2dc90e8987e4a9898d6399bb5f3b616d698bb5d192c8e5afa8',
     'mprage_tseg_v0011_opt.onnx': '67b7f553dfd99363f3f89268536986d24d1b79e9ce60760dc4e0ee969f755fe2',
     'vdm_unet3d_v002.onnx': '9357b40da479f4dc85efe2616cab02ad5ffe7f238221070a3769d767a968a97f',
+    'vdm_unet3d_v002_opt.onnx': '230265338c5b9bf22bb0c38aeda2522969523368b02149f7ef441aa9c3005535',
 }

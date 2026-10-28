@@ -36,24 +36,20 @@ def test_gdm_single_and_multiple_return_contracts(work_dir, monkeypatch):
     _write_nifti(second, data)
 
     monkeypatch.setattr(gdmi.lib_tool, 'get_model', lambda name: name)
-    monkeypatch.setattr(gdmi, 'run', lambda *args, **kwargs: (data, data))
+    monkeypatch.setattr(gdmi, 'create_session', lambda model, gpu: None)
+    monkeypatch.setattr(gdmi, 'correct', lambda *args, **kwargs: (data, data))
 
-    base_args = dict(output=output_dir, b0_index='0', dmap=True,
-                     no_resample=False, gpu=False, verbose=0)
-    single = gdmi.run_args(SimpleNamespace(input=[first], **base_args))
-    multiple = gdmi.run_args(SimpleNamespace(input=[first, second], **base_args))
+    single = gdmi.gdm(first, output_dir, dmap=True)
+    multiple = gdmi.gdm([first, second], output_dir, dmap=True)
 
     assert isinstance(single['gdmi'], nib.spatialimages.SpatialImage)
     assert isinstance(single['gdm'], nib.spatialimages.SpatialImage)
     assert len(multiple) == 2
-    assert all(isinstance(item['gdmi'], str) for item in multiple)
+    assert all(isinstance(item['gdmi'], str) and os.path.exists(item['gdm']) for item in multiple)
 
 
 def test_gdm_accepts_empty_inputs():
-    gdm_args = SimpleNamespace(input=[], output=None, b0_index='0', dmap=False,
-                               no_resample=False, gpu=False, verbose=0)
-
-    assert gdmi.run_args(gdm_args) == []
+    assert gdmi.gdm([]) == []
 
 
 def test_bx_rejects_empty_tbx_mask(monkeypatch):

@@ -15,7 +15,7 @@ import numpy as np
 # (wmh / syn / cgw_pve* of bx flags W / S / C, the HLC CSF / GM / WM) stay listed so older outputs are still skipped.
 OUTPUT_POSTFIXES = ('tbx', 'tbxmask', 'tseg', 'dgm', 'wmh', 'syn', 'ct', 'cgw_pve0', 'cgw_pve1', 'cgw_pve2',
                     'pve_csf', 'pve_gm', 'pve_wm',
-                    'hlc', 'CSF', 'GM', 'WM', 'reg', 'rigid', 'Af', 'Fuse', 'SmoothedGM', 'ModulatedGM', 'gdm',
+                    'hlc', 'CSF', 'GM', 'WM', 'reg', 'rigid', 'Af', 'Fuse', 'SmoothedGM', 'ModulatedGM', 'gdm', 'gdmi',
                     'affine', 'VXM', 'VFA', 'norm')   # reg/Af/Fuse: names used before 0.3
 
 
@@ -126,81 +126,6 @@ def load_nifti(path):
     header.set_slope_inter(1, 0)
     header.set_data_dtype(np.float32)
     return img.__class__(np.where(bad, 0, data).astype(np.float32), img.affine, header)
-
-
-def format_output_path(input_file, output_dir, postfix, suffix=".nii.gz"):
-    base = basename(input_file).replace(".nii.gz", "").replace(".nii", "")
-    return join(output_dir, f"{base}_{postfix}{suffix}")
-
-
-def _pick_output_dtype(vol_out, reference_dtype):
-    if np.size(vol_out) == 0 or not np.all(np.isfinite(vol_out)):
-        return None
-
-    data_min = np.min(vol_out)
-    data_max = np.max(vol_out)
-    if np.issubdtype(reference_dtype, np.integer):
-        dtype_info = np.iinfo(reference_dtype)
-        if data_min < dtype_info.min or data_max > dtype_info.max:
-            return None
-        return reference_dtype
-    if np.issubdtype(reference_dtype, np.floating):
-        dtype_info = np.finfo(reference_dtype)
-        if data_min < dtype_info.min or data_max > dtype_info.max:
-            return None
-        return reference_dtype
-    return reference_dtype
-
-
-def set_output_zooms(result_img, reference_nib):
-    out_ndim = len(result_img.shape)
-    header_zooms = result_img.header.get_zooms()
-    ref_zooms = reference_nib.header.get_zooms()
-    out_zooms = tuple(ref_zooms[:out_ndim])
-    if len(out_zooms) < out_ndim:
-        out_zooms = out_zooms + tuple(header_zooms[len(out_zooms) : out_ndim])
-    result_img.header.set_zooms(out_zooms)
-
-
-def create_nifti_from_array(vol_out, reference_nib, dtype_override=None):
-    dtype = dtype_override
-    if dtype is None:
-        dtype = _pick_output_dtype(vol_out, reference_nib.get_data_dtype())
-    array = vol_out.astype(dtype) if dtype is not None else vol_out
-    result = nib.Nifti1Image(array, reference_nib.affine)
-    set_output_zooms(result, reference_nib)
-    return result
-
-
-def write_nifti_file(result_img, output_file, inmem=False):
-    if not inmem:
-        nib.save(result_img, output_file)
-    return output_file, result_img
-
-
-def write_gdm_nifti_like_input(input_file, output_dir, vol_out, inmem=False, postfix="gdmi", logger=None):
-    if logger is None:
-        class _NoopLogger:
-            def warning(self, *args, **kwargs):
-                return None
-            def debug(self, *args, **kwargs):
-                return None
-        logger = _NoopLogger()
-
-    if not os.path.isdir(output_dir):
-        logger.warning("Output dir does not exist: %s", output_dir)
-        return None, None
-
-    output_file = format_output_path(input_file, output_dir, postfix, suffix=".nii.gz")
-    logger.debug("Writing output file: %s", output_file)
-
-    input_nib = nib.load(input_file)
-    if postfix == "vdm":
-        result = create_nifti_from_array(vol_out, input_nib, dtype_override=np.float32)
-    else:
-        result = create_nifti_from_array(vol_out, input_nib)
-
-    return write_nifti_file(result, output_file, inmem=inmem)
 
 
 def write_fail_log(path, f, msg):

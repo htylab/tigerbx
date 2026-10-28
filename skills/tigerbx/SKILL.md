@@ -38,7 +38,7 @@ from the release tarball linked in the README; the stand-alone executable is on 
 - **Return values:** one input returns a dict of nibabel images (`.get_fdata()` for arrays); several inputs return a
   list of dicts of written file paths. A failing file in a batch is logged and skipped, not raised; a `RuntimeWarning` at the end lists the skipped
   files. `tigerbx.check()` (executable: `tigerbx --check`) shows versions, ONNX Runtime, GPU and the model cache.
-- **GPU:** pipelines, `reg`, `vbm`, `embed` take `gpu=True`; `hlc`, `gdm`, `val` take `GPU=True`; `tigerbx.run` uses
+- **GPU:** pipelines, `reg`, `vbm`, `embed`, `gdm` take `gpu=True`; `hlc`, `val` take `GPU=True`; `tigerbx.run` uses
   the `g` flag; the executable uses `-g`. If onnxruntime-gpu does not match the CUDA install it falls back to CPU
   with a `RuntimeWarning`.
 - **Labels:** `_tseg` = ASEG + label 99 `Unlabeled-Intracranial`, so TIV = all non-zero voxels; leave 99 out of
