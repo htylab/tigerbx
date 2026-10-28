@@ -13,8 +13,7 @@ RULE = '=' * 100
 
 def crates(target):
     meta = json.loads(subprocess.run(['cargo', 'metadata', '--format-version', '1', '--locked', '--filter-platform',
-                                      target], check=True,
-                                     stdout=subprocess.PIPE).stdout.decode('utf-8'))   # Python 3.6: Linux container
+                                      target], check=True, capture_output=True).stdout.decode('utf-8'))
     nodes = {n['id']: n for n in meta['resolve']['nodes']}
     packages = {p['id']: p for p in meta['packages']}
     seen, stack = set(), [meta['resolve']['root']]

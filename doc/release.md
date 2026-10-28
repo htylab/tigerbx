@@ -2,6 +2,11 @@
 
 ## Latest releases
 
+- [`v0.3.3`](release/releasenote033.md)
+  - New `tigerbx.duope` (executable `--duope`): distortion correction from a reverse phase-encoding pair
+  - `tigerbx.gdm`: pipeline conventions, float32 `_gdm`, optimised default model
+  - Executable zips include the third-party licenses
+
 - [`v0.3.2`](release/releasenote032.md)
   - New `tigerbx.inspect`: contrast, skull-stripped, EPI, orientation, truncation, motion and header / data checks
   - Executable `--inspect`, `--template` and `--check`; models verified by sha256

@@ -37,7 +37,7 @@ jobs:
     - name: Install system packages (Linux container)
       if: ${{ matrix.container }}
       run: |
-        dnf -y install gcc git zip binutils python3
+        dnf -y install gcc git zip binutils python3.11
         curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
@@ -115,7 +115,7 @@ jobs:
         for f in LICENSE ThirdPartyNotices.txt; do
           curl -fsSL -o ort/ORT-$f https://raw.githubusercontent.com/microsoft/onnxruntime/v${ORT_NOTICE}/$f
         done
-        PY=python3; [[ "$RUNNER_OS" == "Windows" ]] && PY=python
+        PY=python3; [[ "$RUNNER_OS" == "Windows" ]] && PY=python; [[ -n "${{ matrix.container }}" ]] && PY=python3.11
         (cd rust && $PY third_party_licenses.py "$TARGET" ../ort/ORT-LICENSE ../ort/ORT-ThirdPartyNotices.txt ../pkg/THIRD_PARTY_LICENSES.txt)
         ls -l pkg
 

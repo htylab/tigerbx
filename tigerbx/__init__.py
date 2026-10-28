@@ -9,4 +9,4 @@ from tigerbx.pipelines import affine, bx, duope, inspect, norm, seg, template, v
 from tigerbx.embed import embed
 from tigerbx.eval import eval
 from tigerbx.check import check
-__version__ = '0.3.2'
+__version__ = '0.3.3'

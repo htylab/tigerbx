@@ -7,7 +7,7 @@ TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registratio
 - Stand-alone executable: `tigerbx` (`rust/`)
 
 Current baseline:
-- Version: `0.3.2`
+- Version: `0.3.3`
 - Python: `>=3.10`
 - Stack: ONNX Runtime, nibabel, numpy, scipy
 
