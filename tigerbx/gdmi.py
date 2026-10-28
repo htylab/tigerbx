@@ -10,6 +10,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from tqdm import tqdm
 
 from tigerbx import lib_tool
+from tigerbx.core import models
 from tigerbx.core.io import resolve_inputs, write_gdm_nifti_like_input
 from tigerbx.core.deform import apply_vdm_3d
 from tigerbx.core.onnx import create_session, predict_single_output as core_predict_single_output
@@ -65,7 +66,7 @@ def run_args(args):
 
     printer('Total nii files:', len(input_file_list))
 
-    model_name = lib_tool.get_model('vdm_unet3d_v002')
+    model_name = lib_tool.get_model(models.GDM)
 
     result_all = []
     is_single = len(input_file_list) == 1

@@ -24,8 +24,6 @@ jobs:
         pip install -e . --no-deps
         pip install numpy scipy nibabel platformdirs filelock tqdm pytest pandas threadpoolctl onnx onnxruntime
 
-    - name: Run hermetic unit tests
-      run: >-
-        pytest -v tests/test_core_io.py tests/test_core_metrics.py tests/test_hlc_crop_restore.py
-        tests/test_pipeline_contracts.py tests/test_core_warp.py tests/test_numreg.py tests/test_qa.py
-        tests/test_tissuenorm.py tests/test_embed.py tests/test_vbm.py tests/test_onnx_optimize.py
+    # every test in tests/ is hermetic (no model download, no data); a new test file runs without being listed
+    - name: Run unit tests
+      run: pytest -v tests

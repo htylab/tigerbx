@@ -171,6 +171,12 @@ pub fn best_affine(h: &NiftiHeader) -> Mat4 {
     ]
 }
 
+/// TigerBx `core.resample._snap`: entries within 1e-9 of an integer set to it, so that a voxel-to-voxel map whose
+/// grid starts exactly on an input plane gives that plane exactly (an offset of -1e-14 would put the plane outside).
+fn snap(m: Mat4) -> Mat4 {
+    m.map(|row| row.map(|v| if (v - v.round()).abs() < 1e-9 { v.round() } else { v }))
+}
+
 /// World-space bounds of a grid of `shape` under `affine` (min, max per axis).
 fn bounds(shape: (usize, usize, usize), affine: &Mat4) -> [(f64, f64); 3] {
     let (a, b, c) = ((shape.0 - 1) as f64, (shape.1 - 1) as f64, (shape.2 - 1) as f64);
@@ -344,6 +350,22 @@ pub fn sample(data: &Array3<f64>, shape: (usize, usize, usize), cubic: bool, at:
     out
 }
 
+/// `sample` with nearest-neighbour interpolation (scipy order 0, mode 'constant': 0 outside the grid).
+pub fn sample_nearest(data: &Array3<f64>, shape: (usize, usize, usize), at: impl Fn(usize, usize, usize) -> [f64; 3] + Sync) -> Array3<f64> {
+    let d = data.dim();
+    let dims = [d.0, d.1, d.2];
+    let mut out = Array3::<f64>::zeros(shape);
+    out.axis_iter_mut(Axis(0)).into_par_iter().enumerate().for_each(|(i, mut plane)| {
+        for ((j, k), o) in plane.indexed_iter_mut() {
+            let c = at(i, j, k);
+            if inside(&c, dims) {
+                *o = data[[(c[0] + 0.5).floor() as usize, (c[1] + 0.5).floor() as usize, (c[2] + 0.5).floor() as usize]];
+            }
+        }
+    });
+    out
+}
+
 /// `scipy.ndimage.affine_transform(data, m, order=3, mode='constant')` onto `shape`.
 fn cubic_transform(data: &Array3<f64>, m: &Mat4, shape: (usize, usize, usize)) -> Array3<f64> {
     sample(data, shape, true, |i, j, k| coord(m, i, j, k))
@@ -359,7 +381,7 @@ fn resample_cubic(vol: &Volume, target: Mat4, shape: (usize, usize, usize)) -> V
         }
         e
     } else {
-        mat_mul(&mat_inv(&vol.affine), &target)
+        snap(mat_mul(&mat_inv(&vol.affine), &target))
     };
     let mut out = cubic_transform(&vol.data, &m, shape);
     let lo = vol.data.iter().cloned().fold(0.0f64, f64::min);
@@ -379,7 +401,7 @@ pub fn resample_voxel(vol: &Volume, voxel: [f64; 3]) -> Volume {
             row[j] *= s;
         }
     }
-    let t = mat_mul(&mat_inv(&target), &vol.affine);
+    let t = snap(mat_mul(&mat_inv(&target), &vol.affine));
     let b = bounds(vol.data.dim(), &t);
     let shape = (b[0].1.ceil() as usize + 1, b[1].1.ceil() as usize + 1, b[2].1.ceil() as usize + 1);
     resample_cubic(vol, target, shape)
@@ -419,7 +441,7 @@ pub fn reorder(vol: Volume) -> Volume {
             target[i][i] = diag[i];
         }
         target[3][3] = 1.0;
-        let t = mat_mul(&mat_inv(&target), &vol.affine);
+        let t = snap(mat_mul(&mat_inv(&target), &vol.affine));
         let b = bounds(vol.data.dim(), &t);
         for i in 0..3 {
             target[i][3] = diag[i] * b[i].0;
@@ -470,7 +492,7 @@ pub fn nearest_to_grid(labels: &Array3<u8>, src_affine: &Mat4, target_affine: &M
         }
         e
     } else {
-        mat_mul(&mat_inv(src_affine), target_affine)
+        snap(mat_mul(&mat_inv(src_affine), target_affine))
     };
     let d = labels.dim();
     let dims = [d.0, d.1, d.2];
@@ -567,4 +589,67 @@ fn crop_box(vol: &Volume, r: [(usize, usize); 3]) -> Volume {
 /// input coordinate is outside [0, n-1] on any axis.
 pub fn linear_transform(data: &Array3<f64>, m: &Mat4, shape: (usize, usize, usize)) -> Array3<f64> {
     sample(data, shape, false, |i, j, k| coord(m, i, j, k))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// a[i, j, k] = ((37 i + 17 j + 7 k) mod 23) / 7 on a 5 x 6 x 7 grid; the reference values are scipy's.
+    fn grid() -> Array3<f64> {
+        Array3::from_shape_fn((5, 6, 7), |(i, j, k)| ((i * 37 + j * 17 + k * 7) % 23) as f64 / 7.0)
+    }
+
+    const PTS: [[f64; 3]; 4] = [[1.3, 2.7, 0.5], [0.0, 0.0, 0.0], [4.0, 5.0, 6.0], [2.25, 1.5, 3.75]];
+
+    fn at_points(cubic: bool) -> Vec<f64> {
+        let a = grid();
+        sample(&a, (PTS.len(), 1, 1), cubic, |i, _, _| PTS[i]).iter().cloned().collect()
+    }
+
+    fn close(got: &[f64], want: &[f64]) {
+        assert_eq!(got.len(), want.len());
+        for (g, w) in got.iter().zip(want) {
+            assert!((g - w).abs() < 1e-12, "{got:?} != {want:?}");
+        }
+    }
+
+    #[test]
+    fn cubic_matches_scipy_map_coordinates_order3() {
+        close(&at_points(true), &[1.60593540548768843e+00, 7.64879361376485103e-16, 3.14285714285714457e+00,
+                                  2.46865198980747991e+00]);
+    }
+
+    #[test]
+    fn linear_matches_scipy_map_coordinates_order1() {
+        close(&at_points(false), &[1.44285714285714306e+00, 0.0, 3.14285714285714279e+00, 1.93303571428571441e+00]);
+    }
+
+    #[test]
+    fn outside_the_grid_is_zero() {
+        let a = grid();
+        let out = sample(&a, (2, 1, 1), true, |i, _, _| [[-0.01, 1.0, 1.0], [1.0, 5.01, 1.0]][i]);
+        assert!(out.iter().all(|&v| v == 0.0));
+    }
+
+    #[test]
+    fn snap_sets_near_integers_only() {
+        let mut m = [[1.0, 0.0, 0.0, -1.42e-14], [0.0, 1.0, 0.0, 2.0 + 5e-10], [0.0, 0.0, 1.0, 0.5], [0.0, 0.0, 0.0, 1.0]];
+        m = snap(m);
+        assert_eq!(m[0][3], 0.0);
+        assert_eq!(m[1][3], 2.0);
+        assert_eq!(m[2][3], 0.5);
+        assert_eq!(snap([[1.0 + 2e-9, 0.0, 0.0, 0.0], [0.0; 4], [0.0; 4], [0.0; 4]])[0][0], 1.0 + 2e-9);
+    }
+
+    #[test]
+    fn mat_inv_inverts() {
+        let m = [[0.9, 0.1, 0.0, 3.0], [-0.1, 1.1, 0.2, -2.0], [0.0, 0.3, 1.2, 5.0], [0.0, 0.0, 0.0, 1.0]];
+        let p = mat_mul(&m, &mat_inv(&m));
+        for i in 0..4 {
+            for j in 0..4 {
+                assert!((p[i][j] - if i == j { 1.0 } else { 0.0 }).abs() < 1e-12);
+            }
+        }
+    }
 }

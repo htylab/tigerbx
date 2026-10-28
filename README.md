@@ -1,4 +1,4 @@
-# TigerBx: Tissue Mask Generation for Brain Extraction
+# TigerBx: Brain Extraction, Segmentation and Registration of Brain MRI
 <img src="./doc/team.png" alt="tigerbx" width="400">
 
 ## Overview
@@ -6,9 +6,9 @@
 **TigerBx** is a deep learning toolkit for brain extraction, tissue segmentation and template registration of
 structural brain MRI. It provides:
 
-* **Pipelines**, the recommended way to use TigerBx: `bx` (brain extraction), `seg` (segmentation), `affine` and
-  `norm` (template normalisation), `vbm` (voxel-based morphometry) and `template` (population templates), from Python
-  and from the stand-alone `tigerbx` executable (Windows, macOS, Linux).
+* **Pipelines**, the recommended way to use TigerBx: `inspect` (what each image is), `bx` (brain extraction), `seg`
+  (segmentation), `affine` and `norm` (template normalisation), `vbm` (voxel-based morphometry) and `template`
+  (population templates), from Python and from the stand-alone `tigerbx` executable (Windows, macOS, Linux).
 * **Modules** (`tigerbx.run`, `tigerbx.reg`, `tigerbx.hlc`, ...): the lower-level building blocks of the pipelines.
 * Designed strictly for **research purposes only**—not for clinical or commercial use.
 
@@ -44,12 +44,16 @@ tigerbx.vbm('/data/T1w_dir', 'output_dir')      # _SmoothedGM, _norm, vbm_summar
 tigerbx.template('/data/T1w_dir', 'tpl_dir')    # template, template_mask, template_tseg (a population template)
 ```
 
+Check the installation with `tigerbx.check()` (`gpu=True`: whether the models run on the GPU): versions, ONNX
+Runtime, threads, and the cached models (each checked against its release sha256; a damaged or outdated copy is
+downloaded again).
+
 ### Install a specific version
 
 ```bash
-pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
-pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
-pip install --no-cache-dir "tigerbx[cu13] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
+pip install --no-cache-dir "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.2.tar.gz"
+pip install --no-cache-dir "tigerbx[cu12] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.2.tar.gz"
+pip install --no-cache-dir "tigerbx[cu13] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.2.tar.gz"
 ```
 
 > **Note:** To install an archived version in the **0.1.x** series, use the simpler URL form (no extras required):
@@ -70,7 +74,8 @@ The pipelines are TigerBx's main functions, the same in Python and in the stand-
 | `affine`   | `tigerbx.affine(...)`   | `tigerbx in.nii.gz --affine` | `_tbx`, `_affine`, `_warp.npz` |
 | `norm`     | `tigerbx.norm(...)`     | `tigerbx in.nii.gz --norm`   | `_tbx`, `_norm`, `_warp.npz` |
 | `vbm`      | `tigerbx.vbm(...)`      | —                            | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
-| `template` | `tigerbx.template(...)` | —                            | `template`, `template_mask`, `template_tseg` |
+| `template` | `tigerbx.template(...)` | `tigerbx data/ -o tpl/ --template` | `template`, `template_mask`, `template_tseg` |
+| `inspect`  | `tigerbx.inspect(...)`  | `tigerbx in.nii.gz --inspect` | `inspect_summary.csv` |
 
 ```python
 import tigerbx
@@ -85,7 +90,8 @@ See [pipeline usage](doc/pipelines.md) for the steps, options and outputs of eac
 
 `tigerbx.inspect` tells what each image is (contrast: T1w, T2w, FLAIR, b0, DWI or other), whether it is already
 skull-stripped, whether it is EPI, whether its header orientation is right, whether the head is cut by the field of
-view, and scores motion artifacts, in about 1 s per image on the CPU. See [inspect](doc/inspect.md).
+view, and scores motion artifacts, plus header / data checks (4D, thick slices, oblique, NaN, label map), in about
+1 s per image on the CPU. See [inspect](doc/inspect.md).
 
 ```python
 tigerbx.inspect(r'C:\data_dir', r'C:\output_dir')    # -> inspect_summary.csv
@@ -93,8 +99,8 @@ tigerbx.inspect(r'C:\data_dir', r'C:\output_dir')    # -> inspect_summary.csv
 
 ### Stand-alone executable
 
-The `tigerbx` executable is native (no Python) and runs the `bx`, `seg`, `affine` and `norm` pipelines with the same
-models.
+The `tigerbx` executable is native (no Python) and runs the `bx`, `seg`, `affine`, `norm`, `inspect` and `template`
+pipelines with the same models.
 Download the zip for Linux (x64, glibc 2.28+), macOS (arm64) or Windows (x64) from
 [https://github.com/htylab/tigerbx/releases](https://github.com/htylab/tigerbx/releases) and unpack it; keep the
 files together (Linux / macOS: the ONNX Runtime library next to `tigerbx`).
@@ -107,6 +113,7 @@ tigerbx data/ -o out/ --norm       # norm: _tbx, _norm, _warp.npz
 tigerbx data/ -o out/ --norm --intensity gnorm   # T1 tissue intensities (CSF 1/3, GM 2/3, WM 1)
 tigerbx data/ -o out/ --all        # seg + norm
 tigerbx data/ -o out/ --seg -g     # on the GPU
+tigerbx --check -g                 # version, ONNX Runtime, threads, GPU, embedded models
 tigerbx --help
 ```
 
@@ -116,7 +123,7 @@ See [rust/README.md](rust/README.md) for the single-output options and details.
 
 ## Modules
 
-The modules (`tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.embed`, `tigerbx.inspect`, `tigerbx.gdm`, `tigerbx.eval`,
+The modules (`tigerbx.run`, `tigerbx.hlc`, `tigerbx.reg`, `tigerbx.embed`, `tigerbx.gdm`, `tigerbx.eval`,
 `tigerbx.val`) are the lower-level building blocks of the pipelines; each gives a model's own output. See the
 [documentation](doc/) for their options.
 

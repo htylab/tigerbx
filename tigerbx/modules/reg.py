@@ -23,7 +23,7 @@ from tigerbx.core.io import get_template, load_nifti, save_nib, resolve_inputs
 from tigerbx.core.onnx import predict
 from tigerbx.core.deform import jacobian_determinant
 from tigerbx.core.resample import reorder_img
-from tigerbx.core import numreg, templatereg
+from tigerbx.core import models, numreg, templatereg
 from tigerbx.core.warp import affine_transform, dense_transform, init_shift
 from tigerbx.core.warpfile import save_warp
 
@@ -415,9 +415,9 @@ def _build_omodel(args_model):
     """Registration-only model overrides (BX-owned models are excluded)."""
     allowed_keys = {'reg', 'vfa', 'affine'}
     omodel = {
-        'reg': 'mprage_reg_v003_train.onnx',
-        'vfa': templatereg.VFA_MODEL,
-        'affine': 'mprage_affine_v002_train.onnx',
+        'reg': models.VMNET,
+        'vfa': models.VFA,
+        'affine': models.AFFINE_NET,
     }
     if isinstance(args_model, dict):
         for mm in args_model.keys():

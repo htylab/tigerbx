@@ -2,6 +2,11 @@
 
 ## Latest releases
 
+- [`v0.3.2`](release/releasenote032.md)
+  - New `tigerbx.inspect`: contrast, skull-stripped, EPI, orientation, truncation, motion and header / data checks
+  - Executable `--inspect`, `--template` and `--check`; models verified by sha256
+  - Resampling keeps an input's edge plane that floating-point error used to drop
+
 - [`v0.3.1`](release/releasenote031.md)
   - Registration (`norm`, `reg('AD')`, executable `--norm`) uses the low-memory VFA model v005: same results, much
     lower peak memory

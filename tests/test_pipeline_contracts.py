@@ -155,6 +155,24 @@ def test_reg_plan_syn_steps_removed():
             reg_mod._parse_reg_plan(plan)
 
 
+def test_pipeline_batch_warns_about_skipped_inputs(tmp_path):
+    from tigerbx.pipelines import _common
+    files = []
+    for name in ('a', 'bad', 'c'):
+        f = tmp_path / f'{name}.nii.gz'
+        nib.save(nib.Nifti1Image(np.ones((4, 4, 4), np.float32), np.eye(4)), str(f))
+        files.append(str(f))
+
+    def one(f, ftemplate):
+        if 'bad' in f:
+            raise RuntimeError('boom')
+        return {}, {'f': f}
+
+    with pytest.warns(RuntimeWarning, match=r'tigerbx\.seg: 1 of 3 inputs failed(.|\n)*bad\.nii\.gz: RuntimeError: boom'):
+        res = _common.batch('seg', files, str(tmp_path / 'out'), True, 0, one)
+    assert [r['f'] for r in res] == [files[0], files[2]]
+
+
 def test_vbm_batch_continues_after_a_failure_and_writes_summary(tmp_path, monkeypatch):
     import csv
     vbm_mod = importlib.import_module('tigerbx.pipelines.vbm')

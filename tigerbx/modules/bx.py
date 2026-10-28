@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from tigerbx import lib_tool
 from tigerbx import lib_bx
+from tigerbx.core import models
 import copy
 from tigerbx.core.io import get_template, load_nifti, save_nib, resolve_inputs
 from tigerbx.core.onnx import create_session, predict
@@ -321,12 +322,7 @@ def run_args(args):
     input_file_list, common_folder = resolve_inputs(args.input)
 
     output_dir = args.output
-    omodel = {
-        'tbx':  'mprage_tbx_v005_opt.onnx',
-        'tseg': 'mprage_tseg_v0011_opt.onnx',
-        'ct':   'mprage_mix_ct.onnx',
-        'dgm':  'mprage_dgm12_v002_opt.onnx',
-    }
+    omodel = {'tbx': models.TBX, 'tseg': models.TSEG, 'ct': models.CT, 'dgm': models.DGM}
 
     if isinstance(args.model, dict):
         for mm in args.model.keys():

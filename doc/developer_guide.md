@@ -186,9 +186,13 @@ Update both before tagging a release. TigerBx follows [Semantic Versioning](http
 
 1. Train and export the model to ONNX format (see [models.md](models.md) for the naming and I/O contract), then
    optimise it with `python -m tigerbx.dev.onnx_optimize model.onnx model_opt.onnx --labels`.
-2. Upload the `.onnx` file to the model hub release on GitHub (`modelhub` tag).
-3. Register the model name in `bx.py` (or the relevant module) under `omodel`.
-4. The model is downloaded on first use via `lib_tool.get_model()`.
+2. Upload the `.onnx` file to the model hub release on GitHub (`modelhub` tag); a released file is never replaced
+   under the same name (a new version gets a new name).
+3. Add its sha256 to `SHA256` in `tigerbx/core/models.py` and make it the default there (the modules and pipelines
+   take their defaults from that file); for the executable also update `MODELS` in `.github/workflows/exe.yml`, the
+   `include_bytes!` in `rust/src/main.rs` and the build loop in `rust/README.md` (`tests/test_models.py` checks that
+   every embedded model is listed).
+4. The model is downloaded on first use via `lib_tool.get_model()`, which checks it against its sha256.
 
 ---
 
@@ -200,7 +204,7 @@ To regression-test a change against a known-good version:
 # Create a separate venv for the baseline release
 uv venv .venv_old
 uv pip install --python .venv_old \
-    "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.1.tar.gz"
+    "tigerbx[cpu] @ https://github.com/htylab/tigerbx/archive/refs/tags/v0.3.2.tar.gz"
 
 # Run comparison script using each venv's Python
 uv run --python .venv_old python tests/run_and_compare.py --input T1w.nii.gz --tag old
@@ -216,7 +220,7 @@ longer built. [`exe.yml`](../.github/workflows/exe.yml) builds Linux (AlmaLinux 
 macOS (arm64) and Windows (x64, ONNX Runtime linked statically) zips and smoke-tests tBX, on every change under
 `rust/` (workflow artifacts) and when called by [`compile10.yml`](../.github/workflows/compile10.yml).
 
-To release: set the version in `tigerbx/__init__.py` and `rust/Cargo.toml` (they must match), push the tag (`git tag v0.3.1 && git push origin v0.3.1`); Compile10 builds the executable and creates a draft
+To release: set the version in `tigerbx/__init__.py` and `rust/Cargo.toml` (they must match), push the tag (`git tag v0.3.2 && git push origin v0.3.2`); Compile10 builds the executable and creates a draft
 release for that tag with the three zips. Paste the release notes, publish it, and move the `release` branch to the
 tag (the README installs from `archive/release.zip`). A manual run (**Actions → Compile10 → Run workflow**) creates
 a draft tagged `v<run number>` instead.

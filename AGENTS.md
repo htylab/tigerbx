@@ -7,7 +7,7 @@ TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registratio
 - Stand-alone executable: `tigerbx` (`rust/`)
 
 Current baseline:
-- Version: `0.3.1`
+- Version: `0.3.2`
 - Python: `>=3.10`
 - Stack: ONNX Runtime, nibabel, numpy, scipy
 
@@ -15,7 +15,7 @@ Current baseline:
 
 - `tigerbx/`: core library (`bx`, `hlc`, `reg`, `vbm`, `embed`, `gdm`, `eval`, `validate`)
 - `tigerbx/pipelines/vbm.py`: VBM pipeline (separate from `reg`)
-- `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers
+- `tigerbx/core/`: shared I/O / ONNX / resample / spatial helpers; `core/models.py` the default models and sha256
 - `rust/`: the stand-alone `tigerbx` executable (tBX, TSEG, template normalisation; see `rust/README.md`)
 - `tests/run_and_compare.py`: primary integration/regression runner
 - `doc/`: user-facing docs
@@ -113,7 +113,8 @@ Run before a release and after changes to `bx`, `core/resample`, `core/numreg` o
   scanner, site, number of subjects or scans) or training data in commit messages, docs (validation docs included),
   release notes, GitHub release text, code comments / docstrings, or ONNX `metadata_props`. Only the validation set
   labels `seg18`, `seg123` and `reg60` may appear. Check every message, diff and exported model before pushing.
-- Model files are downloaded via `lib_tool.get_model()` and cached locally.
+- Model files are downloaded via `lib_tool.get_model()` and cached locally; a release model name must match its
+  sha256 in `tigerbx/core/models.py`, the one place for the default model names (see doc/developer_guide.md §7).
 - Put temporary artifacts under `temp/`.
 
 ## Don’ts (quick list)

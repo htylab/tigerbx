@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+import warnings
 
 import nibabel as nib
 import numpy as np
@@ -17,7 +18,7 @@ def batch(name, input, output, gz, verbose, one):
     """Run `one(f, ftemplate) -> (images, files)` on every input. A single input returns its images dict (errors
     raise); several return the list of files dicts of the successful ones (a failure is logged and skipped)."""
     files, common_folder = resolve_inputs(input if isinstance(input, list) else [input])
-    results = []
+    results, failed = [], []
     for f in tqdm(files, desc=f'tigerbx-{name}', unit='file', disable=(verbose > 0 or len(files) < 2)):
         t = time.time()
         try:
@@ -27,10 +28,16 @@ def batch(name, input, output, gz, verbose, one):
             if len(files) == 1:
                 raise
             _logger.warning('FAILED %s: %s: %s', os.path.basename(f), type(exc).__name__, exc)
+            failed.append(f'{f}: {type(exc).__name__}: {exc}')
             continue
         if verbose >= 1:
             _logger.info('%s: %.1f s', os.path.basename(f), time.time() - t)
         results.append(images if len(files) == 1 else saved)
+    if failed:
+        # a warning, not only the log: without a logging handler a skipped input would go unnoticed
+        more = f'\n  ... and {len(failed) - 10} more' if len(failed) > 10 else ''
+        warnings.warn(f'tigerbx.{name}: {len(failed)} of {len(files)} inputs failed and were skipped:\n  '
+                      + '\n  '.join(failed[:10]) + more, RuntimeWarning, stacklevel=3)
     return results[0] if len(files) == 1 and results else results
 
 

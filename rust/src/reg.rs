@@ -159,7 +159,7 @@ fn clip_f32(x: Array3<f64>, data: &Array3<f64>) -> Array3<f64> {
 }
 
 /// VFA step 'D': the model maps (moving, fixed) to a voxel sampling grid [3, X, Y, Z].
-fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> Result<Vec<f32>> {
+pub fn run_vfa(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> Result<Vec<f32>> {
     let (x, y, z) = moving.dim();
     let mv: Vec<f32> = moving.iter().map(|&v| v as f32).collect();
     let fx: Vec<f32> = fixed.iter().map(|&v| v as f32).collect();

@@ -18,13 +18,13 @@ Prefer the pipelines; use the modules only for a model's raw output or custom wo
 | Affine to the 1 mm template (keeps size and shape) | `tigerbx.affine(input, output)` | `--affine` | `_tbx`, `_affine`, `_warp.npz` |
 | Nonlinear normalisation (numreg affine + VFA) | `tigerbx.norm(input, output)` | `--norm` | `_tbx`, `_norm`, `_warp.npz` |
 | VBM | `tigerbx.vbm(input, output)` | — | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
-| Population template | `tigerbx.template(input, output)` | — | `template`, `template_mask`, `template_tseg` |
+| Population template | `tigerbx.template(input, output)` | `--template` | `template`, `template_mask`, `template_tseg` |
 | Raw model outputs | `tigerbx.run('bmatcd', input, output)` | `-b -m -t -d` | `_tbx _tbxmask _aseg _tseg _ct _dgm` |
 | Carry an image to the template | `tigerbx.transform(image, warp_npz, output)` | — | template-space image |
 | HLC parcellation | `tigerbx.hlc(input, output)` | — | `_hlc` |
 | Registration plans (`R` rigid, `A` affine, `V` VMnet, `D` VFA) | `tigerbx.reg('AD', input, output)` | — | `_affine`, `_VFA`, `_warp.npz` |
 | Regional embedding, volumes, TIV | `tigerbx.embed(input, output)` | — | `<stem>_embed.npz` |
-| What an image is (contrast, skull-stripped, EPI, orientation, truncation, motion score) | `tigerbx.inspect(input, output)` | — | `inspect_summary.csv` |
+| What an image is (contrast, skull-stripped, EPI, orientation, truncation, motion score) | `tigerbx.inspect(input, output)` | `--inspect` | `inspect_summary.csv` |
 | EPI / DTI distortion correction | `tigerbx.gdm(input, output)` | — | `_gdmi` (`dmap=True`: `_gdm`) |
 | Metrics (Dice, HD95, PSNR, SSIM, ...) | `tigerbx.eval(y_true, y_pred, metrics)` | — | dict |
 
@@ -36,7 +36,8 @@ from the release tarball linked in the README; the stand-alone executable is on 
 - **Outputs are written to disk.** With `output=None` files go next to each input; pass an output folder.
   `tigerbx.run(..., save_outputs=False)` only returns images.
 - **Return values:** one input returns a dict of nibabel images (`.get_fdata()` for arrays); several inputs return a
-  list of dicts of written file paths. A failing file in a batch is logged and skipped, not raised.
+  list of dicts of written file paths. A failing file in a batch is logged and skipped, not raised; a `RuntimeWarning` at the end lists the skipped
+  files. `tigerbx.check()` (executable: `tigerbx --check`) shows versions, ONNX Runtime, GPU and the model cache.
 - **GPU:** pipelines, `reg`, `vbm`, `embed` take `gpu=True`; `hlc`, `gdm`, `val` take `GPU=True`; `tigerbx.run` uses
   the `g` flag; the executable uses `-g`. If onnxruntime-gpu does not match the CUDA install it falls back to CPU
   with a `RuntimeWarning`.

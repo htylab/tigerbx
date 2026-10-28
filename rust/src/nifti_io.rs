@@ -37,6 +37,17 @@ fn read_raw(path: &Path) -> Result<(NiftiHeader, Vec<u8>)> {
 /// outside the head of template-space images) are set to 0 with a warning, as TigerBx `core.io.load_nifti`: they
 /// would spread through the intensity scaling and the resampling.
 pub fn read_nifti(path: &Path) -> Result<(NiftiHeader, ArrayD<f64>)> {
+    let (header, mut data) = read_nifti_raw(path)?;
+    let bad = data.iter().filter(|v| !v.is_finite()).count();
+    if bad > 0 {
+        eprintln!("  Warning: {} non-finite voxels (NaN / Inf) in {} set to 0", bad, path.display());
+        data.mapv_inplace(|v| if v.is_finite() { v } else { 0.0 });
+    }
+    Ok((header, data))
+}
+
+/// read_nifti without setting the non-finite voxels to 0 (inspect counts them, then cleans the data itself).
+pub fn read_nifti_raw(path: &Path) -> Result<(NiftiHeader, ArrayD<f64>)> {
     let (header, raw) = read_raw(path).with_context(|| format!("Failed to read NIfTI file: {}", path.display()))?;
     let mut scaled = header.clone();
     if !scaled.scl_slope.is_finite() || scaled.scl_slope == 0.0 {
@@ -49,13 +60,6 @@ pub fn read_nifti(path: &Path) -> Result<(NiftiHeader, ArrayD<f64>)> {
         .context("Failed to rebuild NIfTI volume")?
         .into_ndarray::<f64>()
         .context("Failed to convert NIfTI volume to ndarray")?;
-    let mut data = data;
-    let bad = data.iter().filter(|v| !v.is_finite()).count();
-    if bad > 0 {
-        eprintln!("  Warning: {} non-finite voxels (NaN / Inf) in {} set to 0", bad, path.display());
-        data.mapv_inplace(|v| if v.is_finite() { v } else { 0.0 });
-    }
-
     Ok((header, data))
 }
 

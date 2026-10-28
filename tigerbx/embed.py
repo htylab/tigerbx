@@ -30,7 +30,7 @@ from tqdm import tqdm
 import tigerbx
 from tigerbx import lib_tool
 from tigerbx.modules.bx import run as bx_run
-from tigerbx.core import numreg
+from tigerbx.core import models, numreg
 from tigerbx.core.io import get_template, load_nifti, remove_quietly, resolve_inputs, write_fail_log
 from tigerbx.core.onnx import create_session
 from tigerbx.core.qa import QUALITY_KEYS, image_quality
@@ -38,7 +38,7 @@ from tigerbx.core.qa import QUALITY_KEYS, image_quality
 _logger = logging.getLogger('tigerbx')
 _logger.addHandler(logging.NullHandler())
 
-DEFAULT_MODEL = 'mprage_embed_v001_vfa.onnx'
+DEFAULT_MODEL = models.EMBED
 # TSEG structures kept (tseg without the labels deprecated in 0.3.0: 30, 31, 62, 63, 77, 85)
 LABELS = (2, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24, 26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52,
           53, 54, 58, 60, 251, 252, 253, 254, 255)

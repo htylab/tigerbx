@@ -8,7 +8,17 @@ contrast and any orientation can be given; of a 4D image the first volume is use
 import tigerbx
 r = tigerbx.inspect('sub-01_T2w.nii.gz')          # one input -> dict
 rows = tigerbx.inspect('data/', 'out/')           # several -> list of dicts, and out/inspect_summary.csv
+rows = tigerbx.inspect('data/', 'out/', detail=True)   # every probability and check value
 ```
+
+The stand-alone executable gives the same `inspect_summary.csv`: `tigerbx data/ -o out/ --inspect` (`--detail` for
+every value).
+
+By default each row has the decisions: `file`, `status`, `contrast`, `p_contrast` (probability of that class),
+`skull_stripped`, `epi`, `orientation`, `truncated`, `motion`, `ndim`, `matrix`, `voxel_mm`, `warnings`, `error`. `warnings` spells out
+what needs a look: an orientation that does not match the header, a head cut by the field of view, motion artifacts
+and the rule-based findings below. `detail=True` adds every class probability, the probability behind each decision,
+`motion_flag` and all rule-check values.
 
 | Output | Values |
 |--------|--------|
@@ -19,8 +29,38 @@ rows = tigerbx.inspect('data/', 'out/')           # several -> list of dicts, an
 | `truncated` | part of the head lies outside the field of view (`p_truncated`) |
 | `motion` | motion artifact score 0-1 (ringing, blur from head motion) and `motion_flag` (score > 0.5); T1w, T2w and FLAIR only, empty for other contrasts |
 
-`inspect_summary.csv` has one row per input (`file`, `status`, the outputs above, `error`); a failing input is logged
-and skipped (a single input raises).
+Rule-based checks (header and data, no model):
+
+| Output | Values |
+|--------|--------|
+| `n_volumes` | volumes of a 4D image (only the first is inspected) |
+| `ndim` | number of array dimensions (3, 4, ...): sort by it to find the inputs that differ |
+| `matrix`, `voxel_mm` | the full array shape (a 4D image shows its 4th dimension) and the voxel size, e.g. `256x256x176`, `1.00x1.00x1.00` |
+| `thick_slices` | thick slices / low resolution: an axis ≥ 3 mm or largest / smallest ≥ 3 |
+| `oblique_deg` | angle of the voxel axes to the world axes (warning above 20°) |
+| `fov_mm` | field of view (warning when an axis covers < 80 mm: a slab) |
+| `nonfinite_frac` | fraction of NaN / Inf voxels |
+| `label_map` | integer values only, few and sparse: a segmentation or mask, not an image |
+| `warnings` | the checks that apply, plus an empty / constant image and a missing spatial header (sform and qform codes 0) |
+
+`inspect_summary.csv` has one row per input, in the order of the input (a list of files keeps its order; a folder or
+a glob is in file name order); a failing input is logged and skipped (a single input raises).
+
+## Using the results
+
+The pipelines do not read `inspect_summary.csv`; run `tigerbx.inspect` first and choose their options from it.
+
+| Finding | What to do |
+|---------|------------|
+| `skull_stripped` True | the pipelines' `mask='none'` (`--skull-stripped` for `--template`): the brain is the non-zero voxels, no tBX |
+| `contrast` not T1w | `tigerbx.vbm` and `intensity='gnorm'` assume T1; `norm` / `affine` work with `intensity='raw'` (VFA is a T1 model, other contrasts register less well); `template(contrast=...)` builds `template_tseg` only for T1 |
+| `orientation` not `RAS` | fix the header before processing; every output follows the header |
+| `truncated` | volumes (TIV, VBM) and the template registration miss the cut part |
+| `thick_slices`, `n_volumes` > 1 | 2D / thick-slice data limit segmentation and VBM; of a 4D image only the first volume is processed |
+| `label_map` | not an image: leave it out |
+| `motion` high | look at the image; compare scores within the study |
+
+Process a group (VBM, template) the same way throughout: decide `mask` for the whole study, not per image.
 
 ## Notes
 

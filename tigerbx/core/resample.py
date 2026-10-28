@@ -72,6 +72,13 @@ def _resample_one_img(data, A, b, target_shape, interpolation_order, out, fill_v
     return out
 
 
+def _snap(m, tol=1e-9):
+    """Entries within `tol` of an integer set to it: a voxel-to-voxel map whose grid starts exactly on an input
+    plane must give that plane exactly (an offset of -1e-14 would put a whole plane outside the input)."""
+    r = np.round(m)
+    return np.where(np.abs(m - r) < tol, r, m)
+
+
 def resample_img(
     img,
     target_affine=None,
@@ -109,7 +116,7 @@ def resample_img(
         missing_offset = False
         target_affine = target_affine.copy()
 
-    transform_affine = np.linalg.inv(target_affine).dot(src_affine)
+    transform_affine = _snap(np.linalg.inv(target_affine).dot(src_affine))
     (xmin, xmax), (ymin, ymax), (zmin, zmax) = get_bounds(data.shape[:3], transform_affine)
 
     if missing_offset:
@@ -136,7 +143,7 @@ def resample_img(
         composite = np.eye(4)
         same_grid = tuple(int(s) for s in target_shape) == tuple(data.shape[:3])
     else:
-        composite = linalg.inv(src_affine).dot(target_affine)
+        composite = _snap(linalg.inv(src_affine).dot(target_affine))
 
     A, b = to_matrix_vector(composite)
 

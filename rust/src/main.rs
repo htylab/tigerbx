@@ -1,5 +1,6 @@
 mod bx;
 mod inference;
+mod inspect;
 mod nifti_io;
 mod npz;
 mod numreg;
@@ -7,9 +8,10 @@ mod onnx_prune;
 mod postprocess;
 mod reg;
 mod resample;
+mod template;
 mod tissuenorm;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use std::path::{Path, PathBuf};
 
@@ -18,6 +20,7 @@ static EMBEDDED_TBX: &[u8] = include_bytes!("../models/mprage_tbx_v005_opt.onnx"
 static EMBEDDED_TSEG: &[u8] = include_bytes!("../models/mprage_tseg_v0011_opt.onnx");
 static EMBEDDED_DGM: &[u8] = include_bytes!("../models/mprage_dgm12_v002_opt.onnx");
 static EMBEDDED_VFA: &[u8] = include_bytes!("../models/mprage_reg_v005_vfa.onnx");
+static EMBEDDED_INSPECT: &[u8] = include_bytes!("../models/inspect_v003.onnx");
 /// TigerBx's bundled registration template (same file as the Python package)
 static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
 /// Its tseg: tissue priors of the gnorm intensity normalisation of _norm
@@ -32,6 +35,7 @@ const OUTPUT_POSTFIXES: [&str; 6] = ["tbx", "tbxmask", "tseg", "dgm", "affine", 
 ///   tigerbx T1w.nii.gz                    (no option: _tbx)
 ///   tigerbx data/*.nii.gz -o output_dir --seg
 ///   tigerbx data/T1w_dir -o results/ -t -A
+///   tigerbx data/ -o results/ --inspect     (inspect_summary.csv: what each image is)
 #[derive(Parser, Debug)]
 #[command(version, verbatim_doc_comment, about = "TigerBx tBX, TSEG and template registration using ONNX Runtime (no option: _tbx)")]
 struct Args {
@@ -61,6 +65,40 @@ struct Args {
     /// Pipelines seg + norm: _tbx, _tseg, _norm, _warp.npz
     #[arg(long)]
     all: bool,
+
+    /// Pipeline inspect: contrast, skull-stripped, EPI, orientation, truncation, motion and header / data checks of
+    /// every input in inspect_summary.csv (as tigerbx.inspect); runs on its own
+    #[arg(long)]
+    inspect: bool,
+
+    /// With --inspect: every probability and check value in the summary (as tigerbx.inspect(detail=True))
+    #[arg(long)]
+    detail: bool,
+
+    /// Pipeline template: a population template of the inputs (at least 2) in -o: template, template_mask,
+    /// template_tseg (T1) and template_log.json (as tigerbx.template); runs on its own
+    #[arg(long)]
+    template: bool,
+
+    /// With --template: rounds of VFA to the current template
+    #[arg(long, default_value_t = 6)]
+    iters: usize,
+
+    /// With --template: voxel-wise statistic of the registered images
+    #[arg(long, value_enum, default_value_t = Stat::Median)]
+    stat: Stat,
+
+    /// With --template: the inputs are skull-stripped (their brain is the non-zero voxels; no tBX)
+    #[arg(long)]
+    skull_stripped: bool,
+
+    /// With --template: input contrast; t1 also builds template_tseg (labels auto)
+    #[arg(long, default_value = "t1")]
+    contrast: String,
+
+    /// With --template: template_tseg yes / no (auto: for --contrast t1)
+    #[arg(long, value_enum, default_value_t = Labels::Auto)]
+    labels: Labels,
 
     /// Save the brain-extracted image (_tbx)
     #[arg(short = 'b', long)]
@@ -109,6 +147,15 @@ struct Args {
     #[arg(long)]
     vfa_model: Option<PathBuf>,
 
+    /// Inspect ONNX model file (default: embedded inspect_v003)
+    #[arg(long)]
+    inspect_model: Option<PathBuf>,
+
+    /// Show the version, ONNX Runtime, threads, the GPU (with -g) and the embedded models, then exit (as
+    /// tigerbx.check())
+    #[arg(long)]
+    check: bool,
+
     /// Run the models on the GPU: CUDA on Linux (GPU build of ONNX Runtime + CUDA 12 / cuDNN 9 libraries), DirectML
     /// on Windows (any DirectX 12 GPU); falls back to the CPU with a warning
     #[arg(short = 'g', long)]
@@ -117,6 +164,21 @@ struct Args {
     /// ONNX Runtime intra-op threads (default: 70% of available CPUs)
     #[arg(short = 'j', long)]
     threads: Option<usize>,
+}
+
+/// Voxel-wise statistic of the template pipeline.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+enum Stat {
+    Median,
+    Mean,
+}
+
+/// template_tseg of the template pipeline.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+enum Labels {
+    Auto,
+    Yes,
+    No,
 }
 
 /// Template-space intensities (tigerbx.affine / tigerbx.norm `intensity`).
@@ -161,11 +223,11 @@ fn model_bytes(path: &Option<PathBuf>, embedded: &'static [u8], name: &str) -> R
 }
 
 /// ONNX Runtime is loaded at run time: ORT_DYLIB_PATH if set, else a library next to the executable, else the
-/// system search path.
+/// system search path. Loaded here, so that a missing library is an error message, not a panic at the first model.
 #[cfg(feature = "dynamic-ort")]
-fn init_onnxruntime() -> Result<()> {
-    let lib = if std::env::var_os("ORT_DYLIB_PATH").is_some() {
-        None
+fn init_onnxruntime() -> Result<Option<PathBuf>> {
+    let lib = if let Some(p) = std::env::var_os("ORT_DYLIB_PATH") {
+        Some(PathBuf::from(p))
     } else {
         std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).and_then(|dir| {
             let mut names: Vec<PathBuf> = ["onnxruntime.dll", "libonnxruntime.dylib", "libonnxruntime.so"]
@@ -181,24 +243,48 @@ fn init_onnxruntime() -> Result<()> {
             names.into_iter().find(|p| p.is_file())
         })
     };
-    if let Some(lib) = lib {
-        ort::init_from(&lib)?.commit();
-    }
-    Ok(())
+    let system = if cfg!(windows) { "onnxruntime.dll" } else if cfg!(target_os = "macos") { "libonnxruntime.dylib" } else { "libonnxruntime.so" };
+    let path = lib.clone().unwrap_or_else(|| PathBuf::from(system));
+    ort::init_from(&path)
+        .with_context(|| format!("ONNX Runtime library {} could not be loaded: keep the library of the tigerbx \
+                                  package next to the executable, or set ORT_DYLIB_PATH", path.display()))?
+        .commit();
+    Ok(lib)
 }
 
 /// ONNX Runtime is linked into the executable (static-ort).
 #[cfg(not(feature = "dynamic-ort"))]
-fn init_onnxruntime() -> Result<()> {
-    Ok(())
+fn init_onnxruntime() -> Result<Option<PathBuf>> {
+    Ok(None)
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    init_onnxruntime()?;
+    let ort_lib = init_onnxruntime()?;
+    if args.check {
+        return run_check(&args, ort_lib.as_deref());
+    }
 
     if args.inputs.is_empty() {
         bail!("No input files specified. Usage: tigerbx <input.nii.gz> [-o output_dir]");
+    }
+
+    let others = args.seg || args.norm || args.affine || args.all || args.tbx || args.tbxmask || args.tseg
+        || args.dgm || args.affine_out || args.norm_out;
+    if args.template {
+        if others || args.inspect {
+            bail!("--template runs on its own; run the other pipelines / outputs separately");
+        }
+        return run_template(&args);
+    }
+    if args.inspect {
+        if others {
+            bail!("--inspect runs on its own; run the other pipelines / outputs separately");
+        }
+        return run_inspect(&args);
+    }
+    if args.detail {
+        bail!("--detail goes with --inspect");
     }
 
     // Output options, plus the pipelines'; nothing given: _tbx
@@ -275,6 +361,126 @@ fn main() -> Result<()> {
         println!();
     }
 
+    if failed > 0 {
+        println!("Done: {} of {} file(s) failed.", failed, files.len());
+    } else {
+        println!("Done!");
+    }
+    Ok(())
+}
+
+/// `--check`: what the executable runs with.
+fn run_check(args: &Args, ort_lib: Option<&Path>) -> Result<()> {
+    println!("tigerbx {}", env!("CARGO_PKG_VERSION"));
+    let cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let threads = args.threads.unwrap_or_else(inference::default_threads);
+    println!("CPUs {cpus}, ONNX Runtime threads {threads} (-j)");
+    match ort_lib {
+        Some(lib) => println!("ONNX Runtime library: {}", lib.display()),
+        None if cfg!(feature = "dynamic-ort") => println!("ONNX Runtime library: from the system library path"),
+        None => println!("ONNX Runtime: linked into the executable"),
+    }
+    // a session on the smallest embedded model: the runtime loads and runs (and, with -g, whether on the GPU)
+    let _session = inference::create_session(EMBEDDED_INSPECT, threads, args.gpu)?;
+    println!("ONNX Runtime: loads and runs");
+    if args.gpu {
+        println!("GPU: {}", if inference::on_gpu() { "yes" } else { "no, the CPU is used" });
+    }
+    println!("embedded models:");
+    for (name, bytes) in [("mprage_tbx_v005_opt", EMBEDDED_TBX), ("mprage_tseg_v0011_opt", EMBEDDED_TSEG),
+                          ("mprage_dgm12_v002_opt", EMBEDDED_DGM), ("mprage_reg_v005_vfa", EMBEDDED_VFA),
+                          ("inspect_v003", EMBEDDED_INSPECT)] {
+        println!("  {name:24} {:6.1} MB", bytes.len() as f64 / 1_048_576.0);
+    }
+    Ok(())
+}
+
+/// `--template`: tigerbx.template of all inputs into -o.
+fn run_template(args: &Args) -> Result<()> {
+    let Some(out_dir) = args.output.as_deref() else {
+        bail!("--template needs an output directory (-o)");
+    };
+    if args.iters < 1 {
+        bail!("--iters must be >= 1");
+    }
+    let files = expand_inputs(&args.inputs)?;
+    if files.len() < 2 {
+        bail!("a template needs at least 2 inputs, got {}", files.len());
+    }
+    let labels = match args.labels {
+        Labels::Auto => args.contrast.eq_ignore_ascii_case("t1"),
+        Labels::Yes => true,
+        Labels::No => false,
+    };
+    let threads = args.threads.unwrap_or_else(inference::default_threads);
+    // tBX: the brain of non-stripped inputs, and the TSEG input of stripped ones (labels)
+    let mut tbx = if !args.skull_stripped || labels {
+        Some(inference::create_session(&model_bytes(&args.tbx_model, EMBEDDED_TBX, "tBX")?, threads, args.gpu)?)
+    } else {
+        None
+    };
+    let mut tseg = if labels {
+        Some(inference::create_session(&model_bytes(&args.tseg_model, EMBEDDED_TSEG, "TSEG")?, threads, args.gpu)?)
+    } else {
+        None
+    };
+    let mut dgm = if labels && !args.skull_stripped {
+        Some(inference::create_session(&model_bytes(&args.dgm_model, EMBEDDED_DGM, "DGM12")?, threads, args.gpu)?)
+    } else {
+        None
+    };
+    let mut vfa = inference::create_session(&model_bytes(&args.vfa_model, EMBEDDED_VFA, "VFA")?, threads, args.gpu)?;
+    let t = reg::load_template(EMBEDDED_TEMPLATE)?;
+    let opts = template::Options {
+        iters: args.iters,
+        median: args.stat == Stat::Median,
+        stripped: args.skull_stripped,
+        labels,
+        contrast: args.contrast.clone(),
+    };
+    println!("Building a template of {} input(s) into {}\n", files.len(), out_dir.display());
+    template::run(&files, out_dir, &t, &opts, tbx.as_mut(), tseg.as_mut(), dgm.as_mut(), &mut vfa)?;
+    println!("Done!");
+    Ok(())
+}
+
+/// `--inspect`: one row per input (in the order of the inputs) in <output or the first input's folder>/
+/// inspect_summary.csv; a failing input gets status failed and its error, the others go on.
+fn run_inspect(args: &Args) -> Result<()> {
+    let files = expand_inputs(&args.inputs)?;
+    if files.is_empty() {
+        bail!("No NIfTI files found matching the given inputs.");
+    }
+    let threads = args.threads.unwrap_or_else(inference::default_threads);
+    let mut session = inference::create_session(&model_bytes(&args.inspect_model, EMBEDDED_INSPECT, "inspect")?, threads, args.gpu)?;
+    let summary_dir = match &args.output {
+        Some(d) => d.clone(),
+        None => files[0].parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from(".")),
+    };
+    std::fs::create_dir_all(&summary_dir)?;
+    let mut rows = Vec::new();
+    let mut failed = 0usize;
+    for (i, f) in files.iter().enumerate() {
+        println!("[{}/{}] {}", i + 1, files.len(), f.display());
+        let mut row: inspect::Row = vec![("file", f.display().to_string())];
+        match nifti_io::read_nifti_raw(f).and_then(|(h, d)| inspect::inspect_one(&h, &d, &mut session)) {
+            Ok(r) => {
+                row.push(("status", "ok".to_string()));
+                row.extend(r);
+            }
+            Err(e) => {
+                eprintln!("  ERROR: {:#}", e);
+                failed += 1;
+                row.push(("status", "failed".to_string()));
+                row.push(("error", format!("{:#}", e)));
+            }
+        }
+        rows.push(row);
+    }
+    let columns: &[&str] = if args.detail { &inspect::DETAIL_COLUMNS } else { &inspect::SUMMARY_COLUMNS };
+    let out = summary_dir.join(inspect::SUMMARY_NAME);
+    inspect::write_summary(&out, &rows, columns)?;
+    println!("\n  -> {}", out.display());
     if failed > 0 {
         println!("Done: {} of {} file(s) failed.", failed, files.len());
     } else {

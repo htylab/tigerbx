@@ -13,7 +13,7 @@ on:
 
 env:
   ORT_VERSION: "1.24.4"
-  MODELS: "mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v005_vfa"
+  MODELS: "mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v005_vfa inspect_v003"
 
 jobs:
   build:
@@ -69,6 +69,16 @@ jobs:
           cargo build --release --locked
         fi
 
+    - name: Unit tests
+      shell: bash
+      working-directory: rust
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          cargo test --release --locked --no-default-features --features static-ort
+        else
+          cargo test --release --locked
+        fi
+
     - name: Package (with ONNX Runtime on Linux / macOS)
       shell: bash
       run: |
@@ -106,8 +116,11 @@ jobs:
       run: |
         BIN=pkg/tigerbx; [[ "$RUNNER_OS" == "Windows" ]] && BIN=pkg/tigerbx.exe
         "$BIN" --help
+        "$BIN" --check
         "$BIN" tigerbx/template/mni_template.nii.gz -o smoke
         ls smoke/mni_template_tbx.nii.gz
+        "$BIN" tigerbx/template/mni_template.nii.gz -o smoke_i --inspect
+        grep -q ',T1w,' smoke_i/inspect_summary.csv
         # -g: GPU if the runner has one, else a warning and the CPU (must not fail)
         "$BIN" tigerbx/template/mni_template.nii.gz -o smoke_g -g
         ls smoke_g/mni_template_tbx.nii.gz

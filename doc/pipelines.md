@@ -12,12 +12,13 @@ accurate is done in the pipelines.
 | `affine` | `tigerbx.affine(...)` | `--affine` | `_tbx`, `_affine`, `_warp.npz` |
 | `norm`   | `tigerbx.norm(...)`   | `--norm` | `_tbx`, `_norm`, `_warp.npz` |
 | `vbm`    | `tigerbx.vbm(...)`    | — | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
-| `template` | `tigerbx.template(...)` | — | `template`, `template_mask`, `template_tseg`, `template_log.json` |
+| `template` | `tigerbx.template(...)` | `--template` | `template`, `template_mask`, `template_tseg`, `template_log.json` |
+| `inspect` | `tigerbx.inspect(...)` | `--inspect` | `inspect_summary.csv` (what each image is; [inspect](inspect.md)) |
 
 Common arguments: `input` (a NIfTI file, a directory, a glob pattern or a list), `output` (output directory;
 `None` writes next to each input), `gpu`, `gz` (`.nii.gz` outputs), `model` (model overrides), `verbose`. A single
 input returns a dict of images; several return a list of dicts of the written files (a failing input is logged
-and skipped). `_tbx` (all but `vbm`) is the brain on the input grid, the first thing to check when a result
+and skipped, and a `RuntimeWarning` at the end lists the skipped inputs with their errors). `_tbx` (all but `vbm`) is the brain on the input grid, the first thing to check when a result
 looks wrong.
 
 The VBM pipeline was developed by **Pei-Mao Sun**.

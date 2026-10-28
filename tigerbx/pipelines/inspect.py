@@ -11,6 +11,9 @@ Per input (any contrast, any orientation; 4D: the first volume):
   truncated        part of the head lies outside the field of view
   motion           motion artifact score 0-1 (T1w, T2w and FLAIR only; empty for other contrasts) and motion_flag
                    (score > 0.5)
+Rule-based checks (header and data, no model): number of volumes, voxel size and thick slices, obliqueness, field of
+view, non-finite voxels, label map / mask instead of an image, empty image, missing spatial header; `warnings` lists
+the ones that apply.
 
 Input of the network: a 256 mm cube at 2.67 mm (96^3) on RAS axes (from the header) centred on the intensity centre
 of mass, with four channels: intensity / p99, the fraction of empty (0 / non-finite) voxels, the inside-field-of-view
@@ -32,21 +35,27 @@ from scipy import ndimage
 from tqdm import tqdm
 
 from tigerbx import lib_tool
+from tigerbx.core import models
 from tigerbx.core.io import resolve_inputs
 from tigerbx.core.onnx import create_session
 
 _logger = logging.getLogger('tigerbx')
 _logger.addHandler(logging.NullHandler())
 
-DEFAULT_MODEL = 'inspect_v003.onnx'
+DEFAULT_MODEL = models.INSPECT
 N, STEP, BLOCK = 96, 256 / 96, 2.0       # output cube, spacing (mm), block average target before the anti-alias
 CONTRASTS = ('T1w', 'T2w', 'FLAIR', 'b0', 'DWI', 'other')
 MOTION_CONTRASTS = ('T1w', 'T2w', 'FLAIR')
 PERMS = [(a, b, c) for a in range(3) for b in range(3) for c in range(3) if len({a, b, c}) == 3]
 SUMMARY_NAME = 'inspect_summary.csv'
-SUMMARY_COLUMNS = (('file', 'status', 'contrast') + tuple(f'p_{c}' for c in CONTRASTS) +
-                   ('skull_stripped', 'p_skull_stripped', 'epi', 'p_epi', 'orientation', 'p_orientation',
-                    'truncated', 'p_truncated', 'motion', 'motion_flag', 'error'))
+CHECK_COLUMNS = ('n_volumes', 'ndim', 'matrix', 'voxel_mm', 'thick_slices', 'oblique_deg', 'fov_mm', 'nonfinite_frac',
+                 'label_map')
+# detail=True: every value; default: the decisions, with the flagged findings spelled out in `warnings`
+DETAIL_COLUMNS = (('file', 'status', 'contrast', 'p_contrast') + tuple(f'p_{c}' for c in CONTRASTS) +
+                  ('skull_stripped', 'p_skull_stripped', 'epi', 'p_epi', 'orientation', 'p_orientation',
+                   'truncated', 'p_truncated', 'motion', 'motion_flag') + CHECK_COLUMNS + ('warnings', 'error'))
+SUMMARY_COLUMNS = ('file', 'status', 'contrast', 'p_contrast', 'skull_stripped', 'epi', 'orientation', 'truncated',
+                   'motion', 'ndim', 'matrix', 'voxel_mm', 'warnings', 'error')
 
 
 def _volume(img):
@@ -113,6 +122,57 @@ def make_input(img, data=None):
     return x.astype(np.float32)
 
 
+def _clean(d):
+    """(data with NaN / Inf set to 0, fraction of such voxels): only the report sees the non-finite voxels."""
+    finite = np.isfinite(d)
+    return np.where(finite, d, 0).astype(np.float32), float(1 - finite.mean())
+
+
+def rule_checks(img, d=None, nonfinite=None):
+    """Header / data checks without a model -> dict of CHECK_COLUMNS + `warnings` (text, '; ' separated).
+    d: the first volume with NaN / Inf set to 0 and nonfinite their fraction (_clean); None: from img."""
+    shape = img.shape
+    n_vol = int(np.prod(shape[3:])) if len(shape) > 3 else 1
+    if d is None:
+        d, nonfinite = _clean(_volume(img))
+    nonfinite = nonfinite or 0.0
+    A = img.affine
+    z = np.sqrt((A[:3, :3] ** 2).sum(0))
+    # angle of each voxel axis to its nearest world axis
+    oblique = float(np.degrees(np.arccos(np.clip(np.abs(A[:3, :3] / z).max(0), 0, 1))).max())
+    fov = z * np.array(shape[:3])
+    q = np.maximum(np.array(d.shape) // 64, 1)                     # a strided sample for the value statistics
+    sub = d[::q[0], ::q[1], ::q[2]].ravel()
+    integer = sub.size > 0 and bool(np.all(sub == np.round(sub)))
+    uniq = np.unique(sub) if integer else np.array([])
+    span = float(uniq[-1] - uniq[0] + 1) if uniq.size else 0.0
+    label_map = integer and uniq.size > 1 and (uniq.size <= 20 or (uniq.size <= 300 and uniq.size / span < 0.5))
+    thick = bool(z.max() >= 3 or z.max() / max(z.min(), 1e-6) >= 3)
+    h = img.header
+    no_space = ('sform_code' in h and int(h['sform_code']) == 0 and int(h['qform_code']) == 0)
+    w = []
+    if n_vol > 1:
+        w.append(f'{n_vol} volumes, only the first is used')
+    if thick:
+        w.append('thick slices / low resolution')
+    if oblique > 20:                    # tilted acquisitions of a few degrees are common and handled
+        w.append(f'oblique header ({oblique:.0f} deg)')
+    if fov.min() < 80:
+        w.append(f'slab: field of view {fov.min():.0f} mm along one axis')
+    if nonfinite > 0:
+        w.append(f'non-finite voxels ({100 * nonfinite:.2g}%)')
+    if label_map:
+        w.append('a label map / mask, not an image')
+    if sub.size == 0 or float(sub.min()) == float(sub.max()):
+        w.append('empty or constant image')
+    if no_space:
+        w.append('no spatial header (sform and qform codes 0): the orientation is a guess')
+    return dict(n_volumes=n_vol, ndim=len(shape), matrix='x'.join(str(int(v)) for v in shape),   # full shape
+                voxel_mm='x'.join(f'{v:.2f}' for v in z), thick_slices=thick,
+                oblique_deg=round(oblique, 1), fov_mm='x'.join(f'{v:.0f}' for v in fov),
+                nonfinite_frac=round(nonfinite, 6), label_map=bool(label_map), warnings='; '.join(w))
+
+
 def orientation_code(k):
     """Orientation class -> anatomical direction of the header's +x, +y, +z ('RAS' = class 0)."""
     p, f_ap, f_si = PERMS[k // 4], (k // 2) % 2, k % 2
@@ -130,12 +190,13 @@ def _sigmoid(z):
 
 def inspect_one(img, session):
     """Predictions for one nibabel image (dict, as a row of inspect_summary.csv without file / status)."""
-    d = _volume(img)
+    d, nonfinite = _clean(_volume(img))          # NaN / Inf only reported (nonfinite_frac); every check sees 0
     out = session.run(None, {'x': make_input(img, d)[None], 'h': header_features(img, d.shape)[None]})
     contrast, stripped, epi, orient, trunc, motion = (o[0] for o in out)
     pc, po = _softmax(contrast), _softmax(orient)
     k = int(po.argmax())
-    r = dict(contrast=CONTRASTS[int(pc.argmax())], **{f'p_{c}': round(float(p), 4) for c, p in zip(CONTRASTS, pc)})
+    r = dict(contrast=CONTRASTS[int(pc.argmax())], p_contrast=round(float(pc.max()), 4),
+             **{f'p_{c}': round(float(p), 4) for c, p in zip(CONTRASTS, pc)})
     for name, o in (('skull_stripped', stripped), ('epi', epi), ('truncated', trunc)):
         p = _sigmoid(float(o))
         r[name], r[f'p_{name}'] = p > 0.5, round(p, 4)
@@ -145,31 +206,42 @@ def inspect_one(img, session):
         r['motion'], r['motion_flag'] = round(p, 4), p > 0.5
     else:
         r['motion'] = r['motion_flag'] = None
+    checks = rule_checks(img, d, nonfinite)
+    found = []
+    if r['orientation'] != 'RAS':
+        found.append(f"orientation {r['orientation']}: the data do not match the header")
+    if r['truncated']:
+        found.append('head cut by the field of view')
+    if r['motion_flag']:
+        found.append('motion artifacts')
+    checks['warnings'] = '; '.join(found + ([checks['warnings']] if checks['warnings'] else []))
+    r.update(checks)
     return r
 
 
-def _save_summary(summary_dir, rows):
+def _save_summary(summary_dir, rows, columns):
     path = os.path.join(summary_dir, SUMMARY_NAME)
     try:
         os.makedirs(summary_dir, exist_ok=True)
         with open(path, 'w', newline='') as fh:
-            w = csv.DictWriter(fh, fieldnames=SUMMARY_COLUMNS)
+            w = csv.DictWriter(fh, fieldnames=columns)
             w.writeheader()
             for r in rows:
-                w.writerow({k: r.get(k, '') for k in SUMMARY_COLUMNS})
+                w.writerow({k: r.get(k, '') for k in columns})
     except OSError as exc:
         _logger.warning('could not write %s: %s', path, exc)
 
 
-def inspect(input=None, output=None, model=None, gpu=False, verbose=0):
+def inspect(input=None, output=None, model=None, gpu=False, detail=False, verbose=0):
     """Contrast, skull-stripped, EPI, orientation, truncation and motion of each input (module docstring).
 
     input: a NIfTI file, a directory, a glob pattern or a list. output: folder of ``inspect_summary.csv`` (None: the
-    first input's folder). A failing input is logged and skipped (a single input raises). Returns the result dict
-    for a single input, otherwise the list of result dicts (one per input, with ``file`` and ``status``).
+    first input's folder). detail: every probability and check value (DETAIL_COLUMNS) instead of the decisions
+    (SUMMARY_COLUMNS). A failing input is logged and skipped (a single input raises). Returns the result dict for a
+    single input, otherwise the list of result dicts (one per input, with ``file`` and ``status``).
     """
     args = SimpleNamespace(input=input if isinstance(input, list) else [input], output=output,
-                           model=model or DEFAULT_MODEL, gpu=gpu, verbose=verbose)
+                           model=model or DEFAULT_MODEL, gpu=gpu, detail=detail, verbose=verbose)
     return run_args(args)
 
 
@@ -181,21 +253,23 @@ def run_args(args):
     session = create_session(lib_tool.get_model(getattr(args, 'model', None) or DEFAULT_MODEL), args.gpu)
     is_single = len(input_file_list) == 1
     summary_dir = args.output or os.path.dirname(os.path.abspath(input_file_list[0]))
+    columns = DETAIL_COLUMNS if getattr(args, 'detail', False) else SUMMARY_COLUMNS
     rows = []
     for f in tqdm(input_file_list, desc='tigerbx-inspect', unit='file', disable=(verbose > 0)):
         try:
             r = dict(file=f, status='ok', **inspect_one(nib.load(f), session))
+            r = {k: r[k] for k in columns if k in r}
         except Exception as exc:                 # noqa: BLE001 - one bad input must not stop a batch
             msg = f'{type(exc).__name__}: {exc}'
             rows.append(dict(file=f, status='failed', error=msg))
             if is_single:
-                _save_summary(summary_dir, rows)
+                _save_summary(summary_dir, rows, columns)
                 raise
             _logger.warning('FAILED %s: %s', os.path.basename(f), msg)
             continue
         rows.append(r)
         if verbose >= 1:
-            _logger.info('%s: %s', os.path.basename(f), json.dumps({k: r[k] for k in (
-                'contrast', 'skull_stripped', 'epi', 'orientation', 'truncated', 'motion')}))
-    _save_summary(summary_dir, rows)
+            _logger.info('%s: %s', os.path.basename(f), json.dumps({k: r.get(k) for k in (
+                'contrast', 'skull_stripped', 'epi', 'orientation', 'truncated', 'motion', 'warnings')}))
+    _save_summary(summary_dir, rows, columns)
     return rows[0] if is_single else rows

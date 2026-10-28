@@ -8,8 +8,10 @@ input grid, label 99 for unlabeled tBX-mask voxels. DGM12 (`-d`, `tigerbx.run('d
 separate `_dgm`. The output options give the models' own results, as the Python modules: `_tbxmask`, `_tseg` and
 `_dgm` match `tigerbx.run('bmtd')` (identical on seg18; `_tbx` in the input data type). The `--seg` / `--all`
 pipelines post-process as `tigerbx.seg()`: the 12 deep-GM structures of `_tseg` come from DGM12 (seg18
-30 structures 0.8178 vs 0.8129), voxel-identical to Python. Check: `tests/rust_python_parity.py`. On oblique images a
-few voxels on the edge of the field of view can differ (floating-point rounding of the 4x4 affine inverse).
+30 structures 0.8178 vs 0.8129), voxel-identical to Python. Check: `tests/rust_python_parity.py`. Both snap the
+voxel-to-voxel maps of the resampling to integers within 1e-9, so a grid that starts exactly on an input plane keeps
+that plane whatever the floating-point rounding of the affine inverse; a voxel on a tissue boundary can still take the
+other label (float32 / float64 arithmetic of a near tie).
 
 Registration: a Rust port of numreg (Mattes MI, symmetric cost, 6 / 3 / 1.5 mm pyramid, multi-start L-BFGS) gives
 `_affine` (tBX brain on the template grid, min-max normalised), then VFA (`mprage_reg_v005_vfa`) gives `_norm`.
@@ -19,6 +21,15 @@ B-spline clipped to the input range, the VFA input trilinearly; with the same ma
 It cannot be bit-identical to numreg (another random generator for the 1.5 mm sample subset, another line search);
 on a reg60 subset the template-space Dice of carried labels is 0.7217 vs 0.7218 (affine) and 0.8451 vs 0.8452
 (affine + VFA), image correlation >= 0.9993.
+
+Template (`--template`, runs on its own): a port of `tigerbx.template` (same steps, options, outputs and
+template_log.json). Its affines come from the numreg port, so the template is very close to, not identical with,
+the Python one.
+
+Inspect (`--inspect`, runs on its own): a port of `tigerbx.inspect` with the same network input (scipy-compatible
+box filter, Gaussian, block average and trilinear sampling), model (`inspect_v003`), header / data checks and
+`inspect_summary.csv` columns; `--detail` as `detail=True`. NaN / Inf voxels are reported and set to 0 for
+everything else. The summary matches Python cell for cell (`tests/rust_python_parity.py`).
 
 `_norm` / `--affine` `_affine` intensities (`--intensity`, as `tigerbx.norm(intensity=...)`): `raw` (default; the
 input's units, any contrast), `minmax` ([0, 1]) or `gnorm`, a port of `tigerbx.core.tissuenorm.tissue_norm` (prior
@@ -41,17 +52,20 @@ present), as workflow artifacts on every change under `rust/` and attached to th
 
 ```bash
 mkdir -p models
-for m in mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v005_vfa; do
+for m in mprage_tbx_v005_opt mprage_tseg_v0011_opt mprage_dgm12_v002_opt mprage_reg_v005_vfa inspect_v003; do
   curl -L -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
 done
 cargo build --release
+cargo test --release      # unit tests: resampling, filters and percentiles against scipy / numpy reference values
 # Windows, single executable (pyke's static ONNX Runtime build; it uses the DLL C runtime, so no +crt-static):
 #   cargo build --release --no-default-features --features static-ort
 ```
 
 The models and the TigerBx template (`../tigerbx/template/mni_template.nii.gz`) are embedded in the binary (~100 MB). ONNX Runtime is loaded at run time (`ort` with `load-dynamic`): from
 `ORT_DYLIB_PATH`, else an `onnxruntime` library next to the executable, else the system library path. Use the
-official ONNX Runtime release (e.g. `libonnxruntime.so.1.24.x`), which runs on older glibc versions.
+official ONNX Runtime release (e.g. `libonnxruntime.so.1.24.x`), which runs on older glibc versions. A library
+that cannot be loaded stops the executable with an error naming it. `tigerbx --check` (`-g`: also whether the GPU
+is used) shows the version, the library, the threads and the embedded models, and runs a model once.
 
 ## Usage
 
@@ -61,12 +75,16 @@ tigerbx T1w.nii.gz --seg                # pipeline tBX + TSEG: _tbx, _tseg (deep
 tigerbx T1w.nii.gz --affine             # pipeline affine-only normalisation: _tbx, _affine, _warp.npz
 tigerbx T1w.nii.gz --norm               # pipeline template normalisation (affine + VFA): _tbx, _norm, _warp.npz
 tigerbx T1w.nii.gz --all                # --seg + --norm: _tbx, _tseg, _norm, _warp.npz
+tigerbx data/ -o out/ --inspect        # pipeline inspect: inspect_summary.csv (--detail: every value)
+tigerbx data/ -o tpl/ --template       # pipeline template of the inputs (--iters 6, --stat median, --skull-stripped,
+                                       #   --contrast t1, --labels auto)
 tigerbx data/ -o out/ --seg -m          # output options add to a pipeline: + _tbxmask
 tigerbx data/*.nii.gz -o out/ -m        # single outputs: -b _tbx, -m _tbxmask, -t _tseg, -d _dgm, -A _affine, -n _norm
 tigerbx data/ -o out/ -t -A -j 8        # TSEG + _affine only, 8 intra-op threads (default: 70% of the available CPUs)
 tigerbx data/ -o out/ --norm --intensity gnorm  # T1 tissue intensities (CSF 1/3, GM 2/3, WM 1); raw (default) or minmax
-tigerbx T1w.nii.gz --tseg-model other_tseg.onnx   # other models (--tbx-/--tseg-/--dgm-/--vfa-model)
+tigerbx T1w.nii.gz --tseg-model other_tseg.onnx   # other models (--tbx-/--tseg-/--dgm-/--vfa-/--inspect-model)
 tigerbx data/ -o out/ --seg -g         # GPU (see below)
+tigerbx --check -g                      # version, ONNX Runtime library, threads, GPU, embedded models
 ```
 
 GPU (`-g`): Linux uses CUDA. The Linux zip carries the GPU build of ONNX Runtime 1.24.4 (same CPU results as the

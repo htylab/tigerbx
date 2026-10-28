@@ -1,10 +1,11 @@
+import os
 import re
-from pathlib import Path
 from setuptools import setup, find_packages
 
 
 def _read_version():
-    text = Path(__file__).parent.joinpath('tigerbx', '__init__.py').read_text(encoding='utf-8')
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tigerbx', '__init__.py'), encoding='utf-8') as f:
+        text = f.read()
     match = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", text, re.MULTILINE)
     if not match:
         raise RuntimeError('Unable to find __version__ in tigerbx/__init__.py')

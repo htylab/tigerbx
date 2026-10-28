@@ -53,12 +53,43 @@ def download(url, file_name, timeout_s=MODEL_DOWNLOAD_TIMEOUT_S):
         shutil.copyfileobj(response, out_file)
         
 
+def sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+_VERIFIED = set()
+
+
+def verify_model(path):
+    """True when `path` matches the release sha256 of its file name (or the name is not a release model)."""
+    from tigerbx.core.models import SHA256
+    expected = SHA256.get(basename(path))
+    if expected is None:
+        return True
+    key = (os.path.abspath(path), os.path.getsize(path), os.path.getmtime(path))
+    if key in _VERIFIED:
+        return True
+    if sha256(path) != expected:
+        return False
+    _VERIFIED.add(key)
+    return True
+
+
 def _atomic_download(url, dst_path, timeout_s=MODEL_DOWNLOAD_TIMEOUT_S):
     dst_dir = dirname(dst_path)
     fd, tmp_path = tempfile.mkstemp(prefix=basename(dst_path) + '.', suffix='.tmp', dir=dst_dir)
     os.close(fd)
     try:
         download(url, tmp_path, timeout_s=timeout_s)
+        from tigerbx.core.models import SHA256
+        expected = SHA256.get(basename(dst_path))
+        if expected is not None and sha256(tmp_path) != expected:
+            raise ValueError('sha256 mismatch (incomplete or wrong file)')
         os.replace(tmp_path, dst_path)
     finally:
         try:
@@ -80,12 +111,14 @@ def get_model(f):
     model_dir = override_dir or get_model_dir()
     model_file = join(model_dir, fn)
 
-    if os.path.exists(model_file):
+    # a release model name must hold the release file: a stale or damaged copy is set aside and downloaded again
+    # (a model of your own goes by its path or another name)
+    if os.path.exists(model_file) and verify_model(model_file):
         return model_file
 
     if not override_dir:
         bundled_model_file = join(_bundled_models_dir(), fn)
-        if os.path.exists(bundled_model_file):
+        if os.path.exists(bundled_model_file) and verify_model(bundled_model_file):
             return bundled_model_file
     
     os.makedirs(model_dir, exist_ok=True)
@@ -94,7 +127,11 @@ def get_model(f):
     try:
         with lock.acquire(timeout=MODEL_LOCK_TIMEOUT_S):
             if os.path.exists(model_file):
-                return model_file
+                if verify_model(model_file):
+                    return model_file
+                warnings.warn(f'{fn} does not match the release file (sha256): moved to {fn}.bad, downloading it '
+                              'again', RuntimeWarning, stacklevel=2)
+                os.replace(model_file, model_file + '.bad')
 
             errors = []
             for server in model_servers:

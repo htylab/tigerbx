@@ -9,6 +9,7 @@ import nibabel as nib
 from tqdm import tqdm
 
 from tigerbx import lib_tool
+from tigerbx.core import models
 from tigerbx.modules.bx import produce_tbxmask
 from tigerbx.core.io import get_template, load_nifti, save_nib, resolve_inputs
 from tigerbx.core.onnx import create_session, predict
@@ -228,8 +229,8 @@ def run_args(args):
 
     output_dir = args.output
     omodel = dict()
-    omodel['tbx'] = 'mprage_tbx_v005_opt.onnx'
-    omodel['HLC'] = 'mprage_hlc_v004_opt.onnx'
+    omodel['tbx'] = models.TBX
+    omodel['HLC'] = models.HLC
 
     # if you want to use other models
     if isinstance(args.model, dict):
