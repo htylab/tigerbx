@@ -13,7 +13,8 @@ that plane whatever the floating-point rounding of the affine inverse; a voxel o
 other label (float32 / float64 arithmetic of a near tie).
 
 Registration: a Rust port of numreg (Mattes MI, symmetric cost, 6 / 3 / 1.5 mm pyramid, multi-start L-BFGS) gives
-`_affine` (tBX brain on the template grid, min-max normalised), then tReg (`mprage_treg_v003_opt`) gives `_norm`.
+`_affine` (tBX brain on the template grid, min-max normalised), then tReg (`mprage_treg_v003_opt`) gives `_norm`;
+its folded voxels are repaired as in Python (`src/unfold.rs` = `templatereg.unfold`, identical output).
 As in Python, `_affine` and `_norm` (affine + tReg warp composed) are sampled once from the input grid with a cubic
 B-spline clipped to the input range, the tReg input trilinearly; with the same matrix and warp they match
 `tigerbx.core.numreg.resample` within 5e-6.

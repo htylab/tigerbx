@@ -58,16 +58,21 @@ def treg_input(brain, template_nib, M):
     return min_max_norm(numreg.resample(brain, template_nib, M, order=1)).astype(np.float32)
 
 
-def treg_grid(moving, template_nib, model=None, gpu=False, fixed=None, session=None):
+def treg_grid(moving, template_nib, model=None, gpu=False, fixed=None, session=None, fix_folds=True):
     """tReg voxel sampling grid (3, X, Y, Z) of `moving` (min-max image on the template grid) to the template, or to
-    `fixed` (an image on the template grid) when given. `session`: a reused ONNX Runtime session of the model."""
+    `fixed` (an image on the template grid) when given. `session`: a reused ONNX Runtime session of the model.
+    `fix_folds`: repair the few folded voxels of the network's warp (unfold)."""
     from tigerbx import lib_tool
     from tigerbx.lib_reg import min_max_norm
     f = template_nib.get_fdata() if fixed is None else fixed
     f = min_max_norm(np.asarray(f, np.float32)[None, None]).astype(np.float32)
     if session is None:
         session = create_session(lib_tool.get_model(model or TREG_MODEL), gpu)
-    return np.squeeze(predict(None, [moving[None, None], f], GPU=gpu, mode='reg', session=session)[0])
+    grid = np.squeeze(predict(None, [moving[None, None], f], GPU=gpu, mode='reg', session=session)[0])
+    if fix_folds:
+        idg = identity_grid(grid.shape[1:])
+        grid = (idg + unfold(grid.astype(np.float64) - idg)).astype(grid.dtype)
+    return grid
 
 
 def model_box(template_nib):
@@ -124,6 +129,60 @@ def treg_warp(brain, template_nib, M, model=None, gpu=False):
 
 def identity_grid(shape):
     return np.stack(np.meshgrid(*[np.arange(n, dtype=np.float32) for n in shape], indexing='ij'))
+
+
+def jacobian_det(d):
+    """det of the Jacobian of p -> p + d(p) (central differences, one-sided at the edges), d: (3, X, Y, Z)."""
+    g = np.array([[np.gradient(d[i], axis=j) for j in range(3)] for i in range(3)])
+    return np.linalg.det(np.moveaxis(np.eye(3)[:, :, None, None, None] + g, (0, 1), (-2, -1)))
+
+
+def _unfold_box(c, cut, thr, max_iter):
+    """unfold on a box cut out of the volume around one folded cluster; `cut`: per axis, whether its low / high face
+    is a cut (not the volume's edge). False when the repair reaches 2 voxels from a cut face."""
+    from scipy import ndimage
+    edge, rim = np.zeros(c.shape[1:], bool), np.zeros(c.shape[1:], bool)
+    for a in range(3):
+        lo, hi = cut[a]
+        idx = [slice(None)] * 3
+        for on, s1, s2 in ((lo, slice(0, 1), slice(0, 2)), (hi, slice(-1, None), slice(-2, None))):
+            if on:
+                idx[a] = s1; edge[tuple(idx)] = True
+                idx[a] = s2; rim[tuple(idx)] = True
+    for _ in range(max_iter):
+        bad = (jacobian_det(c) <= thr) & ~edge          # det J on a cut face is one-sided: not the volume's
+        if not bad.any():
+            return True
+        m = ndimage.binary_dilation(bad)
+        if (m & rim).any():
+            return False
+        for i in range(3):
+            c[i][m] = ndimage.uniform_filter(c[i], 3)[m]
+    return True
+
+
+def unfold(warp, thr=0.05, max_iter=100):
+    """A displacement (3, X, Y, Z) without folds: where det J <= thr, the displacement is replaced by its 3 x 3 x 3
+    mean on those voxels and their 6 neighbours, repeated until none is left (or max_iter). Run per folded cluster
+    on a box around it (the same result as on the whole volume); the rest of the warp is untouched."""
+    from scipy import ndimage
+    d = np.array(warp, np.float64)
+    bad = jacobian_det(d) <= thr
+    if not bad.any():
+        return d
+    shape = d.shape[1:]
+    lab, _ = ndimage.label(ndimage.binary_dilation(bad, iterations=6))
+    for sl in ndimage.find_objects(lab):
+        rim = 2
+        while True:
+            box = tuple(slice(max(s.start - rim, 0), min(s.stop + rim, n)) for s, n in zip(sl, shape))
+            cut = [(b.start > 0, b.stop < n) for b, n in zip(box, shape)]
+            c = d[(slice(None),) + box].copy()
+            if _unfold_box(c, cut, thr, max_iter):
+                break
+            rim *= 2
+        d[(slice(None),) + box] = c
+    return d
 
 
 def warp_on_grid(data, warp, order=1):

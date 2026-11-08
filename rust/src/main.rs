@@ -14,6 +14,7 @@ mod reg;
 mod resample;
 mod template;
 mod tissuenorm;
+mod unfold;
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
