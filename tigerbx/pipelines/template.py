@@ -57,7 +57,7 @@ def template(input=None, output=None, *, contrast='t1', iters=6, stat='median', 
     try:
         subs = _prepare(files, tpl, tmp, mask, want_labels, gpu, model, verbose, log)
         treg_model = model.get('treg') or model.get('vfa') or templatereg.TREG_MODEL    # 'vfa': the key up to 0.3.3
-        session = create_session(lib_tool.get_model(treg_model), gpu)
+        session = create_session(lib_tool.get_model(templatereg.treg_model(treg_model, gpu)), gpu)
         cur = _stat(np.stack([s['affined'] for s in subs]), stat)            # round 0: affine-only average
         for k in range(1, iters + 1):
             last = k == iters

@@ -22,6 +22,13 @@ from tigerbx.core.onnx import create_session, predict
 from tigerbx.core.resample import reorder_img
 
 TREG_MODEL = models.TREG
+
+
+def treg_model(model=None, gpu=False):
+    """The tReg model file: `model`, or the default (its Gather-sampling export on the GPU)."""
+    if model in (None, models.TREG):
+        return models.TREG_GPU if gpu else models.TREG
+    return model
 MODEL_SHAPE = (160, 224, 192)                  # the input grid of the tReg / VMnet / C2FViT models (1 mm)
 
 
@@ -67,7 +74,7 @@ def treg_grid(moving, template_nib, model=None, gpu=False, fixed=None, session=N
     f = template_nib.get_fdata() if fixed is None else fixed
     f = min_max_norm(np.asarray(f, np.float32)[None, None]).astype(np.float32)
     if session is None:
-        session = create_session(lib_tool.get_model(model or TREG_MODEL), gpu)
+        session = create_session(lib_tool.get_model(treg_model(model, gpu)), gpu)
     grid = np.squeeze(predict(None, [moving[None, None], f], GPU=gpu, mode='reg', session=session)[0])
     if fix_folds:
         idg = identity_grid(grid.shape[1:])
