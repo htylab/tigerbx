@@ -61,7 +61,7 @@ registration steps to run and in what order.
 |------|------------|-------------|
 | `R`  | Rigid      | Rigid (rotation + translation) registration to template with numreg; no model needed |
 | `A`  | Affine     | Affine registration to template (numreg) |
-| `D`  | tReg       | tReg nonlinear registration (requires prior `A`) |
+| `D`  | tReg       | tReg nonlinear registration (requires prior `A`); folded voxels of the warp are repaired |
 
 **Rules**
 
@@ -119,6 +119,13 @@ flags.
   `template` is not specified
 - **Affine** (`A`): numreg, a deterministic numpy/scipy affine (Mattes MI, symmetric cost, 6/3/1.5 mm pyramid); it
   replaced the ANTs affine with the same accuracy and removed the antspyx dependency
+- **tReg v4** (`D`): diffeomorphic; each level's displacement is the exponential of a velocity field (scaling and
+  squaring), so the warp does not fold. On the GPU tigerbx uses `mprage_treg_v004_gpu.onnx`, the same network with
+  its sampling written as Gather ops (the ONNX Runtime CUDA provider has no 5-D GridSample).
+- **tReg folds** (`D`): an older, non-diffeomorphic tReg (`model=`) can fold in a few small clusters of voxels. Where
+  det J <= 0.05 the displacement is replaced by its 3 x 3 x 3 mean on those voxels and their 6 neighbours, repeated
+  until none is left (`tigerbx.core.templatereg.unfold`, a few seconds); the rest of the warp is untouched and the
+  accuracy is unchanged. The Rust executable does the same.
 - **VMnet (`V`) and the C2FViT affine (`affine_type='C2FViT'`) were removed** in 0.5.0: both were less accurate
   than numreg + tReg (`AD`), and C2FViT failed on images whose head is rotated in the field of view.
   `affine_type='C2FViT'` runs numreg with a warning; plan `V` raises an error (use `AD`)

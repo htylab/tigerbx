@@ -2,6 +2,12 @@
 
 ## Latest release
 
+- [`v0.5.1`](release/releasenote051.md)
+  - tReg v4: diffeomorphic, the warp no longer folds; a faster GPU model
+  - Fold repair of earlier tReg warps (Python and executable)
+
+## Earlier releases
+
 - [`v0.5.0`](release/releasenote050.md)
   - Two sets of models: `tigerbx.infer()` and the pipelines use the current tBX / TSEG; `tigerbx.run()` keeps the
     earlier tBET / ASEG with their 0.2.x file names

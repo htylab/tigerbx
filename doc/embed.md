@@ -4,7 +4,7 @@
 (classification, regression, clustering): the mean tReg encoder feature inside each of the 37 TSEG structures, plus the
 structure volumes and TIV.
 
-The features are those of the registration model (tReg v3, `mprage_treg_v003_opt.onnx`): its feature network,
+The features are those of tReg v3 (`mprage_treg_v003_opt.onnx`; the registration default is v4 since 0.5.1): its feature network,
 exported alone up to the 2 mm and 4 mm decoder levels as `mprage_embed_v002.onnx` (14 MB). It is trained for
 registration (no labels), so its features describe local anatomy and shape. 0.3.x used the encoder of the earlier
 registration model (`mprage_embed_v001_vfa.onnx`, 96 columns; no longer distributed); the two tables are not

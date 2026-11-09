@@ -13,13 +13,13 @@ that plane whatever the floating-point rounding of the affine inverse; a voxel o
 other label (float32 / float64 arithmetic of a near tie).
 
 Registration: a Rust port of numreg (Mattes MI, symmetric cost, 6 / 3 / 1.5 mm pyramid, multi-start L-BFGS) gives
-`_affine` (tBX brain on the template grid, min-max normalised), then tReg (`mprage_treg_v003_opt`) gives `_norm`.
+`_affine` (tBX brain on the template grid, min-max normalised), then tReg (`mprage_treg_v004`, diffeomorphic) gives `_norm`;
+folded voxels, if any, are repaired as in Python (`src/unfold.rs` = `templatereg.unfold`, identical output).
 As in Python, `_affine` and `_norm` (affine + tReg warp composed) are sampled once from the input grid with a cubic
 B-spline clipped to the input range, the tReg input trilinearly; with the same matrix and warp they match
 `tigerbx.core.numreg.resample` within 5e-6.
-It cannot be bit-identical to numreg (another random generator for the 1.5 mm sample subset, another line search);
-on a reg60 subset the template-space Dice of carried labels is 0.7217 vs 0.7218 (affine) and 0.8451 vs 0.8452
-(affine + tReg), image correlation >= 0.9993.
+It cannot be bit-identical to numreg (another random generator for the 1.5 mm sample subset, another line search):
+the matrix differs slightly from Python's, with the same registration accuracy.
 
 Template (`--template`, runs on its own): a port of `tigerbx.template` (same steps, options, outputs and
 template_log.json). Its affines come from the numreg port, so the template is very close to, not identical with,
@@ -69,7 +69,7 @@ present), as workflow artifacts on every change under `rust/` and attached to th
 
 ```bash
 mkdir -p models
-for m in mprage_tbxdual_v007_opt mprage_tseg_v1_opt mprage_treg_v003_opt inspect_v003; do
+for m in mprage_tbxdual_v007_opt mprage_tseg_v1_opt mprage_treg_v004 inspect_v003; do
   curl -L -o models/$m.onnx https://github.com/htylab/tigerbx/releases/download/modelhub/$m.onnx
 done
 cargo build --release

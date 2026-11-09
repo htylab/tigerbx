@@ -113,3 +113,27 @@ def test_model_box_and_warp_from_box():
     # an image moved by the carried-back displacement: out(p) = data(p + w(p)), the same move as on the box
     moved = templatereg.warp_on_grid(data, w)
     assert np.allclose(moved[22:66, 30:80, 25:75], data[24:68, 30:80, 25:75])
+
+
+def test_unfold_repairs_folds_locally():
+    from scipy import ndimage
+    from tigerbx.core import templatereg
+    rng = np.random.default_rng(0)
+    d = np.stack([ndimage.gaussian_filter(rng.normal(0, 1, (40, 44, 36)), 3) * 6 for _ in range(3)])
+    for p in [(20, 22, 18), (0, 10, 10), (39, 43, 35)]:             # folds inside and on the edges of the volume
+        sl = (slice(None),) + tuple(slice(max(q - 2, 0), q + 3) for q in p)
+        d[sl] += rng.normal(0, 2, d[sl].shape)
+    assert (templatereg.jacobian_det(d) <= 0).sum() > 0
+    u = templatereg.unfold(d)
+    assert templatereg.jacobian_det(u).min() > 0.04
+    # the same as the rule on the whole volume
+    w = d.copy()
+    for _ in range(100):
+        bad = templatereg.jacobian_det(w) <= 0.05
+        if not bad.any():
+            break
+        m = ndimage.binary_dilation(bad)
+        for i in range(3):
+            w[i][m] = ndimage.uniform_filter(w[i], 3)[m]
+    assert np.abs(u - w).max() < 1e-10
+    assert np.array_equal(templatereg.unfold(u), u)                  # nothing to repair: unchanged

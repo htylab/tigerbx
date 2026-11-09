@@ -14,6 +14,7 @@ mod reg;
 mod resample;
 mod template;
 mod tissuenorm;
+mod unfold;
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
@@ -24,7 +25,7 @@ const DGM_MODEL: &str = "mprage_dgm12_v002_opt.onnx";
 /// Embedded models (compiled into the binary): TigerBx's defaults, from the modelhub release
 static EMBEDDED_TBX: &[u8] = include_bytes!("../models/mprage_tbxdual_v007_opt.onnx");
 static EMBEDDED_TSEG: &[u8] = include_bytes!("../models/mprage_tseg_v1_opt.onnx");
-static EMBEDDED_TREG: &[u8] = include_bytes!("../models/mprage_treg_v003_opt.onnx");
+static EMBEDDED_TREG: &[u8] = include_bytes!("../models/mprage_treg_v004.onnx");
 static EMBEDDED_INSPECT: &[u8] = include_bytes!("../models/inspect_v003.onnx");
 /// TigerBx's bundled registration template (same file as the Python package)
 static EMBEDDED_TEMPLATE: &[u8] = include_bytes!("../../tigerbx/template/mni_template.nii.gz");
@@ -422,7 +423,7 @@ fn run_check(args: &Args, ort_lib: Option<&Path>) -> Result<()> {
     }
     println!("embedded models:");
     for (name, bytes) in [("mprage_tbxdual_v007_opt", EMBEDDED_TBX), ("mprage_tseg_v1_opt", EMBEDDED_TSEG),
-                          ("mprage_treg_v003_opt", EMBEDDED_TREG), ("inspect_v003", EMBEDDED_INSPECT)] {
+                          ("mprage_treg_v004", EMBEDDED_TREG), ("inspect_v003", EMBEDDED_INSPECT)] {
         println!("  {name:28} {:6.1} MB", bytes.len() as f64 / 1_048_576.0);
     }
     let dir = models::model_dir()?;

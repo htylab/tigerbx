@@ -158,7 +158,7 @@ fn clip_f32(x: Array3<f64>, data: &Array3<f64>) -> Array3<f64> {
     x.mapv(|v| (v as f32).clamp(lo, hi) as f64)
 }
 
-/// tReg step 'D': the model maps (moving, fixed) to a voxel sampling grid [3, X, Y, Z].
+/// tReg step 'D': the model maps (moving, fixed) to a voxel sampling grid [3, X, Y, Z], its folds repaired.
 pub fn run_treg(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>) -> Result<Vec<f32>> {
     let (x, y, z) = moving.dim();
     let mv: Vec<f32> = moving.iter().map(|&v| v as f32).collect();
@@ -171,5 +171,7 @@ pub fn run_treg(session: &mut Session, moving: &Array3<f64>, fixed: &Array3<f64>
     let opts = crate::inference::run_options()?.with_outputs(OutputSelector::no_default().with("grid"));
     let outputs = session.run_with_options(inputs, &opts).context("tReg inference failed")?;
     let (_, grid) = outputs["grid"].try_extract_tensor::<f32>().context("Failed to extract the tReg grid")?;
-    Ok(grid.to_vec())
+    let mut grid = grid.to_vec();
+    crate::unfold::unfold_grid(&mut grid, [x, y, z]);
+    Ok(grid)
 }

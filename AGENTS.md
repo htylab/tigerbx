@@ -7,7 +7,7 @@ TigerBx is a neuroimaging toolkit (brain extraction / segmentation / registratio
 - Stand-alone executable: `tigerbx` (`rust/`)
 
 Current baseline:
-- Version: `0.5.0`
+- Version: `0.5.1`
 - Python: `>=3.10`
 - Stack: ONNX Runtime, nibabel, numpy, scipy
 
@@ -107,6 +107,7 @@ Run before a release and after changes to `bx`, `core/resample`, `core/numreg` o
 - If you change API arguments, plans, or output naming, update `README.md` and relevant files in `doc/`.
 - Keep diffs focused; avoid repo-wide formatting/style churn.
 - Use research-use wording only (no clinical/diagnostic claims).
+- Commit messages carry no `Claude-Session:` line (no links to AI sessions).
 
 ## Safety / Data
 

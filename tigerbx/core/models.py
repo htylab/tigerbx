@@ -19,7 +19,10 @@ HLC = 'mprage_hlc_v004_opt.onnx'
 # v003 = our own network (shared tBX U-Net features + per-level softmax matching), trained for EPI as well
 # (v001 / v002, the VFA-based models of 0.3.x, are no longer distributed)
 # (_opt: the same weights exported for lower CPU memory and time; the results agree to 1e-3 voxel)
-TREG = 'mprage_treg_v003_opt.onnx'
+# v004: diffeomorphic tReg (each level's step is the exp of a velocity: no folding), fine-tuned from v003;
+# _gpu: the same weights with Gather sampling (ONNX Runtime's CUDA provider has no 5-D GridSample)
+TREG = 'mprage_treg_v004.onnx'
+TREG_GPU = 'mprage_treg_v004_gpu.onnx'
 # embed: v002 = tReg v003's feature network up to its 2 mm and 4 mm decoder levels
 EMBED = 'mprage_embed_v002.onnx'
 # _opt: v002 with staged GroupNorm statistics (onnx_optimize): faster, and the CPU gives the GPU's result
@@ -39,6 +42,8 @@ SHA256 = {
     'mprage_mix_ct.onnx': '48affdf980a1039fe440b3df86dd76f23318bc49486dcf60d775a8a500037b96',
     'mprage_tbxdual_v007_opt.onnx': 'c88199b70674c9db172932cbdc4211dfbaf7fd060928316ae204c786dea88c42',
     'mprage_treg_v003_opt.onnx': '8dbd58b6cf86af327918cb80e12e96a36f7734961bda332955a352e4f7f4b682',
+    'mprage_treg_v004.onnx': '645fbad52912c48db1242bdcb22bcf6a4d5b20105b45fd9a135158f56f20a3d0',
+    'mprage_treg_v004_gpu.onnx': '47eae2fdc82e4dd6fdc46fe2fb56d6bfc81252b6eafe5a3494980431a42e633c',
     'mprage_tbx_v005_opt.onnx': '1fdb8ef2c36d1e2dc90e8987e4a9898d6399bb5f3b616d698bb5d192c8e5afa8',
     'mprage_tseg_v0011_opt.onnx': '67b7f553dfd99363f3f89268536986d24d1b79e9ce60760dc4e0ee969f755fe2',
     'vdm_unet3d_v002_opt.onnx': '230265338c5b9bf22bb0c38aeda2522969523368b02149f7ef441aa9c3005535',

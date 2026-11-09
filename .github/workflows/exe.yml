@@ -13,7 +13,7 @@ on:
 
 env:
   ORT_VERSION: "1.24.4"
-  MODELS: "mprage_tbxdual_v007_opt mprage_tseg_v1_opt mprage_treg_v003_opt inspect_v003"
+  MODELS: "mprage_tbxdual_v007_opt mprage_tseg_v1_opt mprage_treg_v004 inspect_v003"
 
 jobs:
   build:
