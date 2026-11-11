@@ -122,16 +122,23 @@ def warp_from_box(warp, box, template_nib):
     return np.einsum('ij,j...->i...', R, w).astype(np.float32)
 
 
-def treg_warp(brain, template_nib, M, model=None, gpu=False):
+def treg_warp(brain, template_nib, M, model=None, gpu=False, refine=False, refine_model=None):
     """tReg displacement (3, X, Y, Z) in template voxels after the affine M: warp = sampling grid - identity (on the
-    model box when the template is on another grid, carried back to it)."""
+    model box when the template is on another grid, carried back to it). refine: the grid refined against the
+    template (core.refine; T1 to a T1 template)."""
+    from tigerbx.lib_reg import min_max_norm
     box = model_box(template_nib)
     if box is None:
-        grid = treg_grid(treg_input(brain, template_nib, M), template_nib, model, gpu)
-        return grid - identity_grid(grid.shape[1:])
-    grid = treg_grid(treg_input(brain, box, M), template_nib, model, gpu,
-                    fixed=on_box(template_nib.get_fdata(), template_nib, box))
-    return warp_from_box(grid - identity_grid(grid.shape[1:]), box, template_nib)
+        moving, fixed = treg_input(brain, template_nib, M), template_nib.get_fdata()
+        grid = treg_grid(moving, template_nib, model, gpu)
+    else:
+        moving, fixed = treg_input(brain, box, M), on_box(template_nib.get_fdata(), template_nib, box)
+        grid = treg_grid(moving, template_nib, model, gpu, fixed=fixed)
+    if refine:
+        from tigerbx.core.refine import refine as refine_grid
+        grid = refine_grid(moving, min_max_norm(np.asarray(fixed, np.float32)), grid, refine_model, gpu)
+    warp = grid - identity_grid(grid.shape[1:])
+    return warp if box is None else warp_from_box(warp, box, template_nib)
 
 
 def identity_grid(shape):

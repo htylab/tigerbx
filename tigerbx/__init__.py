@@ -5,7 +5,7 @@ from tigerbx.gdmi import gdm
 from tigerbx.modules.hlc import hlc
 from tigerbx.modules.reg import reg
 # pipelines (the recommended entry points); the modules (run, reg, hlc) live in tigerbx.modules
-from tigerbx.pipelines import affine, bx, duope, dwimc, epinorm, inspect, norm, seg, template, to_epi, vbm
+from tigerbx.pipelines import affine, bx, duope, dwimc, epinorm, inspect, long, norm, seg, template, to_epi, vbm
 from tigerbx.embed import embed
 from tigerbx.eval import eval
 from tigerbx.check import check

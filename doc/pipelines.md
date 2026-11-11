@@ -11,6 +11,7 @@ accurate is done in the pipelines.
 | `seg`    | `tigerbx.seg(...)`    | `--seg` | `_tbx`, `_tseg` |
 | `affine` | `tigerbx.affine(...)` | `--affine` | `_tbx`, `_affine`, `_warp.npz` |
 | `norm`   | `tigerbx.norm(...)`   | `--norm` | `_tbx`, `_norm`, `_warp.npz` |
+| `long`   | `tigerbx.long(baseline, followup, ...)` | — | `<followup>_long.csv`, `<followup>_logjac` (volume change between two T1 scans of one head; [below](#long)) |
 | `vbm`    | `tigerbx.vbm(...)`    | — | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
 | `template` | `tigerbx.template(...)` | `--template` | `template`, `template_mask`, `template_tseg`, `template_log.json` |
 | `inspect` | `tigerbx.inspect(...)` | `--inspect` | `inspect_summary.csv` (what each image is; [inspect](inspect.md)) |
@@ -99,7 +100,8 @@ tigerbx.norm(input=None, output=None, *, mask=None, template=None, intensity='ra
 | `intensity`      | `str`           | `'raw'` | `'raw'`: the input's units (any contrast); `'minmax'`: [0, 1]; `'gnorm'`: T1 tissues CSF 1/3, GM 2/3, WM 1 (`tigerbx.core.tissuenorm.tissue_norm`; bundled template only) |
 | `save_affine`    | `bool`          | `False` | `norm` only: also write `_affine` |
 | `save_warp_file` | `bool`          | `True`  | Write `_warp.npz` |
-| `model`          | `dict`          | `None`  | Overrides: `tbx`, `treg` (`norm`) |
+| `refine`         | `bool`          | `False` | `norm` only: refine the tReg warp against the template (`mprage_refine_v001`: local CC, 20 compositive iterations, no folding; T1 only, about 10 s on the CPU / 1 s on the GPU) |
+| `model`          | `dict`          | `None`  | Overrides: `tbx`, `treg`, `refine` (`norm`) |
 | `resume`  | `bool`          | `False` | Skip inputs whose `_affine` / `_norm` already exists (continuing a batch); they are left out of the returned list |
 
 Outputs per input: `_tbx` (input grid; when tBX ran), `_affine` or `_norm` (template grid) and `_warp.npz` (plain
@@ -149,6 +151,42 @@ The template intensities are scaled to the bundled template's brain median. Use 
 the other pipelines: `tigerbx.norm(..., template='tpl_dir/template.nii.gz')` (its `_tseg` file is found by name).
 tReg is a T1 model; a T2 group builds, but registering T2 to its own template did not align better than to the
 bundled T1 template.
+
+---
+
+## long
+
+```python
+tigerbx.long(baseline, followup, output=None, *, refine=True, save_logjac=True, gpu=False, gz=True,
+             model=None, verbose=0)
+```
+
+Volume change between two T1 scans of one head (research use), from the deformation between them rather than from
+two separate segmentations. Symmetric in the two scans:
+
+1. tBX + TSEG of each scan.
+2. Rigid follow-up -> baseline (numreg, the heads inside the tBX outer masks) and its halfway point: both scans are
+   resampled once (cubic) onto the template grid, each the same distance from its own grid.
+3. tReg both ways, each refined by `mprage_refine_v001` (local-CC force, 20 iterations of at most 0.2 voxel, each
+   composed with the deformation, so it never folds; `refine=True`). tReg alone underestimates small changes; the
+   refinement recovers most of them.
+4. Per TSEG region: change % = 100 (sqrt(r1 r2) - 1), r1 / r2 the follow-up / baseline volume ratio of the region
+   through each of the two deformations.
+
+| Parameter     | Type            | Default | Description |
+|---------------|-----------------|---------|-------------|
+| `baseline`, `followup` | `str` or `list` | — | Two T1 files, or two lists of the same length (pairs in order) |
+| `output`      | `str`           | `None`  | Output directory; if `None`, next to the follow-up file |
+| `refine`      | `bool`          | `True`  | Refine the tReg deformations (`False`: tReg alone) |
+| `save_logjac` | `bool`          | `True`  | Write `_logjac` (template grid: log of the local volume ratio follow-up / baseline) |
+| `model`       | `dict`          | `None`  | Overrides: `tbx`, `tseg`, `treg`, `refine` |
+
+Outputs, named after the follow-up: `_long.csv` with one row per region (`brain`, `gm_cortex`, `wm`, `ventricles`,
+`hippocampus`, `amygdala`, `thalamus`, `caudate`, `putamen`, `cerebellum`): `change_pct` (the deformation),
+`tseg_change_pct` (the difference of the two TSEG volumes, for comparison), `tseg_baseline_ml`,
+`tseg_followup_ml`; and `_logjac`. A single pair returns `{'regions': {...}, 'logjac': image, 'rigid': 4 x 4}`.
+
+Head motion blurs a scan and shrinks its measured brain slightly; compare scans of similar quality.
 
 ---
 

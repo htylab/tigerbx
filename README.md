@@ -96,6 +96,7 @@ The pipelines are TigerBx's main functions, the same in Python and in the stand-
 | `seg`      | `tigerbx.seg(...)`      | `tigerbx in.nii.gz --seg`    | `_tbx`, `_tseg` |
 | `affine`   | `tigerbx.affine(...)`   | `tigerbx in.nii.gz --affine` | `_tbx`, `_affine`, `_warp.npz` |
 | `norm`     | `tigerbx.norm(...)`     | `tigerbx in.nii.gz --norm`   | `_tbx`, `_norm`, `_warp.npz` |
+| `long`     | `tigerbx.long(baseline, followup, ...)` | — | `<followup>_long.csv`, `<followup>_logjac` |
 | `vbm`      | `tigerbx.vbm(...)`      | —                            | `_SmoothedGM`, `_norm`, `vbm_summary.csv` |
 | `template` | `tigerbx.template(...)` | `tigerbx data/ -o tpl/ --template` | `template`, `template_mask`, `template_tseg` |
 | `inspect`  | `tigerbx.inspect(...)`  | `tigerbx in.nii.gz --inspect` | `inspect_summary.csv` |

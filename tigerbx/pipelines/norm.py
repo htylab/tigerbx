@@ -7,7 +7,7 @@ from tigerbx.pipelines import _common
 
 
 def norm(input=None, output=None, *, mask=None, template=None, intensity='raw', save_affine=False,
-         save_warp_file=True, gpu=False, gz=True, model=None, resume=False, verbose=0):
+         save_warp_file=True, refine=False, gpu=False, gz=True, model=None, resume=False, verbose=0):
     """Template normalisation (executable ``--norm``): brain mask -> numreg affine -> tReg -> the brain on the
     template grid, aligned voxel by voxel. tReg is a T1 model; other contrasts register less well.
 
@@ -17,8 +17,9 @@ def norm(input=None, output=None, *, mask=None, template=None, intensity='raw', 
     ``_affine`` (as tigerbx.affine).
 
     mask: None runs tBX; a NIfTI path / image is the brain mask (non-zero); ``'none'``: the input is already
-    skull-stripped. template: registration template (default: the bundled 1 mm template). intensity: ``'raw'`` (the input's units, default), ``'minmax'`` ([0, 1]) or ``'gnorm'`` (T1 only: CSF
-    1/3, GM 2/3, WM 1; bundled template). model: {'tbx': ..., 'treg': ...} overrides. resume: skip inputs
+    skull-stripped. refine: refine the tReg warp against the template (core.refine: local CC, no folding; T1 only,
+    about 10 s on the CPU, 1 s on the GPU). template: registration template (default: the bundled 1 mm template). intensity: ``'raw'`` (the input's units, default), ``'minmax'`` ([0, 1]) or ``'gnorm'`` (T1 only: CSF
+    1/3, GM 2/3, WM 1; bundled template). model: {'tbx': ..., 'treg': ..., 'refine': ...} overrides. resume: skip inputs
     whose outputs are already there (continuing a batch; they are left out of the list). Returns the images dict
     for a single input, otherwise a list of files dicts.
     """
@@ -29,7 +30,8 @@ def norm(input=None, output=None, *, mask=None, template=None, intensity='raw', 
     def one(f, ftemplate):
         img, brain, mask_nib, tbx = _common.brain(f, mask, gpu, model.get('tbx'))
         M = templatereg.affine(brain, tpl)
-        warp = templatereg.treg_warp(brain, tpl, M, model.get('treg') or model.get('vfa'), gpu)
+        warp = templatereg.treg_warp(brain, tpl, M, model.get('treg') or model.get('vfa'), gpu, refine,
+                                     model.get('refine'))
         images, saved = {'affine_M': M, 'treg_warp': warp}, {}
         if tbx is not None:
             images['tbx'], saved['tbx'] = tbx, save_nib(tbx, ftemplate, 'tbx')

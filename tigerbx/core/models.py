@@ -23,6 +23,9 @@ HLC = 'mprage_hlc_v004_opt.onnx'
 # _gpu: the same weights with Gather sampling (ONNX Runtime's CUDA provider has no 5-D GridSample)
 TREG = 'mprage_treg_v004.onnx'
 TREG_GPU = 'mprage_treg_v004_gpu.onnx'
+# refine (tigerbx.long, norm refine=True): local-CC refinement of a tReg grid between two T1 images, compositive
+# (no folding), 10 iterations per call
+REFINE = 'mprage_refine_v001.onnx'
 # embed: v002 = tReg v003's feature network up to its 2 mm and 4 mm decoder levels
 EMBED = 'mprage_embed_v002.onnx'
 # _opt: v002 with staged GroupNorm statistics (onnx_optimize): faster, and the CPU gives the GPU's result
@@ -47,5 +50,6 @@ SHA256 = {
     'mprage_tbx_v005_opt.onnx': '1fdb8ef2c36d1e2dc90e8987e4a9898d6399bb5f3b616d698bb5d192c8e5afa8',
     'mprage_tseg_v0011_opt.onnx': '67b7f553dfd99363f3f89268536986d24d1b79e9ce60760dc4e0ee969f755fe2',
     'vdm_unet3d_v002_opt.onnx': '230265338c5b9bf22bb0c38aeda2522969523368b02149f7ef441aa9c3005535',
+    'mprage_refine_v001.onnx': '06e8b4cc18537fecec44c3b81add1ec995a363881fee3cdc5e7aee97877d23c7',
     'mprage_tseg_v1_opt.onnx': 'af5e86abfe3069ef0e7c45ea4f45e79ad06792f247eb8f763a86de261a3a7592',
 }
